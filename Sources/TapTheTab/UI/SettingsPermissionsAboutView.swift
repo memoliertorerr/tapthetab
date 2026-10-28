@@ -69,6 +69,17 @@ struct AboutSettingsView: View {
             }
 
             Section {
+                VStack(alignment: .leading, spacing: 4) {
+                    Button("Check for Updates…") {
+                        model.openReleasesPage()
+                    }
+                    Text("Opens the releases page in your browser.")
+                        .font(.caption)
+                        .foregroundColor(Color.secondary)
+                }
+            }
+
+            Section {
                 Link("Source code on GitHub", destination: AppInfo.repositoryURL)
                 Link("Report an issue or request a feature", destination: AppInfo.issuesURL)
             }

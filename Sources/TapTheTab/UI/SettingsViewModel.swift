@@ -58,6 +58,11 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var screenRecordingGranted: Bool
     @Published private(set) var runningApps: [RunningAppChoice] = []
     @Published var newBundleID: String = ""
+    /// Message under one trigger row after its shortcut changed (swap, system conflict).
+    @Published private(set) var shortcutFeedback: ShortcutFeedback? = nil
+
+    /// Records new shortcuts for the trigger rows; one row at a time.
+    let recorder = ShortcutRecorder()
 
     let configFileURL: URL
     private let permissions: PermissionsProviding
@@ -83,12 +88,18 @@ final class SettingsViewModel: ObservableObject {
         self.permissions = permissions
         self.launchAtLogin = launchAtLogin
         self.onChange = onChange
+        recorder.delegate = self
     }
 
     // MARK: - External updates and polling
 
     func applyExternal(_ newConfiguration: Configuration) {
         isApplyingExternalChange = true
+        if configuration.triggers != newConfiguration.triggers {
+            // Row indices may now mean different shortcuts.
+            recorder.cancel()
+            if shortcutFeedback != nil { shortcutFeedback = nil }
+        }
         if configuration != newConfiguration {
             configuration = newConfiguration
         }
@@ -138,13 +149,50 @@ final class SettingsViewModel: ObservableObject {
 
     var canAddTrigger: Bool { nextUnusedPreset() != nil }
 
-    /// Presets, plus the current shortcut when it is a custom one from the config file.
-    func shortcutOptions(including current: Shortcut) -> [Shortcut] {
-        var options = Self.shortcutPresets
-        if !options.contains(current) {
-            options.append(current)
+    /// Sets a row's shortcut from the recorder or the presets menu, with inline feedback:
+    /// a shortcut another row uses is swapped (and said so); a common system shortcut is
+    /// allowed with a warning.
+    func assignShortcut(_ shortcut: Shortcut, at index: Int) {
+        recorder.cancel()
+        let triggers = configuration.triggers
+        guard triggers.indices.contains(index) else { return }
+        let previous = triggers[index].shortcut
+        guard shortcut != previous else {
+            if shortcutFeedback != nil { shortcutFeedback = nil }
+            return
         }
-        return options
+
+        var feedback: ShortcutFeedback? = nil
+        if triggers.contains(where: { $0.shortcut == shortcut }) {
+            feedback = ShortcutFeedback(
+                index: index,
+                kind: .info,
+                message: "\(shortcut.displayString) was already in use, so that shortcut now uses \(previous.displayString)."
+            )
+        } else if let warning = ShortcutAdvisor.systemConflict(for: shortcut) {
+            feedback = ShortcutFeedback(index: index, kind: .warning, message: warning)
+        }
+        setShortcut(shortcut, at: index)
+        if shortcutFeedback != feedback { shortcutFeedback = feedback }
+    }
+
+    /// Clicking the recorder of the row being recorded stops recording; any other row starts.
+    func toggleRecording(at index: Int) {
+        if recorder.recordingIndex == index {
+            recorder.cancel()
+        } else {
+            startRecording(at: index)
+        }
+    }
+
+    func startRecording(at index: Int) {
+        guard configuration.triggers.indices.contains(index) else { return }
+        if shortcutFeedback != nil { shortcutFeedback = nil }
+        recorder.start(index: index)
+    }
+
+    func cancelRecording() {
+        recorder.cancel()
     }
 
     /// Picking a shortcut another row already uses swaps the two, so there are never duplicates.
@@ -166,11 +214,15 @@ final class SettingsViewModel: ObservableObject {
 
     func removeTrigger(at index: Int) {
         guard configuration.triggers.count > 1, configuration.triggers.indices.contains(index) else { return }
+        recorder.cancel()
+        if shortcutFeedback != nil { shortcutFeedback = nil }
         configuration.triggers.remove(at: index)
     }
 
     func addTrigger() {
         guard let shortcut = nextUnusedPreset() else { return }
+        recorder.cancel()
+        if shortcutFeedback != nil { shortcutFeedback = nil }
         configuration.triggers.append(Trigger(shortcut: shortcut, scope: .allWindows))
     }
 
@@ -265,5 +317,17 @@ final class SettingsViewModel: ObservableObject {
 
     func openConfigFile() {
         NSWorkspace.shared.open(configFileURL)
+    }
+
+    /// Only opens the browser; TapTheTab itself never checks for updates over the network.
+    func openReleasesPage() {
+        guard let url = URL(string: "https://github.com/memoliertorerr/tapthetab/releases/latest") else { return }
+        NSWorkspace.shared.open(url)
+    }
+}
+
+extension SettingsViewModel: ShortcutRecorderDelegate {
+    func shortcutRecorder(_ recorder: ShortcutRecorder, didRecord shortcut: Shortcut, forRow index: Int) {
+        assignShortcut(shortcut, at: index)
     }
 }
