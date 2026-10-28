@@ -152,10 +152,29 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertTrue(notes.allSatisfy { $0.contains("needs") })
     }
 
-    func testFnCountsAsModifier() {
+    // Intended change: fn alone used to count, but the event tap ignores fn, so an fn-only
+    // trigger captured every plain ⇥ and its session could never end on release.
+    func testFnAloneIsNotEnoughForATrigger() {
         var c = Configuration()
         c.triggers = [Trigger(shortcut: Shortcut(keyCode: KeyCode.tab, modifiers: .function), scope: .allWindows)]
+        let (valid, notes) = c.validated()
+        XCTAssertEqual(valid.triggers, Configuration.defaultTriggers)
+        XCTAssertFalse(notes.isEmpty)
+    }
+
+    func testFnPlusRealModifierIsKept() {
+        var c = Configuration()
+        c.triggers = [Trigger(shortcut: Shortcut(keyCode: KeyCode.tab, modifiers: [.function, .option]), scope: .allWindows)]
         XCTAssertEqual(c.validated().0.triggers, c.triggers)
+    }
+
+    func testShiftAndFnWithoutRealModifierIsDropped() {
+        var c = Configuration()
+        c.triggers = [
+            Trigger(shortcut: Shortcut(keyCode: KeyCode.tab, modifiers: [.function, .shift]), scope: .allWindows),
+            Trigger(shortcut: .optionGrave, scope: .activeApp),
+        ]
+        XCTAssertEqual(c.validated().0.triggers, [Trigger(shortcut: .optionGrave, scope: .activeApp)])
     }
 
     func testDropsDuplicateShortcutsKeepingFirst() {

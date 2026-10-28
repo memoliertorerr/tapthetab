@@ -197,4 +197,18 @@ final class ConfigStoreTests: XCTestCase {
         XCTAssertFalse(result.createdDefaultFile)
         XCTAssertEqual(result.notes.count, 1)
     }
+
+    func testReadIfValidHasNoSideEffects() throws {
+        XCTAssertNil(store.readIfValid(), "missing file")
+        XCTAssertFalse(fm.fileExists(atPath: store.fileURL.path), "nothing was created")
+
+        try write("{ half saved")
+        XCTAssertNil(store.readIfValid())
+        XCTAssertEqual(try readFile(), "{ half saved", "the broken file is left alone")
+        XCTAssertTrue(try quarantinedFiles().isEmpty)
+
+        try write(#"{"behavior": {"wrapAround": false}}"#)
+        let result = try XCTUnwrap(store.readIfValid())
+        XCTAssertFalse(result.configuration.behavior.wrapAround)
+    }
 }
