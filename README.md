@@ -73,6 +73,7 @@ built around three goals:
   window's app straight from the switcher.
 - **Quick tap = previous window** — a tap under the show delay (90 ms by default) switches
   back without the panel ever flashing.
+- **Group by app** if you like — apps in recency order, each app's windows together.
 - **Grid or list layout**, three sizes, light/dark/system theme, shows on the display with
   your mouse (or the active window, or the main display).
 - **Optional live previews** (macOS 14+, needs Screen Recording), with a large preview of
@@ -173,6 +174,7 @@ fall back to defaults, and a file that can't be read is set aside as
     "showPreviews": false,
     "showAppName": true,
     "showMenuBarIcon": true,
+    "groupByApp": false,
     "theme": "system",
     "placement": "mouse",
     "showDelayMilliseconds": 90
@@ -262,6 +264,19 @@ The core logic (`Sources/TapTheTabCore`) is plain Swift and also builds and test
 More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what's next in
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Virtual machines and Windows apps
+
+- **Parallels Desktop in Coherence mode:** each Windows app shows up as its own entry, with
+  its own name and icon.
+- **CrossOver, Wine, Whisky, Game Porting Toolkit:** each Windows program shows up as its
+  own entry (from 0.6.0, including windows that draw their own title bar).
+- **UTM, VirtualBox, VMware Fusion, Parallels in window mode, macOS VMs:** you see the VM
+  window. The apps inside it are pixels inside that one window — no Mac app can tell them
+  apart. Use the guest's own switcher (Alt+Tab in Windows) once you're inside.
+
+Something missing? Copy Diagnostics (Settings → About) lists how many windows were left
+out and why, without names.
+
 ## Known limitations
 
 - Windows on **other Spaces** are listed only with Settings → Filters → *Show windows on
@@ -272,6 +287,38 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what's next in
 - Previews require macOS 14 or later; macOS 13 shows app icons.
 - Secure input (password fields, some terminals with "Secure Keyboard Entry") blocks all
   global shortcuts, including this one.
+
+## Troubleshooting
+
+**The shortcut does nothing.** Open System Settings → Privacy & Security → Accessibility
+and make sure TapTheTab is listed and on. After an update, ad-hoc signed builds can lose
+the permission silently: remove TapTheTab from the list with **−** and add it again.
+
+**⌘⇥ stopped working after TapTheTab crashed or was deleted while using ⌘⇥.** Run:
+
+```bash
+/Applications/TapTheTab.app/Contents/MacOS/TapTheTab --restore-system-shortcuts
+```
+
+(Logging out and back in also restores it.)
+
+**Settings are in a bad state.** Quit TapTheTab and run the line below; your old
+`config.json` is kept next to the new one.
+
+```bash
+/Applications/TapTheTab.app/Contents/MacOS/TapTheTab --reset-settings
+```
+
+**Something else.** Settings → About → **Copy Diagnostics** and paste it into a
+[new issue](https://github.com/memoliertorerr/tapthetab/issues/new/choose). It contains
+versions, permissions, counts and settings — no window titles or app names.
+
+## Uninstall
+
+1. Quit TapTheTab from its menu (this hands ⌘⇥ back to macOS if you used it).
+2. Delete `/Applications/TapTheTab.app` (or `brew uninstall --cask --zap tapthetab`).
+3. Optionally delete `~/Library/Application Support/TapTheTab` and remove TapTheTab from
+   System Settings → Privacy & Security → Accessibility (and Screen Recording).
 
 ## Contributing
 

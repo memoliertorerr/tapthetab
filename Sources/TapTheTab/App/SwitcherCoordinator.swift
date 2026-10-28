@@ -47,7 +47,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         if !isStarted {
             focus.start()
             observeWorkspace()
-            watcher.onChange = { [weak self] in self?.windowsChanged() }
+            watcher.onChangeInApps = { [weak self] pids in self?.windowsChanged(in: pids) }
             watcher.start()
             catalog.refresh()
         }
@@ -89,7 +89,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let listedOtherSpaces = catalog.includesOtherSpaces
         configureCatalog()
         // Add or drop other Spaces' windows now, not at the next window change.
-        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces { windowsChanged() }
+        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces { windowsChanged(in: nil) }
     }
 
     /// Windows on other Spaces are listed only when shown and not filtered out anyway.
@@ -119,12 +119,18 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     /// Counts for the diagnostics report. No titles or app names.
-    var diagnosticsCounts: (windows: Int, apps: Int, watchedApps: Int) {
+    var diagnosticsCounts: (windows: Int, apps: Int, watchedApps: Int, fullRefreshMilliseconds: Int?, partialRefreshMilliseconds: Int?, skippedBySubrole: [String: Int]?) {
         let items = catalog.latest.items
         let windows = items.filter { !$0.isWindowless }.count
         let apps = Set(items.map(\.pid)).count
-        return (windows, apps, watcher.watchedCount)
+        return (windows, apps, watcher.watchedCount, lastFullRefreshMilliseconds, lastPartialRefreshMilliseconds, lastFullRefreshSkipped)
     }
+
+    /// From the last full refresh, where every app was asked.
+    private var lastFullRefreshSkipped: [String: Int]?
+
+    private var lastFullRefreshMilliseconds: Int?
+    private var lastPartialRefreshMilliseconds: Int?
 
     // MARK: - HotkeyMonitorDelegate
 
@@ -201,15 +207,31 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             wrapsAround: configuration.behavior.wrapAround,
             searchMemory: searchMemory
         )
-        if reverse { newSession.handle(.last) }
+        if reverse {
+            newSession.handle(.last)
+        } else if configuration.appearance.groupByApp, configuration.behavior.startOnPrevious,
+                  let previous = previousWindowID(from: catalog.latest.items, scope: trigger.scope, screen: screen),
+                  let index = newSession.visible.firstIndex(where: { $0.id == previous }) {
+            // Grouping reorders the list, but a quick tap must still mean "the window I
+            // used before this one", not "this app's other window".
+            newSession.handle(.select(index: index))
+        }
         session = newSession
 
         let delay = locked ? 0 : configuration.appearance.showDelayMilliseconds
         scheduleShow(afterMilliseconds: delay, token: token)
-        catalog.refresh { [weak self] snapshot in
+        // The watcher keeps the list current; re-ask only the frontmost app (its titles
+        // matter most) unless the cache is old, in which case refresh everything.
+        let stale = Date().timeIntervalSince(catalog.latest.date) > Self.fullRefreshAge
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let scope: Set<pid_t>? = (stale || front == nil) ? nil : [front!]
+        catalog.refresh(onlyPIDs: scope) { [weak self] snapshot in
             self?.catalogDidRefresh(snapshot, token: token)
         }
     }
+
+    /// Older than this, the cached window list is fully rebuilt when the switcher opens.
+    private static let fullRefreshAge: TimeInterval = 30
 
     private func close() {
         showTask?.cancel()
@@ -294,6 +316,13 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     private func catalogDidRefresh(_ snapshot: WindowCatalog.Snapshot, token: Int) {
+        let milliseconds = Int((snapshot.duration * 1000).rounded())
+        if snapshot.refreshedPIDs == nil {
+            lastFullRefreshMilliseconds = milliseconds
+            lastFullRefreshSkipped = snapshot.skippedBySubrole
+        } else {
+            lastPartialRefreshMilliseconds = milliseconds
+        }
         focus.prune(after: snapshot.items)
         thumbnails?.prune(keeping: Set(snapshot.items.compactMap { item -> UInt32? in
             if case .window(let number) = item.id { return number }
@@ -319,7 +348,21 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             activeDisplayID: screen.displayID,
             ownPID: ProcessInfo.processInfo.processIdentifier
         )
-        return ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
+        let filtered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
+        return configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(filtered) : filtered
+    }
+
+    /// The second entry in plain recency order: what a quick tap should switch to.
+    private func previousWindowID(from items: [SwitcherItem], scope: SwitcherScope, screen: NSScreen) -> ItemID? {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let context = FilterContext(
+            activePID: front == ownPID ? focus.lastActivePID : front,
+            activeDisplayID: screen.displayID,
+            ownPID: ownPID
+        )
+        let ordered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
+        return ordered.count > 1 ? ordered[1].id : nil
     }
 
     // MARK: - Panel
@@ -382,8 +425,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
             guard !Task.isCancelled, let self, self.sessionToken == token,
                   self.session?.selectedItem?.id == selected.id else { return }
-            thumbnails.capture(windowIDs: [number], maxPixelSize: size) { [weak self] number, image in
-                self?.panel.setThumbnail(image, for: .window(number))
+            thumbnails.capture(windowIDs: [number], maxPixelSize: size, storeInCache: false) { [weak self] number, image in
+                self?.panel.setLargePreview(image, for: .window(number))
             }
         }
     }
@@ -458,14 +501,15 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     @objc private func workspaceChanged(_ note: Notification) {
-        windowsChanged()
+        // Apps launched, quit, hid or the Space changed: everything may have moved.
+        windowsChanged(in: nil)
     }
 
-    /// Something about the set of windows changed: refresh the cache, and the open
+    /// Windows changed in `pids` (nil: possibly anywhere): refresh the cache, and the open
     /// switcher too (a window closed elsewhere disappears from the panel).
-    private func windowsChanged() {
+    private func windowsChanged(in pids: Set<pid_t>?) {
         let token = sessionToken
-        catalog.refresh { [weak self] snapshot in
+        catalog.refresh(onlyPIDs: pids) { [weak self] snapshot in
             self?.catalogDidRefresh(snapshot, token: token)
         }
     }

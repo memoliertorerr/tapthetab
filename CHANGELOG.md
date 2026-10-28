@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+
+### Added
+
+- Rescue options for the command line: `--restore-system-shortcuts` turns ⌘⇥ back on if it stayed off, `--reset-settings` starts over with defaults (the old `config.json` is kept); also `--version` and `--help`.
+- README sections on troubleshooting and uninstalling.
+- Optional grouping of windows by app (Settings → Appearance), with a heading per app in the list style. A quick ⌥⇥ still goes to the window you used before.
+- Copy Diagnostics reports how long the last window-list refreshes took, and how many windows were left out by window type.
+- Windows from CrossOver, Wine, Whisky and Game Porting Toolkit that draw their own title bar now appear in the switcher. Windows kept above the normal window layer count as on screen.
+
+### Fixed
+
+- Untitled dialogs (pop-ups, toasts) no longer appear as switcher entries.
+
+### Changed
+
+- Faster and lighter: when windows change, only that app is asked again; opening the switcher re-asks only the frontmost app; previews reuse the screen-capture window list; large previews are no longer kept for every window you selected (this could add up to over 100 MB).
+
 ## [0.5.0] - 2026-10-28
 
 ### Added
@@ -86,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...v0.3.0

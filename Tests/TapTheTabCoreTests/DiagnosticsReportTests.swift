@@ -34,6 +34,9 @@ final class DiagnosticsReportTests: XCTestCase {
           Windows: 12
           Apps: 5
           Watched apps: 4
+          Last full refresh: unknown
+          Last partial refresh: unknown
+          Skipped windows: unknown
 
         Private APIs
           List other Spaces: unknown
@@ -49,6 +52,7 @@ final class DiagnosticsReportTests: XCTestCase {
           size: medium
           showPreviews: false
           showAppName: true
+          groupByApp: false
           showMenuBarIcon: true
           theme: system
           placement: mouse
@@ -87,6 +91,7 @@ final class DiagnosticsReportTests: XCTestCase {
         c.appearance.size = .large
         c.appearance.showPreviews = true
         c.appearance.showAppName = false
+        c.appearance.groupByApp = true
         c.appearance.theme = .dark
         c.appearance.placement = .activeWindow
         c.appearance.showDelayMilliseconds = 0
@@ -105,7 +110,7 @@ final class DiagnosticsReportTests: XCTestCase {
         let markdown = report(c).markdown
         for line in [
             "Triggers (2)", "  ⌘⇥  command+tab  apps", "  ⌃⇧`  control+shift+`  activeApp",
-            "  style: list", "  size: large", "  showPreviews: true", "  showAppName: false",
+            "  style: list", "  size: large", "  showPreviews: true", "  showAppName: false", "  groupByApp: true",
             "  theme: dark", "  placement: activeWindow", "  showDelayMilliseconds: 0",
             "  releaseToSwitch: false", "  searchEnabled: false", "  startOnPrevious: false",
             "  mouseHoverSelects: false", "  wrapAround: false",
@@ -216,5 +221,26 @@ final class DiagnosticsReportTests: XCTestCase {
         var other = report()
         other.build = "43"
         XCTAssertNotEqual(report(), other)
+    }
+
+    func testRefreshTimingsAreReported() {
+        var report = DiagnosticsReport(
+            appVersion: "1", build: "1", osVersion: "14", architecture: "arm64",
+            accessibilityGranted: true, screenRecordingGranted: false,
+            windowCount: 3, appCount: 2, watchedAppCount: 2, configuration: Configuration(),
+            lastFullRefreshMilliseconds: 42, lastPartialRefreshMilliseconds: 3)
+        XCTAssertTrue(report.markdown.contains("  Last full refresh: 42 ms\n  Last partial refresh: 3 ms\n"))
+        report.lastFullRefreshMilliseconds = -5
+        XCTAssertTrue(report.markdown.contains("  Last full refresh: 0 ms\n"))
+    }
+
+    func testSkippedWindowsAreSortedAndSanitized() {
+        let report = DiagnosticsReport(
+            appVersion: "1", build: "1", osVersion: "14", architecture: "arm64",
+            accessibilityGranted: true, screenRecordingGranted: false,
+            windowCount: 3, appCount: 2, watchedAppCount: 2, configuration: Configuration(),
+            skippedWindowsBySubrole: ["AXUnknown": 1, "AXFloatingWindow": 4, "SecretPanel": 2, "My Panel": 3, "AXSheet": 0])
+        XCTAssertTrue(report.markdown.contains("  Skipped windows: AXFloatingWindow 4, AXUnknown 1, other 5\n"))
+        XCTAssertFalse(report.markdown.contains("SecretPanel"))
     }
 }

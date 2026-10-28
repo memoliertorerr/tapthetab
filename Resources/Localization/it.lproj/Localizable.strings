@@ -31,6 +31,7 @@
 "App is hidden" = "App nascosta";
 "Appearance" = "Aspetto";
 "Apps" = "App";
+"Apps follow their most recent window. The list style shows a heading per app." = "Le app seguono la loro finestra più recente. Lo stile Elenco mostra un'intestazione per app.";
 "Behaviour" = "Comportamento";
 "Bundle ID" = "ID bundle";
 "Bundle ID, e.g. com.example.App" = "ID bundle, ad es. com.example.App";
@@ -51,6 +52,7 @@
 "Grant Screen Recording…" = "Consenti Registrazione schermo…";
 "Granted" = "Consentito";
 "Grid" = "Griglia";
+"Group windows by app" = "Raggruppa le finestre per app";
 "Hold ⌥ and press ⇥ to see every window. Type to search. Release to switch." = "Tieni premuto ⌥ e premi ⇥ per vedere tutte le finestre. Digita per cercare. Rilascia per passare alla finestra.";
 "Large" = "Grande";
 "Launch at login" = "Apri al login";

@@ -31,6 +31,7 @@
 "App is hidden" = "App is hidden";
 "Appearance" = "Appearance";
 "Apps" = "Apps";
+"Apps follow their most recent window. The list style shows a heading per app." = "Apps follow their most recent window. The list style shows a heading per app.";
 "Behaviour" = "Behaviour";
 "Bundle ID" = "Bundle ID";
 "Bundle ID, e.g. com.example.App" = "Bundle ID, e.g. com.example.App";
@@ -51,6 +52,7 @@
 "Grant Screen Recording…" = "Grant Screen Recording…";
 "Granted" = "Granted";
 "Grid" = "Grid";
+"Group windows by app" = "Group windows by app";
 "Hold ⌥ and press ⇥ to see every window. Type to search. Release to switch." = "Hold ⌥ and press ⇥ to see every window. Type to search. Release to switch.";
 "Large" = "Large";
 "Launch at login" = "Launch at login";

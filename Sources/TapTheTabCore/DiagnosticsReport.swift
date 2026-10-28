@@ -23,6 +23,12 @@ public struct DiagnosticsReport: Equatable, Sendable {
     /// Names of private functions that could not be found (Apple's symbol names, never
     /// user data); nil when the caller did not say.
     public var missingPrivateSymbols: [String]?
+    /// How long the last full and the last partial window-list refresh took, in ms.
+    public var lastFullRefreshMilliseconds: Int?
+    public var lastPartialRefreshMilliseconds: Int?
+    /// Windows apps reported but the switcher left out, by Accessibility subrole (from
+    /// `WindowAdmission.label`, so never app-specific text). Helps explain missing windows.
+    public var skippedWindowsBySubrole: [String: Int]?
     public var configuration: Configuration
 
     public init(
@@ -38,7 +44,10 @@ public struct DiagnosticsReport: Equatable, Sendable {
         configuration: Configuration,
         otherSpacesListingAvailable: Bool? = nil,
         focusAcrossSpacesAvailable: Bool? = nil,
-        missingPrivateSymbols: [String]? = nil
+        missingPrivateSymbols: [String]? = nil,
+        lastFullRefreshMilliseconds: Int? = nil,
+        lastPartialRefreshMilliseconds: Int? = nil,
+        skippedWindowsBySubrole: [String: Int]? = nil
     ) {
         self.appVersion = appVersion
         self.build = build
@@ -53,6 +62,24 @@ public struct DiagnosticsReport: Equatable, Sendable {
         self.otherSpacesListingAvailable = otherSpacesListingAvailable
         self.focusAcrossSpacesAvailable = focusAcrossSpacesAvailable
         self.missingPrivateSymbols = missingPrivateSymbols
+        self.lastFullRefreshMilliseconds = lastFullRefreshMilliseconds
+        self.lastPartialRefreshMilliseconds = lastPartialRefreshMilliseconds
+        self.skippedWindowsBySubrole = skippedWindowsBySubrole
+    }
+
+    static func skipped(_ counts: [String: Int]?) -> String {
+        guard let counts else { return "unknown" }
+        var merged: [String: Int] = [:]
+        for (subrole, count) in counts where count > 0 {
+            merged[WindowAdmission.label(for: subrole), default: 0] += count
+        }
+        let parts = merged.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }
+        return parts.isEmpty ? "none" : parts.joined(separator: ", ")
+    }
+
+    static func milliseconds(_ value: Int?) -> String {
+        guard let value else { return "unknown" }
+        return "\(max(0, value)) ms"
     }
 
     /// Longest free-text value (versions, architecture) kept in the report.
@@ -78,6 +105,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  Windows: \(windowCount)")
         lines.append("  Apps: \(appCount)")
         lines.append("  Watched apps: \(watchedAppCount)")
+        lines.append("  Last full refresh: \(Self.milliseconds(lastFullRefreshMilliseconds))")
+        lines.append("  Last partial refresh: \(Self.milliseconds(lastPartialRefreshMilliseconds))")
+        lines.append("  Skipped windows: \(Self.skipped(skippedWindowsBySubrole))")
         lines.append("")
         lines.append("Private APIs")
         lines.append("  List other Spaces: \(Self.available(otherSpacesListingAvailable))")
@@ -94,6 +124,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  size: \(c.appearance.size.rawValue)")
         lines.append("  showPreviews: \(c.appearance.showPreviews)")
         lines.append("  showAppName: \(c.appearance.showAppName)")
+        lines.append("  groupByApp: \(c.appearance.groupByApp)")
         lines.append("  showMenuBarIcon: \(c.appearance.showMenuBarIcon)")
         lines.append("  theme: \(c.appearance.theme.rawValue)")
         lines.append("  placement: \(c.appearance.placement.rawValue)")

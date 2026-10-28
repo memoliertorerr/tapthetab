@@ -41,6 +41,15 @@ struct AppearanceSettingsView: View {
                 }
 
                 Toggle(L10n.tr("Show app names"), isOn: $model.configuration.appearance.showAppName)
+
+                Toggle(isOn: $model.configuration.appearance.groupByApp) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.tr("Group windows by app"))
+                        Text(L10n.tr("Apps follow their most recent window. The list style shows a heading per app."))
+                            .font(.caption)
+                            .foregroundColor(Color.secondary)
+                    }
+                }
             }
 
             Section {

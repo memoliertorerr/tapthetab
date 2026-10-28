@@ -51,6 +51,10 @@ public struct Appearance: Codable, Equatable, Sendable {
     /// Live window previews. Needs the Screen Recording permission on macOS.
     public var showPreviews: Bool = false
     public var showAppName: Bool = true
+    /// Keep each app's windows together: apps in the order of their most recent window,
+    /// each app's windows in recency order. The list style adds an app-name heading per
+    /// app while not searching. Search results are always ranked by match.
+    public var groupByApp: Bool = false
     /// The menu bar icon. When hidden, opening TapTheTab again (or tapthetab://settings)
     /// shows Settings.
     public var showMenuBarIcon: Bool = true
@@ -69,6 +73,7 @@ public struct Appearance: Codable, Equatable, Sendable {
         size = c.lenient(ItemSize.self, .size) ?? d.size
         showPreviews = c.lenient(Bool.self, .showPreviews) ?? d.showPreviews
         showAppName = c.lenient(Bool.self, .showAppName) ?? d.showAppName
+        groupByApp = c.lenient(Bool.self, .groupByApp) ?? d.groupByApp
         showMenuBarIcon = c.lenient(Bool.self, .showMenuBarIcon) ?? d.showMenuBarIcon
         theme = c.lenient(Theme.self, .theme) ?? d.theme
         placement = c.lenient(DisplayPlacement.self, .placement) ?? d.placement

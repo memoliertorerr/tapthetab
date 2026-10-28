@@ -16,6 +16,12 @@ final class WindowCatalog {
         var items: [SwitcherItem] = []
         var elements: [ItemID: AXUIElement] = [:]
         var date = Date.distantPast
+        /// How long building this snapshot took, for diagnostics.
+        var duration: TimeInterval = 0
+        /// Apps whose windows were asked again (nil: all of them).
+        var refreshedPIDs: Set<pid_t>?
+        /// Windows left out in this refresh, by subrole; only apps asked this time count.
+        var skippedBySubrole: [String: Int] = [:]
     }
 
     private struct AppInfo {
@@ -44,6 +50,8 @@ final class WindowCatalog {
         var ignoredWindowIDs: [CGWindowID] = []
         /// The app didn't answer within the AX timeout.
         var isBusy = false
+        /// Windows the app reported but we left out, counted by subrole (diagnostics).
+        var skippedBySubrole: [String: Int] = [:]
     }
 
     private final class Results: @unchecked Sendable {
@@ -76,6 +84,8 @@ final class WindowCatalog {
     private var pendingCompletions: [(Snapshot) -> Void] = []
     private var isRefreshing = false
     private var refreshAgain = false
+    /// Apps to re-ask on the next refresh; nil means all of them.
+    private var pendingScope: Set<pid_t>? = []
 
     /// Main-thread only.
     private(set) var latest = Snapshot()
@@ -87,15 +97,26 @@ final class WindowCatalog {
     /// Main-thread only.
     func element(for id: ItemID) -> AXUIElement? { latest.elements[id] }
 
-    /// Re-enumerate. Overlapping calls are coalesced; every completion gets called once
-    /// with a snapshot taken after it was requested. Main-thread only.
-    func refresh(completion: ((Snapshot) -> Void)? = nil) {
+    /// Re-enumerate. With `onlyPIDs`, only those apps are asked for their windows again;
+    /// everyone else's windows are reused and just re-checked against the window server
+    /// (position, Space, display), which is far cheaper than asking every app. Overlapping
+    /// calls are coalesced (scopes merge); every completion gets called once with a
+    /// snapshot taken after it was requested. Main-thread only.
+    func refresh(onlyPIDs: Set<pid_t>? = nil, completion: ((Snapshot) -> Void)? = nil) {
         if let completion { pendingCompletions.append(completion) }
+        if let onlyPIDs, let scope = pendingScope {
+            pendingScope = scope.union(onlyPIDs)
+        } else {
+            pendingScope = nil
+        }
         if isRefreshing {
             refreshAgain = true
             return
         }
         isRefreshing = true
+        // The first refresh, or one after a failure to build anything, must be complete.
+        let scope: Set<pid_t>? = latest.items.isEmpty ? nil : pendingScope
+        pendingScope = []
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular && $0.processIdentifier != ownPID && !$0.isTerminated }
@@ -111,7 +132,10 @@ final class WindowCatalog {
 
         let previous = latest
         queue.async { [weak self] in
-            let snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous, otherSpacesConnection: connection)
+            let started = DispatchTime.now().uptimeNanoseconds
+            var snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous, scope: scope, otherSpacesConnection: connection)
+            snapshot.duration = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
+            snapshot.refreshedPIDs = scope
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.latest = snapshot
@@ -119,7 +143,8 @@ final class WindowCatalog {
                 completions.forEach { $0(snapshot) }
                 if self.refreshAgain {
                     self.refreshAgain = false
-                    self.refresh()
+                    // Re-run with whatever scope was requested meanwhile.
+                    self.refresh(onlyPIDs: self.pendingScope)
                 }
             }
         }
@@ -127,15 +152,32 @@ final class WindowCatalog {
 
     // MARK: - Enumeration (background queue)
 
-    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot, otherSpacesConnection: Int32?) -> Snapshot {
-        // Front-to-back order of on-screen windows on the current Space(s).
+    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot, scope: Set<pid_t>?, otherSpacesConnection: Int32?) -> Snapshot {
+        // Front-to-back order and bounds of on-screen windows on the current Space(s).
+        // All layers are recorded: apps that keep their windows above layer 0 (some VM
+        // integrations, always-on-top apps) still count as on screen.
         var zOrder: [CGWindowID: Int] = [:]
+        var bounds: [CGWindowID: CGRect] = [:]
+        var layers: [CGWindowID: Int] = [:]
+        var alphas: [CGWindowID: Double] = [:]
         if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
             for (index, info) in list.enumerated() {
-                guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
+                guard let layer = info[kCGWindowLayer as String] as? Int,
                       let number = info[kCGWindowNumber as String] as? Int else { continue }
-                zOrder[CGWindowID(number)] = index
+                let id = CGWindowID(number)
+                zOrder[id] = index
+                layers[id] = layer
+                if let alpha = info[kCGWindowAlpha as String] as? Double { alphas[id] = alpha }
+                if let dict = info[kCGWindowBounds as String] as? NSDictionary,
+                   let rect = CGRect(dictionaryRepresentation: dict as CFDictionary) {
+                    bounds[id] = rect
+                }
             }
+        }
+        // Everything the last snapshot knew per app, for apps we don't need to ask again.
+        var previousAllByPID: [pid_t: [SwitcherItem]] = [:]
+        for item in previous.items {
+            previousAllByPID[item.pid, default: []].append(item)
         }
 
         let results = Results(count: apps.count)
@@ -148,9 +190,30 @@ final class WindowCatalog {
         let collectsIgnoredWindows = otherSpacesConnection != nil
         DispatchQueue.concurrentPerform(iterations: apps.count) { index in
             let app = apps[index]
+            if let scope, !scope.contains(app.pid), let known = previousAllByPID[app.pid] {
+                // Nothing changed in this app: reuse its windows, refreshing only what the
+                // window server tells us for free (z-order, Space, display, hidden state).
+                var found: [Found] = []
+                for (offset, original) in known.enumerated() {
+                    var item = original
+                    item.isAppHidden = app.isHidden
+                    var order = 200_000 + index
+                    if case .window(let number) = item.id {
+                        item.isOnActiveSpace = zOrder[number] != nil
+                        if let rect = bounds[number], let display = display(for: rect, screens: screens) {
+                            item.displayID = display
+                        }
+                        order = zOrder[number] ?? (100_000 + index * 100 + offset)
+                    }
+                    found.append(Found(item: item, element: previous.elements[item.id], order: order))
+                }
+                results.set(AppResult(found: found), at: index)
+                return
+            }
             let appElement = AX.application(app.pid)
             var found: [Found] = []
             var ignored: [CGWindowID] = []
+            var skipped: [String: Int] = [:]
             var value: CFTypeRef?
             let status = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value)
             if status == .cannotComplete, let kept = previousByPID[app.pid], !kept.isEmpty {
@@ -169,21 +232,42 @@ final class WindowCatalog {
             }
             let windows: [AXUIElement] = status == .success ? ((value as? [AXUIElement]) ?? []) : []
             for window in windows {
-                guard isSwitchable(window) else {
-                    if collectsIgnoredWindows, let id = AX.windowID(window) { ignored.append(id) }
+                let role = AX.string(window, kAXRoleAttribute)
+                let subrole = AX.string(window, kAXSubroleAttribute)
+                let windowID = AX.windowID(window)
+                var title: String?
+                let admitted: Bool
+                if role == kAXWindowRole, subrole == kAXStandardWindowSubrole {
+                    admitted = true // the common case needs nothing else
+                } else {
+                    title = AX.string(window, kAXTitleAttribute) ?? ""
+                    let cgSize = windowID.flatMap { bounds[$0]?.size } ?? AX.size(window, kAXSizeAttribute)
+                    let traits = WindowTraits(
+                        role: role,
+                        subrole: subrole,
+                        hasTitle: !(title ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                        layer: windowID.flatMap { layers[$0] },
+                        alpha: windowID.flatMap { alphas[$0] },
+                        size: cgSize.map { Size(width: Double($0.width), height: Double($0.height)) }
+                    )
+                    admitted = WindowAdmission.isSwitchable(traits)
+                }
+                guard admitted else {
+                    skipped[WindowAdmission.label(for: subrole), default: 0] += 1
+                    if collectsIgnoredWindows, let windowID { ignored.append(windowID) }
                     continue
                 }
-                guard let windowID = AX.windowID(window) else { continue }
+                guard let windowID else { continue }
                 let minimized = AX.bool(window, kAXMinimizedAttribute) ?? false
                 let fullscreen = AX.bool(window, AX.fullScreenAttribute) ?? false
-                let title = AX.string(window, kAXTitleAttribute) ?? ""
+                let windowTitle = title ?? AX.string(window, kAXTitleAttribute) ?? ""
                 let onScreen = zOrder[windowID] != nil
                 let item = SwitcherItem(
                     id: .window(windowID),
                     pid: app.pid,
                     appName: app.name,
                     bundleID: app.bundleID,
-                    title: title,
+                    title: windowTitle,
                     isMinimized: minimized,
                     isAppHidden: app.isHidden,
                     isFullscreen: fullscreen,
@@ -198,7 +282,7 @@ final class WindowCatalog {
                 let item = SwitcherItem(id: .app(pid: app.pid), pid: app.pid, appName: app.name, bundleID: app.bundleID, isAppHidden: app.isHidden)
                 found.append(Found(item: item, element: nil, order: 200_000 + index))
             }
-            results.set(AppResult(found: found, ignoredWindowIDs: ignored, isBusy: status == .cannotComplete), at: index)
+            results.set(AppResult(found: found, ignoredWindowIDs: ignored, isBusy: status == .cannotComplete, skippedBySubrole: skipped), at: index)
         }
 
         let appResults = results.all
@@ -226,6 +310,9 @@ final class WindowCatalog {
 
         let all = entries.sorted { $0.order < $1.order }
         var snapshot = Snapshot()
+        for result in appResults {
+            snapshot.skippedBySubrole.merge(result.skippedBySubrole, uniquingKeysWith: +)
+        }
         snapshot.items = all.map(\.item)
         for entry in all {
             if let element = entry.element { snapshot.elements[entry.item.id] = element }
@@ -375,13 +462,7 @@ final class WindowCatalog {
 
     // MARK: - Helpers
 
-    /// Standard windows and dialogs only; skips panels, popovers, tooltips and sheets.
-    private static func isSwitchable(_ window: AXUIElement) -> Bool {
-        guard AX.string(window, kAXRoleAttribute) == kAXWindowRole else { return false }
-        let subrole = AX.string(window, kAXSubroleAttribute)
-        return subrole == kAXStandardWindowSubrole || subrole == kAXDialogSubrole
-    }
-
+    /// The display a window is mostly on.
     private static func display(for frame: CGRect, screens: [ScreenInfo]) -> UInt32? {
         var best: (id: UInt32, area: CGFloat)?
         for screen in screens {

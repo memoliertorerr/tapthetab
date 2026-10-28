@@ -7,6 +7,10 @@ import ApplicationServices
 final class WindowWatcher {
     /// Called on the main thread once events have been quiet for `debounceInterval`.
     var onChange: (() -> Void)?
+    /// Same moment as `onChange`, with the apps whose windows changed, so the catalog can
+    /// re-ask only those apps.
+    var onChangeInApps: ((Set<pid_t>) -> Void)?
+    private var changedPIDs = Set<pid_t>()
 
     private let debounceInterval: TimeInterval = 0.25
     /// Upper bound on how long a steady stream of events can postpone a refresh.
@@ -80,7 +84,15 @@ final class WindowWatcher {
             if (notification as String) == kAXWindowCreatedNotification {
                 watcher.register(window: element, on: observer)
             }
-            watcher.scheduleChange()
+            // A destroyed element can't tell us its pid; the observer can (one per app).
+            var pid: pid_t = 0
+            if AXUIElementGetPid(element, &pid) == .success {
+                watcher.scheduleChange(pid: pid)
+            } else if let owner = watcher.pid(for: observer) {
+                watcher.scheduleChange(pid: owner)
+            } else {
+                watcher.scheduleChange()
+            }
         }
         guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
 
@@ -112,7 +124,7 @@ final class WindowWatcher {
         retries[pid] = nil
         guard let observer = observers.removeValue(forKey: pid) else { return }
         CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        scheduleChange()
+        scheduleChange(pid: pid)
     }
 
     fileprivate func register(window: AXUIElement, on observer: AXObserver) {
@@ -124,6 +136,15 @@ final class WindowWatcher {
 
     /// Trailing debounce: refresh once things go quiet, but never later than `maximumDelay`
     /// after the first event, so a constantly retitling window still gets picked up.
+    fileprivate func pid(for observer: AXObserver) -> pid_t? {
+        observers.first { CFEqual($0.value, observer) }?.key
+    }
+
+    fileprivate func scheduleChange(pid: pid_t) {
+        changedPIDs.insert(pid)
+        scheduleChange()
+    }
+
     fileprivate func scheduleChange() {
         let now = Date()
         let first = firstPendingEvent ?? now
@@ -133,7 +154,10 @@ final class WindowWatcher {
             guard let self else { return }
             self.pending = nil
             self.firstPendingEvent = nil
+            let pids = self.changedPIDs
+            self.changedPIDs = []
             self.onChange?()
+            if !pids.isEmpty { self.onChangeInApps?(pids) }
         }
         pending = work
         let delay = min(debounceInterval, max(0, maximumDelay - now.timeIntervalSince(first)))
