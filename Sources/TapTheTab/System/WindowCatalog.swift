@@ -260,14 +260,14 @@ final class WindowCatalog {
                 guard let windowID else { continue }
                 let minimized = AX.bool(window, kAXMinimizedAttribute) ?? false
                 let fullscreen = AX.bool(window, AX.fullScreenAttribute) ?? false
-                let title = title ?? AX.string(window, kAXTitleAttribute) ?? ""
+                let windowTitle = title ?? AX.string(window, kAXTitleAttribute) ?? ""
                 let onScreen = zOrder[windowID] != nil
                 let item = SwitcherItem(
                     id: .window(windowID),
                     pid: app.pid,
                     appName: app.name,
                     bundleID: app.bundleID,
-                    title: title,
+                    title: windowTitle,
                     isMinimized: minimized,
                     isAppHidden: app.isHidden,
                     isFullscreen: fullscreen,
