@@ -52,6 +52,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// `tapthetab://` URLs from launchers, Shortcuts or the terminal (`open tapthetab://switch`).
+    /// Only commands that open TapTheTab's own UI exist; see `AutomationCommand`.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let command = AutomationCommand(url: url) else {
+                Log.app.notice("Ignored unsupported URL")
+                continue
+            }
+            switch command {
+            case .showSwitcher(let scope, let query):
+                // Let Launch Services finish activating us before the panel appears.
+                DispatchQueue.main.async { [weak self] in
+                    self?.coordinator?.openFromAutomation(scope: scope, query: query)
+                }
+            case .openSettings:
+                showSettings()
+            }
+        }
+    }
+
     // MARK: - Startup
 
     private func startSwitcher() {

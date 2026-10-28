@@ -92,6 +92,19 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         open(trigger: trigger, reverse: false, locked: true)
     }
 
+    /// Opens the switcher for an automation request (`tapthetab://switch`), locked open
+    /// and optionally pre-filtered. Ignored while a session is already open.
+    func openFromAutomation(scope: SwitcherScope, query: String?) {
+        guard session == nil, isStarted, !isPaused, monitor.isRunning else { return }
+        let trigger = configuration.triggers.first { $0.scope == scope }
+            ?? Trigger(shortcut: configuration.triggers[0].shortcut, scope: scope)
+        monitor.beginSession()
+        open(trigger: trigger, reverse: false, locked: true)
+        if let query, !query.isEmpty, configuration.behavior.searchEnabled {
+            handle(.type(query))
+        }
+    }
+
     // MARK: - HotkeyMonitorDelegate
 
     func hotkeyMonitor(_ monitor: HotkeyMonitor, didTrigger trigger: Trigger, reverse: Bool) {
