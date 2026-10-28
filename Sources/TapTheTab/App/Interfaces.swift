@@ -35,5 +35,6 @@ enum AppInfo {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
     }
     static let repositoryURL = URL(string: "https://github.com/memoliertorerr/tapthetab")!
+    static let releasesURL = URL(string: "https://github.com/memoliertorerr/tapthetab/releases/latest")!
     static let issuesURL = URL(string: "https://github.com/memoliertorerr/tapthetab/issues")!
 }
