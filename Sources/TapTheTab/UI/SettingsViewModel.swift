@@ -61,6 +61,12 @@ final class SettingsViewModel: ObservableObject {
     /// Message under one trigger row after its shortcut changed (swap, system conflict).
     @Published private(set) var shortcutFeedback: ShortcutFeedback? = nil
 
+    /// Builds the diagnostics report for "Copy Diagnostics"; set by the app. Published so
+    /// the button enables itself when it is set after the window was built.
+    @Published var diagnosticsProvider: (() -> DiagnosticsReport)? = nil
+    /// True for a few seconds after the diagnostics were copied, for the confirmation line.
+    @Published private(set) var diagnosticsCopied = false
+
     /// Records new shortcuts for the trigger rows; one row at a time.
     let recorder = ShortcutRecorder()
 
@@ -71,6 +77,9 @@ final class SettingsViewModel: ObservableObject {
     private var isApplyingExternalChange = false
     private var isSyncingLaunchAtLogin = false
     private var appInfoCache: [String: ExcludedAppInfo] = [:]
+    /// Bumped on every copy, so only the latest copy's timer hides the confirmation.
+    private var diagnosticsCopyToken = 0
+    private static let diagnosticsConfirmationSeconds: Double = 3
 
     init(
         configuration: Configuration,
@@ -150,8 +159,8 @@ final class SettingsViewModel: ObservableObject {
     var canAddTrigger: Bool { nextUnusedPreset() != nil }
 
     /// Sets a row's shortcut from the recorder or the presets menu, with inline feedback:
-    /// a shortcut another row uses is swapped (and said so); a common system shortcut is
-    /// allowed with a warning.
+    /// a shortcut another row uses is swapped (and said so); one that clashes with another
+    /// row through ⇧-reverse, or a common system shortcut, is allowed with a warning.
     func assignShortcut(_ shortcut: Shortcut, at index: Int) {
         recorder.cancel()
         let triggers = configuration.triggers
@@ -167,9 +176,14 @@ final class SettingsViewModel: ObservableObject {
             feedback = ShortcutFeedback(
                 index: index,
                 kind: .info,
-                message: "\(shortcut.displayString) was already in use, so that shortcut now uses \(previous.displayString)."
+                message: L10n.tr(
+                    "%@ was already in use, so that shortcut now uses %@.",
+                    shortcut.displayString,
+                    previous.displayString
+                )
             )
-        } else if let warning = ShortcutAdvisor.systemConflict(for: shortcut) {
+        } else if let warning = ShortcutConflictText.reverseConflict(for: shortcut, among: Self.otherTriggers(triggers, except: index))
+                    ?? ShortcutConflictText.systemConflict(for: shortcut) {
             feedback = ShortcutFeedback(index: index, kind: .warning, message: warning)
         }
         setShortcut(shortcut, at: index)
@@ -224,6 +238,15 @@ final class SettingsViewModel: ObservableObject {
         recorder.cancel()
         if shortcutFeedback != nil { shortcutFeedback = nil }
         configuration.triggers.append(Trigger(shortcut: shortcut, scope: .allWindows))
+    }
+
+    /// Every trigger but the one at `index`.
+    private static func otherTriggers(_ triggers: [Trigger], except index: Int) -> [Trigger] {
+        var result: [Trigger] = []
+        for (offset, trigger) in triggers.enumerated() where offset != index {
+            result.append(trigger)
+        }
+        return result
     }
 
     private func nextUnusedPreset() -> Shortcut? {
@@ -317,6 +340,26 @@ final class SettingsViewModel: ObservableObject {
 
     func openConfigFile() {
         NSWorkspace.shared.open(configFileURL)
+    }
+
+    var canCopyDiagnostics: Bool { diagnosticsProvider != nil }
+
+    /// Puts the diagnostics report (Markdown, no window titles or app names) on the
+    /// clipboard and shows a confirmation for a few seconds. Nothing leaves the Mac.
+    func copyDiagnostics() {
+        guard let provider = diagnosticsProvider else { return }
+        let markdown: String = provider().markdown
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(markdown, forType: .string)
+
+        diagnosticsCopyToken += 1
+        let token = diagnosticsCopyToken
+        if !diagnosticsCopied { diagnosticsCopied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.diagnosticsConfirmationSeconds) { [weak self] in
+            guard let self, self.diagnosticsCopyToken == token else { return }
+            self.diagnosticsCopied = false
+        }
     }
 
     /// Only opens the browser; TapTheTab itself never checks for updates over the network.

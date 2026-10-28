@@ -38,7 +38,7 @@ final class ThumbnailService {
     /// the main thread once per window that could be captured.
     func capture(windowIDs: [UInt32], maxPixelSize: Int, deliver: @escaping (UInt32, CGImage) -> Void) {
         guard #available(macOS 14.0, *), !windowIDs.isEmpty else { return }
-        generation += 1
+        // Overlapping requests all deliver; only cancelPending()/clear() drop them.
         let token = generation
         let wanted = Set(windowIDs)
         SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { [weak self] content, error in

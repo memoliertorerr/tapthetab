@@ -30,19 +30,22 @@
 | TT9 | Shortcut recorder in Settings (any key + modifiers), conflict warnings | auto | ✅ done |
 | TT10 | Frecency for search: remember which window was picked for a query prefix and boost it | auto | ✅ done |
 | TT11 | Homebrew cask (in this repo, tapped by URL), documented in README | checkpoint | ✅ done |
-| TT12 | Release v0.2.0 | checkpoint | ⬜ todo |
-| TT13 | Windows on other Spaces (private CGS space APIs behind a setting), Space badge on cards | auto | ⬜ todo |
-| TT14 | Large preview of the selected window on hover/selection (previews mode) | auto | ⬜ todo |
-| TT15 | VoiceOver pass and localization scaffolding (English + Italian + Turkish) | checkpoint | ⬜ todo |
-| TT16 | Release v0.3.0 | checkpoint | ⬜ todo |
+| TT12 | Release v0.2.0 | checkpoint | ✅ done |
+| TT13 | Localization (English, Italian, Turkish) and a VoiceOver pass over every UI string | auto | ✅ done |
+| TT14 | `tapthetab://` URL scheme: open the switcher (optionally pre-filtered or scoped), open Settings — for Raycast/Alfred/Shortcuts | auto | ✅ done |
+| TT15 | Large preview of the selected window (previews mode) | auto | ✅ done |
+| TT16 | Core hygiene: shortcut-conflict advisor in the core (+ ⇧-reverse conflict), grid shrinks to fit width, diagnostics report | auto | ✅ done |
+| TT17 | Release v0.3.0 | checkpoint | ⬜ todo |
+| TT18 | Windows on other Spaces (research spike; private APIs, behind a setting, off by default) | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0 released; phase 2 complete and green on CI; releasing v0.2.0 (TT12). Next: phase 3.
+**Overall status:** v0.1.0 and v0.2.0 released; phase 3 complete, releasing v0.3.0 (TT17). Next: phase 4.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
    never get stuck), window activation correctness, permissions onboarding.
 2. **TT8 → TT12** — v0.2.0, speed and customisation.
-3. **TT13 → TT16** — v0.3.0, reach and accessibility.
+3. **TT13 → TT17** — v0.3.0, reach, accessibility and automation.
+4. **TT18 →** — v0.4.0, other Spaces and whatever real-Mac feedback asks for first.
 
 ---
 
@@ -127,6 +130,16 @@ See `AGENTS.md`. In addition, for this plan:
 - The cask lives in `Casks/` here and is tapped by URL, so no separate tap repository.
 - CI now builds the macOS app with warnings as errors.
 
+### TT13–TT16 (2026-10-28)
+- Localization: English sentences are the keys (`L10n.tr`), tables live in
+  `Resources/Localization/*.lproj` and are copied into the bundle by the build script;
+  `scripts/check-strings.py` runs in CI. 132 keys in en/it/tr.
+- `tapthetab://` links are parsed by the core `AutomationCommand` (strict; only opens UI).
+- Large preview: layout reserves a box only when it fits (≥120 pt); the coordinator
+  re-captures the selected window at the box's pixel size after an 80 ms debounce.
+- Diagnostics: Settings → About → Copy Diagnostics (versions, permissions, counts,
+  settings; no titles, names or bundle IDs).
+
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
 - `GridLayout` shrinks to fit height only; very large card sizes on tiny screens can
@@ -134,10 +147,11 @@ See `AGENTS.md`. In addition, for this plan:
 - ~~`.activeApp` with a windowless frontmost app shows an empty panel~~ — fixed in phase 2.
 - ~~Search highlights only the higher-scoring field~~ — contiguous hits in both fields are
   highlighted since phase 2.
-- `ShortcutAdvisor` (system-shortcut conflict list) lives in the UI layer; move it to the
-  core with tests.
-- Warn when a new trigger equals another trigger plus ⇧ (it can never fire, because ⇧
-  reverses the other trigger).
+- ~~`ShortcutAdvisor` lives in the UI layer~~ — replaced by core `ShortcutConflicts` (phase 3).
+- ~~Warn about ⇧-reverse clashes~~ — done in phase 3.
+- `GridLayout` can still exceed a screen narrower than one card at minimum scale (rare).
+- The large preview hides for items without a thumbnail, so the panel height changes while
+  arrowing past minimized/hidden items; consider reserving the box and showing the icon.
 
 ## Landmines
 - ⌘⇥ never reaches an event tap; it is a Window Server symbolic hotkey (see ARCHITECTURE).

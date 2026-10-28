@@ -82,7 +82,8 @@ final class ShortcutRecorder: ObservableObject {
         let required: ModifierFlags = [.command, .option, .control]
         if modifiers.intersection(required).isEmpty {
             let typed = Shortcut(keyCode: keyCode, modifiers: modifiers).displayString
-            rejection = "\(typed) needs ⌘, ⌥ or ⌃ — for example ⌥\(KeyCode.symbol(for: keyCode))."
+            let example: String = "⌥" + KeyCode.symbol(for: keyCode)
+            rejection = L10n.tr("%@ needs ⌘, ⌥ or ⌃ — for example %@.", typed, example)
             return nil
         }
 
@@ -134,27 +135,56 @@ struct ShortcutFeedback: Equatable {
     let message: String
 }
 
-/// Well-known macOS shortcuts a trigger would collide with. Plain values only.
-enum ShortcutAdvisor {
-    private static let known: [(shortcut: Shortcut, message: String)] = [
-        (Shortcut(keyCode: KeyCode.space, modifiers: .command), "is Spotlight's shortcut"),
-        (Shortcut(keyCode: KeyCode.space, modifiers: .control), "switches input sources"),
-        (Shortcut(keyCode: 0x14, modifiers: [.shift, .command]), "takes a screenshot"),            // 3
-        (Shortcut(keyCode: 0x15, modifiers: [.shift, .command]), "takes a screenshot of a selection"), // 4
-        (Shortcut(keyCode: 0x17, modifiers: [.shift, .command]), "opens the Screenshot toolbar"),  // 5
-        (Shortcut(keyCode: 0x0C, modifiers: .command), "quits the frontmost app"),                 // Q
-        (Shortcut(keyCode: 0x0D, modifiers: .command), "closes windows"),                          // W
-        (Shortcut(keyCode: 0x04, modifiers: .command), "hides the frontmost app"),                 // H
-        (Shortcut(keyCode: 0x2E, modifiers: .command), "minimizes windows"),                       // M
-        (Shortcut(keyCode: KeyCode.grave, modifiers: .command), "normally cycles an app's windows; TapTheTab takes it over while running"),
-    ]
-
-    /// A warning when `shortcut` is a common system shortcut, else nil.
+/// Localized whole-sentence warnings for the conflicts `ShortcutConflicts` (core) finds.
+/// The core reports stable English feature names; they are mapped to sentences here and
+/// never shown as they are.
+enum ShortcutConflictText {
+    /// A warning when `shortcut` is a well-known macOS shortcut, else nil. For a newly
+    /// recorded or picked shortcut, so a ⌘` takeover is announced too.
     static func systemConflict(for shortcut: Shortcut) -> String? {
-        let modifiers = shortcut.modifiers.intersection([.control, .option, .shift, .command])
-        for entry in known where entry.shortcut.keyCode == shortcut.keyCode && entry.shortcut.modifiers == modifiers {
-            return "\(entry.shortcut.displayString) \(entry.message)."
+        guard let feature = ShortcutConflicts.systemFeature(for: shortcut) else { return nil }
+        let display = shortcut.displayString
+        if ShortcutConflicts.isTakenOver(shortcut) {
+            return L10n.tr("%@ normally cycles an app's windows; TapTheTab takes it over while running.", display)
         }
-        return nil
+        return message(forFeature: feature, shortcut: display)
+    }
+
+    /// A warning when `shortcut` equals one of `others` plus ⇧ (or the other way round),
+    /// so ⇧-reverse of the shortcut without ⇧ makes one of the two unusable, else nil.
+    static func reverseConflict(for shortcut: Shortcut, among others: [Trigger]) -> String? {
+        guard let other = ShortcutConflicts.reverseConflict(for: shortcut, among: others) else { return nil }
+        let withShift: Shortcut
+        let withoutShift: Shortcut
+        if shortcut.modifiers.contains(.shift) {
+            withShift = shortcut
+            withoutShift = other.shortcut
+        } else {
+            withShift = other.shortcut
+            withoutShift = shortcut
+        }
+        return L10n.tr(
+            "%@ can't be used while %@ is a shortcut: ⇧ already reverses it.",
+            withShift.displayString,
+            withoutShift.displayString
+        )
+    }
+
+    /// Whole sentences, so translations can put the shortcut (`%@`) wherever they need.
+    private static func message(forFeature feature: String, shortcut: String) -> String {
+        switch feature {
+        case "Spotlight": return L10n.tr("%@ is Spotlight's shortcut.", shortcut)
+        case "Input Sources": return L10n.tr("%@ switches input sources.", shortcut)
+        case "Screenshot": return L10n.tr("%@ takes a screenshot.", shortcut)
+        case "Screenshot of a Selection": return L10n.tr("%@ takes a screenshot of a selection.", shortcut)
+        case "Screenshot Toolbar": return L10n.tr("%@ opens the Screenshot toolbar.", shortcut)
+        case "Quit App": return L10n.tr("%@ quits the frontmost app.", shortcut)
+        case "Close Window": return L10n.tr("%@ closes windows.", shortcut)
+        case "Hide App": return L10n.tr("%@ hides the frontmost app.", shortcut)
+        case "Minimize Window": return L10n.tr("%@ minimizes windows.", shortcut)
+        case "Cycle App Windows":
+            return L10n.tr("%@ normally cycles an app's windows; TapTheTab takes it over while running.", shortcut)
+        default: return L10n.tr("%@ is already a macOS shortcut.", shortcut)
+        }
     }
 }

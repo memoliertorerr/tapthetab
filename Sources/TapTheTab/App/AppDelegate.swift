@@ -52,6 +52,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// `tapthetab://` URLs from launchers, Shortcuts or the terminal (`open tapthetab://switch`).
+    /// Only commands that open TapTheTab's own UI exist; see `AutomationCommand`.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let command = AutomationCommand(url: url) else {
+                Log.app.notice("Ignored unsupported URL")
+                continue
+            }
+            switch command {
+            case .showSwitcher(let scope, let query):
+                // Let Launch Services finish activating us before the panel appears.
+                DispatchQueue.main.async { [weak self] in
+                    self?.coordinator?.openFromAutomation(scope: scope, query: query)
+                }
+            case .openSettings:
+                showSettings()
+            }
+        }
+    }
+
     // MARK: - Startup
 
     private func startSwitcher() {
@@ -101,8 +121,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) { [weak self] newValue in
                 self?.settingsChanged(newValue)
             }
+            settings?.diagnosticsProvider = { [unowned self] in self.makeDiagnostics() }
         }
         settings?.show()
+    }
+
+    /// Facts for a bug report: versions, permissions, counts, settings. Nothing personal.
+    private func makeDiagnostics() -> DiagnosticsReport {
+        let counts = coordinator.diagnosticsCounts
+        #if arch(arm64)
+        let architecture = "arm64"
+        #else
+        let architecture = Self.isRunningUnderRosetta ? "x86_64 (Rosetta)" : "x86_64"
+        #endif
+        return DiagnosticsReport(
+            appVersion: AppInfo.version,
+            build: AppInfo.build,
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            architecture: architecture,
+            accessibilityGranted: permissions.accessibilityGranted,
+            screenRecordingGranted: permissions.screenRecordingGranted,
+            windowCount: counts.windows,
+            appCount: counts.apps,
+            watchedAppCount: counts.watchedApps,
+            configuration: configuration.configuration
+        )
+    }
+
+    /// Apple's documented check: sysctl.proc_translated is 1 under Rosetta.
+    private static var isRunningUnderRosetta: Bool {
+        var translated: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        return sysctlbyname("sysctl.proc_translated", &translated, &size, nil, 0) == 0 && translated == 1
     }
 
     // MARK: - Configuration

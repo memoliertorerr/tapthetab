@@ -96,7 +96,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to TapTheTab"
+        window.title = L10n.tr("Welcome to TapTheTab")
         window.isReleasedWhenClosed = false
         window.delegate = self
         let hostingView = NSHostingView(rootView: OnboardingView(model: model))

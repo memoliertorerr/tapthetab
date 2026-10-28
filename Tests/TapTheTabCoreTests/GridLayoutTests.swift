@@ -101,6 +101,57 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(m.rows, 3)
     }
 
+    func testWideSingleCardShrinksToFitWidth() {
+        // Usable width 900 - 40 = 860; a 1000-wide card must shrink to fit it.
+        let m = GridLayout.compute(itemCount: 1, screen: screen, item: Size(width: 1000, height: 200))
+        XCTAssertLessThan(m.scale, 1)
+        XCTAssertGreaterThanOrEqual(m.scale, GridLayout.minimumScale)
+        XCTAssertEqual(m.columns, 1)
+        XCTAssertLessThanOrEqual(m.contentSize.width, 900 + 1e-9)
+        XCTAssertEqual(m.itemSize.width, 1000 * m.scale, accuracy: 1e-9)
+        XCTAssertEqual(m.itemSize.height, 200 * m.scale, accuracy: 1e-9, "aspect ratio is kept")
+        XCTAssertFalse(m.needsScrolling)
+    }
+
+    func testWidthShrinksOnlyAsMuchAsNeeded() {
+        let m = GridLayout.compute(itemCount: 1, screen: screen, item: Size(width: 1000, height: 200))
+        // 0.85 * 1000 + 40 = 890 fits; 0.9 * 1000 + 40 = 940 does not.
+        XCTAssertEqual(m.scale, 0.85, accuracy: 1e-9)
+        XCTAssertGreaterThan(1000 * (m.scale + 0.05) + 40, 900)
+    }
+
+    func testNarrowScreenShrinksCards() {
+        // 300-point-wide screen: 270 - 40 = 230 usable; a 300-wide card scales to <= 230.
+        let m = GridLayout.compute(itemCount: 4, screen: Size(width: 300, height: 2000), item: Size(width: 300, height: 100))
+        XCTAssertEqual(m.columns, 1)
+        XCTAssertEqual(m.rows, 4)
+        XCTAssertLessThanOrEqual(m.contentSize.width, 270 + 1e-9)
+        XCTAssertLessThanOrEqual(m.itemSize.width, 230 + 1e-9)
+        XCTAssertGreaterThan(m.itemSize.width + 0.05 * 300, 230, "not shrunk more than one step too far")
+    }
+
+    func testTooWideEvenAtMinimumScaleStopsAtMinimum() {
+        let m = GridLayout.compute(itemCount: 2, screen: Size(width: 100, height: 2000), item: Size(width: 1000, height: 100))
+        XCTAssertEqual(m.scale, GridLayout.minimumScale, accuracy: 1e-9)
+        XCTAssertEqual(m.columns, 1)
+        XCTAssertEqual(m.itemSize.width, 600, accuracy: 1e-9)
+        XCTAssertEqual(m.contentSize.width, 600 + 40, accuracy: 1e-9, "never narrower than one minimum-scale card")
+        XCTAssertFalse(m.needsScrolling, "width never scrolls; height fits")
+    }
+
+    func testCardsThatFitWidthAreNotShrunk() {
+        // Exactly the usable width: 860 + 40 = 900.
+        let m = GridLayout.compute(itemCount: 1, screen: screen, item: Size(width: 860, height: 100))
+        XCTAssertEqual(m.scale, 1)
+        XCTAssertEqual(m.contentSize.width, 900, accuracy: 1e-9)
+    }
+
+    func testLargeCardsOnTinyScreenFitBothWays() {
+        let m = GridLayout.compute(itemCount: 6, screen: Size(width: 320, height: 480), item: ItemSize.large.cardSize)
+        XCTAssertLessThanOrEqual(m.contentSize.width, 320 * 0.9 + 1e-9)
+        XCTAssertLessThan(m.scale, 1)
+    }
+
     func testDegenerateSizesDoNotCrash() {
         let zero = GridLayout.compute(itemCount: 4, screen: Size(width: 0, height: 0), item: Size(width: 0, height: 0),
                                       spacing: 0, padding: 0)

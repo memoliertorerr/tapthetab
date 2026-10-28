@@ -17,6 +17,19 @@ struct SwitcherLayout: Equatable {
     static let emptyContentHeight: CGFloat = 100
     /// Used when no screen is known yet.
     static let fallbackScreenSize = CGSize(width: 1440, height: 900)
+    /// Large preview of the selected window (previews mode): inset from the panel's sides
+    /// and top, and gap to the grid or list below it.
+    static let previewInset: CGFloat = 16
+    static let previewBottomGap: CGFloat = 4
+    /// The preview box is at most this fraction of the screen's visible height…
+    static let previewScreenFraction: CGFloat = 0.45
+    /// …and at most this tall relative to its width (4:3), so landscape windows fill it.
+    static let previewMaxHeightToWidth: CGFloat = 0.75
+    /// A smaller box than this is not worth showing; the preview is skipped instead.
+    static let minimumPreviewHeight: CGFloat = 120
+    /// The whole panel stays within this fraction of the screen's visible height
+    /// (the same fraction `GridLayout` uses).
+    static let maxPanelScreenFraction: CGFloat = 0.9
 
     var style: LayoutStyle
     var columns: Int
@@ -25,6 +38,11 @@ struct SwitcherLayout: Equatable {
     var showsSearchBar: Bool
     var needsScrolling: Bool
     var panelSize: CGSize
+    /// Box for the large preview of the selected window above the grid or list, or
+    /// `.zero` when it is not shown. Included in `panelSize`.
+    var previewSize: CGSize = .zero
+
+    var showsPreview: Bool { previewSize.width > 0 && previewSize.height > 0 }
 
     static let initial = SwitcherLayout(
         style: .grid,
@@ -35,19 +53,47 @@ struct SwitcherLayout: Equatable {
         panelSize: minimumSize
     )
 
+    /// - Parameter showsPreview: reserve room for a large preview of the selected window
+    ///   above the grid or list. The grid or list itself is laid out exactly as without
+    ///   it (same columns and card size), so the preview never reflows the cards; when
+    ///   the panel would grow past the screen the preview is skipped (`previewSize == .zero`).
     static func compute(
         style: LayoutStyle,
         size: ItemSize,
         itemCount: Int,
         showsSearchBar: Bool,
-        screenSize: CGSize
+        screenSize: CGSize,
+        showsPreview: Bool = false
     ) -> SwitcherLayout {
+        var layout: SwitcherLayout
         switch style {
         case .list:
-            return computeList(itemCount: itemCount, screenSize: screenSize)
+            layout = computeList(itemCount: itemCount, screenSize: screenSize)
         case .grid:
-            return computeGrid(size: size, itemCount: itemCount, showsSearchBar: showsSearchBar, screenSize: screenSize)
+            layout = computeGrid(size: size, itemCount: itemCount, showsSearchBar: showsSearchBar, screenSize: screenSize)
         }
+        if showsPreview,
+           let box = previewBox(panelWidth: layout.panelSize.width, contentHeight: layout.panelSize.height, screenSize: screenSize) {
+            layout.previewSize = box
+            layout.panelSize.height += previewInset + box.height + previewBottomGap
+        }
+        return layout
+    }
+
+    /// The large preview's box for a panel `panelWidth` wide whose other content is
+    /// `contentHeight` tall, or nil when no box of at least `minimumPreviewHeight` fits
+    /// without the panel exceeding `maxPanelScreenFraction` of the screen height.
+    static func previewBox(panelWidth: CGFloat, contentHeight: CGFloat, screenSize: CGSize) -> CGSize? {
+        let width = (panelWidth - previewInset * 2).rounded(.down)
+        guard width >= minimumPreviewHeight else { return nil }
+        let room = screenSize.height * maxPanelScreenFraction - contentHeight - previewInset - previewBottomGap
+        let height = min(
+            screenSize.height * previewScreenFraction,
+            width * previewMaxHeightToWidth,
+            room
+        ).rounded(.down)
+        guard height.isFinite, height >= minimumPreviewHeight else { return nil }
+        return CGSize(width: width, height: height)
     }
 
     private static func computeGrid(size: ItemSize, itemCount: Int, showsSearchBar: Bool, screenSize: CGSize) -> SwitcherLayout {
