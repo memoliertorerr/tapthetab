@@ -21,6 +21,8 @@ public struct FuzzyMatch: Equatable, Sendable {
 /// - Matching is case- and diacritic-insensitive.
 /// - The query is split on whitespace; every token must match the title or the app name.
 /// - Contiguous matches beat scattered ones; matches at word starts beat matches mid-word.
+/// - A token that hits both fields scores only for the better one, but is highlighted in
+///   both when the other field's hit is contiguous.
 public enum FuzzyMatcher {
     /// Match `query` against an item. Returns nil when any token fails to match.
     public static func match(_ query: String, item: SwitcherItem) -> FuzzyMatch? {
@@ -55,12 +57,17 @@ public enum FuzzyMatcher {
                 total += a.score
                 appHits.formUnion(a.indices)
             case let (t?, a?):
+                // Only the better field scores, but a contiguous hit in the other field is
+                // highlighted too ("slack" in app "Slack" and title "Slack — general").
+                // A scattered hit there is left unhighlighted: it is usually noise.
                 if a.score > t.score {
                     total += a.score
                     appHits.formUnion(a.indices)
+                    if isContiguous(t.indices) { titleHits.formUnion(t.indices) }
                 } else {
                     total += t.score
                     titleHits.formUnion(t.indices)
+                    if isContiguous(a.indices) { appHits.formUnion(a.indices) }
                 }
             }
         }
@@ -141,6 +148,12 @@ public enum FuzzyMatcher {
             }
         }
         return (max(s, 1), indices)
+    }
+
+    /// True when `indices` form one unbroken run, i.e. the token matched as a substring.
+    static func isContiguous(_ indices: [Int]) -> Bool {
+        guard let first = indices.first, let last = indices.last else { return false }
+        return last - first + 1 == indices.count
     }
 
     static func isSubsequence(_ needle: ArraySlice<Character>, of haystack: [Character], from start: Int) -> Bool {
