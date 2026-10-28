@@ -20,6 +20,7 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(c.appearance.size, .medium)
         XCTAssertFalse(c.appearance.showPreviews)
         XCTAssertTrue(c.appearance.showAppName)
+        XCTAssertFalse(c.appearance.groupByApp)
         XCTAssertEqual(c.appearance.theme, .system)
         XCTAssertEqual(c.appearance.placement, .mouse)
         XCTAssertEqual(c.appearance.showDelayMilliseconds, 90)
@@ -285,5 +286,26 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertTrue(try decode("{}").appearance.showMenuBarIcon)
         XCTAssertFalse(try decode(#"{"appearance": {"showMenuBarIcon": false}}"#).appearance.showMenuBarIcon)
         XCTAssertTrue(try decode(#"{"appearance": {"showMenuBarIcon": "no"}}"#).appearance.showMenuBarIcon, "bad value falls back")
+    }
+
+    func testGroupByAppDefaultsToOffAndDecodes() throws {
+        XCTAssertFalse(Configuration().appearance.groupByApp)
+        XCTAssertFalse(try decode("{}").appearance.groupByApp)
+        XCTAssertFalse(try decode(#"{"appearance": {}}"#).appearance.groupByApp)
+        XCTAssertTrue(try decode(#"{"appearance": {"groupByApp": true}}"#).appearance.groupByApp)
+        XCTAssertFalse(try decode(#"{"appearance": {"groupByApp": "yes"}}"#).appearance.groupByApp, "bad value falls back")
+        XCTAssertFalse(try decode(#"{"appearance": {"groupByApp": null}}"#).appearance.groupByApp)
+        let mixed = try decode(#"{"appearance": {"groupByApp": [true], "style": "list"}}"#)
+        XCTAssertFalse(mixed.appearance.groupByApp)
+        XCTAssertEqual(mixed.appearance.style, .list, "one bad key does not reset its neighbours")
+    }
+
+    func testGroupByAppRoundTrips() throws {
+        var c = Configuration()
+        c.appearance.groupByApp = true
+        let data = try JSONEncoder().encode(c)
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("\"groupByApp\":true"))
+        XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
+        XCTAssertEqual(c.validated().0, c, "validation keeps the setting")
     }
 }

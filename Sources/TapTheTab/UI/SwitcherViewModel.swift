@@ -86,6 +86,23 @@ final class SwitcherViewModel: ObservableObject {
         thumbnails[id] != nil
     }
 
+    /// Positions in `session.visible` that get an app-name heading above them (list style
+    /// grouped by app, not searching). The layout reserves their height.
+    var sectionHeaders: Set<Int> {
+        Set(Self.sectionHeaderIndices(for: session, appearance: appearance))
+    }
+
+    nonisolated static func sectionHeaderIndices(for session: SwitcherSession, appearance: Appearance) -> [Int] {
+        // Skips copying the items on every render when grouping is off (the common case).
+        guard appearance.groupByApp else { return [] }
+        return ItemOrdering.sectionHeaderIndices(
+            for: session.visible.map(\.item),
+            groupByApp: appearance.groupByApp,
+            style: appearance.style,
+            isSearching: session.isSearching
+        )
+    }
+
     /// The large preview's image: the selected item's thumbnail, when the layout has room for it.
     var selectedPreview: CGImage? {
         guard layout.showsPreview, let id = session.selectedItem?.id else { return nil }

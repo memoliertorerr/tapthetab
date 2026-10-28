@@ -94,6 +94,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  size: \(c.appearance.size.rawValue)")
         lines.append("  showPreviews: \(c.appearance.showPreviews)")
         lines.append("  showAppName: \(c.appearance.showAppName)")
+        lines.append("  groupByApp: \(c.appearance.groupByApp)")
         lines.append("  showMenuBarIcon: \(c.appearance.showMenuBarIcon)")
         lines.append("  theme: \(c.appearance.theme.rawValue)")
         lines.append("  placement: \(c.appearance.placement.rawValue)")

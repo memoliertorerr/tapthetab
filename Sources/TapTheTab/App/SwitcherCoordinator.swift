@@ -319,7 +319,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             activeDisplayID: screen.displayID,
             ownPID: ProcessInfo.processInfo.processIdentifier
         )
-        return ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
+        let filtered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
+        return configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(filtered) : filtered
     }
 
     // MARK: - Panel

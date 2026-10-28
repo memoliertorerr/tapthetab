@@ -49,6 +49,7 @@ final class DiagnosticsReportTests: XCTestCase {
           size: medium
           showPreviews: false
           showAppName: true
+          groupByApp: false
           showMenuBarIcon: true
           theme: system
           placement: mouse
@@ -87,6 +88,7 @@ final class DiagnosticsReportTests: XCTestCase {
         c.appearance.size = .large
         c.appearance.showPreviews = true
         c.appearance.showAppName = false
+        c.appearance.groupByApp = true
         c.appearance.theme = .dark
         c.appearance.placement = .activeWindow
         c.appearance.showDelayMilliseconds = 0
@@ -105,7 +107,7 @@ final class DiagnosticsReportTests: XCTestCase {
         let markdown = report(c).markdown
         for line in [
             "Triggers (2)", "  ⌘⇥  command+tab  apps", "  ⌃⇧`  control+shift+`  activeApp",
-            "  style: list", "  size: large", "  showPreviews: true", "  showAppName: false",
+            "  style: list", "  size: large", "  showPreviews: true", "  showAppName: false", "  groupByApp: true",
             "  theme: dark", "  placement: activeWindow", "  showDelayMilliseconds: 0",
             "  releaseToSwitch: false", "  searchEnabled: false", "  startOnPrevious: false",
             "  mouseHoverSelects: false", "  wrapAround: false",

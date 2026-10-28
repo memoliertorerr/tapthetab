@@ -43,6 +43,8 @@ previous window without the panel ever appearing.
 | `Shortcut`, `KeyCode`, `ModifierFlags` | Human-readable shortcuts (`"option+tab"`) ↔ key codes. |
 | `Configuration`, `ConfigStore` | Lenient JSON config with validation; atomic 0600 saves; broken files are set aside, never overwritten. |
 | `GridLayout` | Columns/rows/scale for the grid on a given screen (shrinks to fit height and width). |
+| `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, large-preview box, minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
+| `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings. |
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |

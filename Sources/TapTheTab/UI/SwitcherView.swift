@@ -271,9 +271,21 @@ struct SwitcherListView: View {
 
     private var rows: some View {
         let cells = SwitcherCell.cells(from: model.session.visible)
+        let headers = model.sectionHeaders
         return VStack(spacing: 0) {
             ForEach(cells) { cell in
-                row(for: cell)
+                if headers.contains(cell.index) {
+                    // Header and row share the row's id, so scrolling to a group's first
+                    // row brings its heading into view too.
+                    VStack(spacing: 0) {
+                        SwitcherSectionHeader(appName: cell.ranked.item.appName)
+                        row(for: cell)
+                    }
+                    .id(cell.id)
+                } else {
+                    row(for: cell)
+                        .id(cell.id)
+                }
             }
         }
         .padding(.horizontal, SwitcherLayout.listPadding)
@@ -291,7 +303,6 @@ struct SwitcherListView: View {
             onHover: { inside in viewModel.hover(index: index, inside: inside) },
             onTap: { viewModel.click(index: index) }
         )
-        .id(cell.id)
     }
 
     private func scrollToSelection(_ proxy: ScrollViewProxy) {
@@ -303,6 +314,24 @@ struct SwitcherListView: View {
         Task { @MainActor in
             SwitcherScrolling.scrollToSelection(session: session, proxy: proxy)
         }
+    }
+}
+
+/// App-name heading above an app's first row in the list grouped by app.
+struct SwitcherSectionHeader: View {
+    let appName: String
+
+    var body: some View {
+        Text(verbatim: appName)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(Color.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            .frame(maxWidth: .infinity, alignment: .bottomLeading)
+            .frame(height: SwitcherLayout.listSectionHeaderHeight, alignment: .bottomLeading)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 

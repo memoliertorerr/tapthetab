@@ -188,7 +188,8 @@ final class SwitcherPanelController {
             itemCount: session.visible.count,
             showsSearchBar: showsSearch,
             screenSize: screenSize,
-            showsPreview: showsPreview
+            showsPreview: showsPreview,
+            sectionHeaderCount: SwitcherViewModel.sectionHeaderIndices(for: session, appearance: appearance).count
         )
     }
 
