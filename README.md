@@ -145,6 +145,7 @@ fall back to defaults, and a file that can't be read is set aside as
     "showWindowlessApps": false,
     "currentSpaceOnly": false,
     "currentDisplayOnly": false,
+    "showOtherSpaces": false,
     "excludedBundleIDs": ["com.apple.finder"]
   }
 }
@@ -225,8 +226,11 @@ More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what's next in
 
 ## Known limitations
 
-- Windows on **other Spaces** are listed only when the app reports them through the
-  Accessibility API; many apps only report windows on the current Space.
+- Windows on **other Spaces** are listed only with Settings → Filters → *Show windows on
+  other Spaces* (`"showOtherSpaces": true`). It uses private macOS interfaces, is off by
+  default, and turns itself off quietly if a macOS update removes them. Without Screen
+  Recording, those windows may show the app name instead of the window title until you
+  visit their Space.
 - Previews require macOS 14 or later; macOS 13 shows app icons.
 - Secure input (password fields, some terminals with "Secure Keyboard Entry") blocks all
   global shortcuts, including this one.

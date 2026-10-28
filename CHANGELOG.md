@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-28
+
+### Added
+
+- **Windows on other Spaces** (opt-in): Settings → Filters → *Show windows on other Spaces*. Windows on other Spaces and fullscreen Spaces are listed after the current ones, and picking one switches to its Space. Uses private macOS interfaces and switches itself off if they are unavailable.
+- Copy Diagnostics now reports whether those interfaces are available.
+
 ### Fixed
 
 - The keyboard can no longer stay captured after a missed modifier release (for example while macOS briefly paused TapTheTab), on sleep, screen lock or user switch.
@@ -71,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/memoliertorerr/tapthetab/releases/tag/v0.1.0

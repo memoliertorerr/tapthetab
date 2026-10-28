@@ -46,6 +46,7 @@ previous window without the panel ever appearing.
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
+| `SpaceLayout`, `OtherSpaceWindows` | Pure logic for the opt-in other-Spaces pass: reading the Space layout and choosing which window-server windows are switchable. |
 | `DiagnosticsReport` | Bug-report text: versions, permissions, counts, settings — no titles or bundle IDs. |
 
 ## macOS layer (`Sources/TapTheTab`)
