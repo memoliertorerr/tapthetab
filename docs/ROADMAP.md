@@ -36,7 +36,7 @@
 | TT15 | Large preview of the selected window (previews mode) | auto | ✅ done |
 | TT16 | Core hygiene: shortcut-conflict advisor in the core (+ ⇧-reverse conflict), grid shrinks to fit width, diagnostics report | auto | ✅ done |
 | TT17 | Release v0.3.0 | checkpoint | ✅ done |
-| TT18 | Hardening audit of the macOS layer (stuck keys, focus, threading, leaks, ⌘⇥ restore) and fixes | auto | ⬜ todo |
+| TT18 | Hardening audit of the macOS layer (stuck keys, focus, threading, leaks, ⌘⇥ restore) and fixes | auto | ✅ done |
 | TT19 | Windows on other Spaces: research, then the most robust no-SIP approach behind a setting (off by default) | checkpoint | ⬜ todo |
 | TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ⬜ todo |
 | TT21 | Release v0.4.0 | checkpoint | ⬜ todo |
@@ -142,6 +142,17 @@ See `AGENTS.md`. In addition, for this plan:
   re-captures the selected window at the box's pixel size after an 80 ms debounce.
 - Diagnostics: Settings → About → Copy Diagnostics (versions, permissions, counts,
   settings; no titles, names or bundle IDs).
+
+### TT18 (2026-10-28)
+- An independent read-through of the macOS layer found 13 issues (4 high); all fixed:
+  missed modifier release after a tap timeout, fn-only triggers, AX calls without a
+  timeout on window elements, permission revocation keeping a dead tap and ⌘⇥ disabled,
+  ⌘⇥ left off after a crash, refresh storms from app-wide AX notifications, busy apps'
+  windows vanishing and losing recency, live config reload resetting on a typo, links
+  using TapTheTab as the "active app", stale triggers after pause, autorepeat leaking
+  into the target window, recording an existing trigger, focus observers on apps not yet
+  ready. Verified-correct areas are listed in the PR.
+- Private functions moved to runtime lookup (`PrivateAPI.swift`).
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
