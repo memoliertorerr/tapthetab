@@ -21,6 +21,14 @@ final class SwitcherViewModel: ObservableObject {
     /// Hover only selects once the mouse has really moved, so a panel appearing under a
     /// resting pointer does not steal the selection.
     private var hoverBaseline: NSPoint?
+    /// `systemUptime` of the last update that moved the selection without the mouse.
+    /// Hover is ignored shortly after, so typing or arrowing is not undone by a card
+    /// sliding under the pointer.
+    private var lastKeyboardSelectionChange: TimeInterval = 0
+    /// True while a hover or click is being forwarded, so the resulting update does not
+    /// count as keyboard navigation.
+    private var isForwardingPointerInput = false
+    private static let hoverSuppression: TimeInterval = 0.15
 
     private lazy var genericAppIcon: NSImage = NSWorkspace.shared.icon(for: UTType.application)
 
@@ -44,6 +52,9 @@ final class SwitcherViewModel: ObservableObject {
     }
 
     func update(session: SwitcherSession, layout: SwitcherLayout) {
+        if !isForwardingPointerInput, Self.selectionChanged(from: self.session, to: session) {
+            lastKeyboardSelectionChange = ProcessInfo.processInfo.systemUptime
+        }
         if self.layout != layout { self.layout = layout }
         if self.session != session { self.session = session }
     }
@@ -82,13 +93,27 @@ final class SwitcherViewModel: ObservableObject {
         guard inside, behavior.mouseHoverSelects else { return }
         let location: NSPoint = NSEvent.mouseLocation
         if let baseline = hoverBaseline, baseline == location { return }
+        let now: TimeInterval = ProcessInfo.processInfo.systemUptime
+        if now - lastKeyboardSelectionChange < Self.hoverSuppression { return }
         hoverBaseline = location
         guard index != session.selectedIndex else { return }
-        inputHandler?(.select(index: index))
+        forwardPointerInput(.select(index: index))
     }
 
     func click(index: Int) {
-        inputHandler?(.select(index: index))
-        inputHandler?(.commit)
+        forwardPointerInput(.select(index: index))
+        forwardPointerInput(.commit)
+    }
+
+    private func forwardPointerInput(_ input: SwitcherInput) {
+        isForwardingPointerInput = true
+        defer { isForwardingPointerInput = false }
+        inputHandler?(input)
+    }
+
+    /// The selected position or the selected item changed.
+    private static func selectionChanged(from old: SwitcherSession, to new: SwitcherSession) -> Bool {
+        if old.selectedIndex != new.selectedIndex { return true }
+        return old.selectedItem?.id != new.selectedItem?.id
     }
 }
