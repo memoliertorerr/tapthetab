@@ -308,4 +308,74 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
         XCTAssertEqual(c.validated().0, c, "validation keeps the setting")
     }
+
+    // MARK: - Liquid Glass and preview size (v0.7)
+
+    func testLiquidGlassDefaultsToClearAndDecodes() throws {
+        XCTAssertTrue(Configuration().appearance.liquidGlass)
+        XCTAssertEqual(Configuration().appearance.glassStyle, .clear)
+        let empty = try decode("{}")
+        XCTAssertTrue(empty.appearance.liquidGlass, "older files get the new look")
+        XCTAssertEqual(empty.appearance.glassStyle, .clear)
+        let set = try decode(#"{"appearance": {"liquidGlass": false, "glassStyle": "tinted"}}"#)
+        XCTAssertFalse(set.appearance.liquidGlass)
+        XCTAssertEqual(set.appearance.glassStyle, .tinted)
+    }
+
+    func testBadGlassValuesFallBackPerKey() throws {
+        let c = try decode(#"{"appearance": {"liquidGlass": "off", "glassStyle": "frosted", "style": "list"}}"#)
+        XCTAssertTrue(c.appearance.liquidGlass)
+        XCTAssertEqual(c.appearance.glassStyle, .clear)
+        XCTAssertEqual(c.appearance.style, .list, "one bad key does not reset its neighbours")
+    }
+
+    func testLargePreviewPercentDefaultsAndDecodes() throws {
+        XCTAssertEqual(Configuration().appearance.largePreviewPercent, 66)
+        XCTAssertEqual(try decode("{}").appearance.largePreviewPercent, 66)
+        XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": 75}}"#).appearance.largePreviewPercent, 75)
+        XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": "big"}}"#).appearance.largePreviewPercent, 66)
+        XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": 70.5}}"#).appearance.largePreviewPercent, 66)
+    }
+
+    func testClampsLargePreviewPercent() {
+        var c = Configuration()
+        c.appearance.largePreviewPercent = 5
+        var (valid, notes) = c.validated()
+        XCTAssertEqual(valid.appearance.largePreviewPercent, 25)
+        XCTAssertEqual(notes.count, 1)
+        c.appearance.largePreviewPercent = 400
+        (valid, notes) = c.validated()
+        XCTAssertEqual(valid.appearance.largePreviewPercent, 100)
+        XCTAssertEqual(notes.count, 1)
+        for ok in [25, 50, 66, 75, 100] {
+            c.appearance.largePreviewPercent = ok
+            (valid, notes) = c.validated()
+            XCTAssertEqual(valid.appearance.largePreviewPercent, ok)
+            XCTAssertEqual(notes, [])
+        }
+    }
+
+    func testLargePreviewScaleIsClampedFraction() {
+        var a = Appearance()
+        XCTAssertEqual(a.largePreviewScale, 0.66, accuracy: 1e-9)
+        a.largePreviewPercent = 100
+        XCTAssertEqual(a.largePreviewScale, 1)
+        a.largePreviewPercent = -3
+        XCTAssertEqual(a.largePreviewScale, 0.25)
+        a.largePreviewPercent = Int.max
+        XCTAssertEqual(a.largePreviewScale, 1)
+    }
+
+    func testGlassAndPreviewSettingsRoundTrip() throws {
+        var c = Configuration()
+        c.appearance.liquidGlass = false
+        c.appearance.glassStyle = .tinted
+        c.appearance.largePreviewPercent = 50
+        let data = try JSONEncoder().encode(c)
+        let text = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(text.contains("\"liquidGlass\":false"))
+        XCTAssertTrue(text.contains("\"glassStyle\":\"tinted\""))
+        XCTAssertTrue(text.contains("\"largePreviewPercent\":50"))
+        XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
+    }
 }

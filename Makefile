@@ -1,5 +1,6 @@
 # TapTheTab developer tasks. `make help` lists them.
-# The app targets (app, universal, package, run) need macOS + Xcode 16 / Swift 6.
+# The app targets (app, universal, package, run) need macOS + Xcode 26 / Swift 6.2
+# (Xcode 16 also works, without the system Liquid Glass).
 
 SWIFT ?= swift
 APP   := dist/TapTheTab.app

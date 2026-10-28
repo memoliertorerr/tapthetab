@@ -9,6 +9,18 @@ struct AppearanceSettingsView: View {
         L10n.tr("%lld ms", Int(model.showDelay.rounded()))
     }
 
+    /// The preview sizes offered, plus a hand-edited value from config.json so the
+    /// picker never shows an empty selection.
+    private var previewPercentChoices: [Int] {
+        var choices = [50, 66, 75, 100]
+        let current = model.configuration.appearance.largePreviewPercent
+        if !choices.contains(current) {
+            choices.append(current)
+            choices.sort()
+        }
+        return choices
+    }
+
     var body: some View {
         Form {
             Section {
@@ -26,6 +38,16 @@ struct AppearanceSettingsView: View {
                 .pickerStyle(.segmented)
 
                 Toggle(L10n.tr("Show live window previews"), isOn: $model.configuration.appearance.showPreviews)
+                if model.configuration.appearance.showPreviews {
+                    Picker(selection: $model.configuration.appearance.largePreviewPercent) {
+                        ForEach(previewPercentChoices, id: \.self) { percent in
+                            Text(L10n.tr("%lld%%", percent)).tag(percent)
+                        }
+                    } label: {
+                        Text(L10n.tr("Large preview size"))
+                        Text(L10n.tr("The selected window's preview, floating above the switcher."))
+                    }
+                }
                 if model.configuration.appearance.showPreviews && !model.screenRecordingGranted {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -61,6 +83,22 @@ struct AppearanceSettingsView: View {
                             .foregroundColor(Color.secondary)
                     }
                 }
+            }
+
+            Section {
+                Toggle(isOn: $model.configuration.appearance.liquidGlass) {
+                    Text(L10n.tr("Liquid Glass"))
+                    Text(L10n.tr("A see-through glass panel. Uses the system's Liquid Glass on macOS 26 and later, and a similar look before."))
+                }
+                Picker(selection: $model.configuration.appearance.glassStyle) {
+                    Text(L10n.tr("Clear")).tag(GlassStyle.clear)
+                    Text(L10n.tr("Tinted")).tag(GlassStyle.tinted)
+                } label: {
+                    Text(L10n.tr("Glass"))
+                    Text(L10n.tr("Clear is more transparent; Tinted is frosted, with more contrast."))
+                }
+                .pickerStyle(.segmented)
+                .disabled(!model.configuration.appearance.liquidGlass)
             }
 
             Section {

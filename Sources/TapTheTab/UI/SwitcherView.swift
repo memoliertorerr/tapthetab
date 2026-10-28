@@ -2,11 +2,36 @@ import AppKit
 import SwiftUI
 import TapTheTabCore
 
-/// Root of the switcher panel's SwiftUI content.
+/// Root of the switcher panel's SwiftUI content: the preview card floating above the
+/// main block (search bar plus grid or list), each on its own backdrop. The window around
+/// them is transparent.
 struct SwitcherRootView: View {
     @ObservedObject var model: SwitcherViewModel
 
+    private var backdrop: PanelBackdropStyle { PanelBackdropStyle(model.appearance) }
+
     var body: some View {
+        let layout = model.layout
+        SwitcherGlassGroup(style: backdrop) {
+            VStack(spacing: 0) {
+                if layout.showsPreview {
+                    previewCard(layout: layout)
+                        .frame(width: layout.panelSize.width, height: layout.previewCardSize.height, alignment: .bottom)
+                    Color.clear
+                        .frame(height: SwitcherLayout.previewGap)
+                        .accessibilityHidden(true)
+                }
+                mainBlock
+                    .frame(width: layout.mainSize.width, height: layout.mainSize.height, alignment: .top)
+                    // Scrolled rows and cards stop at the rounded corners, as before.
+                    .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius, style: .continuous))
+                    .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.panelCornerRadius)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var mainBlock: some View {
         VStack(spacing: 0) {
             if model.layout.showsSearchBar {
                 SwitcherSearchBar(
@@ -17,20 +42,27 @@ struct SwitcherRootView: View {
                 )
                 Divider()
             }
-            if model.layout.showsPreview {
-                Group {
-                    if let preview = model.selectedPreview {
-                        SwitcherLargePreview(image: preview, boxSize: model.layout.previewSize)
-                    } else if let item = model.session.selectedItem {
-                        SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: model.layout.previewSize)
-                    }
-                }
-                .padding(.top, SwitcherLayout.previewInset)
-                .padding(.bottom, SwitcherLayout.previewBottomGap)
-            }
             content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    /// The selected window's preview on a card that hugs the image, or the app icon on a
+    /// card the size of the whole box when there is no image (yet).
+    @ViewBuilder
+    private func previewCard(layout: SwitcherLayout) -> some View {
+        if let preview = model.selectedPreview {
+            let card = layout.previewCardSize(fitting: CGSize(width: preview.width, height: preview.height))
+            SwitcherLargePreview(image: preview)
+                .padding(SwitcherLayout.previewCardPadding)
+                .frame(width: card.width, height: card.height)
+                .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
+        } else if let item = model.session.selectedItem {
+            let card = layout.previewCardSize
+            SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: layout.previewSize)
+                .padding(SwitcherLayout.previewCardPadding)
+                .frame(width: card.width, height: card.height)
+                .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
+        }
     }
 
     @ViewBuilder
@@ -110,21 +142,22 @@ struct SwitcherSearchBar: View {
     }
 }
 
-/// Larger preview of the selected window above the grid or list (previews mode only).
-/// Aspect-fit and centred in the box `SwitcherLayout` reserved; no title, since the
-/// selected card or row right below already shows it.
+/// Larger preview of the selected window on the card above the grid or list (previews
+/// mode only). Fills the card minus its padding, which already has the image's shape; no
+/// title, since the selected card or row right below shows it.
 struct SwitcherLargePreview: View {
     let image: CGImage
-    let boxSize: CGSize
+
+    private static var cornerRadius: CGFloat {
+        SwitcherLayout.previewCardCornerRadius - SwitcherLayout.previewCardPadding
+    }
 
     var body: some View {
         Image(decorative: image, scale: 1)
             .resizable()
             .interpolation(.high)
             .aspectRatio(contentMode: .fit)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .shadow(color: Color.black.opacity(0.22), radius: 6, x: 0, y: 2)
-            .frame(width: boxSize.width, height: boxSize.height)
+            .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -137,7 +170,8 @@ struct SwitcherPreviewPlaceholder: View {
     var body: some View {
         let side: CGFloat = max(32, min(128, min(boxSize.width, boxSize.height) * 0.45))
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: SwitcherLayout.previewCardCornerRadius - SwitcherLayout.previewCardPadding,
+                             style: .continuous)
                 .fill(Color.primary.opacity(0.06))
             Image(nsImage: icon)
                 .resizable()

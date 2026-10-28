@@ -48,9 +48,12 @@
 | TT27 | Optional grouping of windows by app (`appearance.groupByApp`), apps ordered by recency | auto | ✅ done |
 | TT27.1 | Performance: scoped catalog refreshes, cheaper opens, capture list reuse, one large preview in memory, timings in diagnostics *(added 2026-10-28)* | auto | ✅ done |
 | TT27.2 | Virtual machines / guest apps: research and support where possible *(added 2026-10-28)* | auto | ✅ done |
-| TT28 | Release v0.6.0 | checkpoint | ⬜ todo |
+| TT28 | Release v0.6.0 | checkpoint | ✅ done |
+| TT29 | Liquid Glass look for the switcher (setting; Clear or Tinted like the system's; a similar translucent look before macOS 26); CI and releases build with Xcode 26 *(maintainer approved 2026-10-28)* | auto | ✅ done |
+| TT30 | Large preview on its own card floating above the grid or list, smaller by default, with a size setting | auto | ✅ done |
+| TT31 | Release v0.7.0 | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.5.0 released; phase 6 complete, releasing v0.6.0 (TT28). Next: real-Mac feedback (performance numbers and skipped-window counts from Copy Diagnostics).
+**Overall status:** v0.1.0–v0.7.0 released. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -60,6 +63,7 @@
 4. **TT18 → TT21** — v0.4.0, hardening and other Spaces.
 5. **TT22 → TT24** — v0.5.0, screenshots and conveniences.
 6. **TT25 → TT28** — v0.6.0, testable layout, self-rescue, grouping by app.
+7. **TT29 → TT31** — v0.7.0, Liquid Glass and a floating preview.
 
 ---
 
@@ -192,6 +196,18 @@ See `AGENTS.md`. In addition, for this plan:
   `AXUnknown` windows (Wine family) and drops untitled dialogs.
 - Two compile errors reached CI this phase (a missed call site after a rename, a
   redeclared binding); both were caught there and fixed before merge.
+
+### TT29–TT30 (2026-10-28)
+- Builds moved to Xcode 26 (newest stable 26.x on the `macos-15` runner) so the app can use
+  the system's Liquid Glass; the deployment target stays macOS 13. The glass code is behind
+  `#if compiler(>=6.2)` and `#available(macOS 26.0, *)`, so Xcode 16 still builds the app.
+- Apple offers no API to read the system's Clear/Tinted choice, so the app has its own:
+  Clear = `Glass.clear` over a light dimming layer (Apple's advice for text on clear glass),
+  Tinted = `Glass.regular`. Both follow Reduce Transparency and Increase Contrast.
+- The window is now transparent; the main block and the preview card each draw a backdrop,
+  and the window shadow is refreshed when the card changes shape.
+- The preview's padding and gap add the same 20 pt as the old inset, so 100 % layouts are
+  unchanged; the default is now 66 %.
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.

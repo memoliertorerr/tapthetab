@@ -51,10 +51,13 @@ final class DiagnosticsReportTests: XCTestCase {
           style: grid
           size: medium
           showPreviews: false
+          largePreviewPercent: 66
           showAppName: true
           groupByApp: false
           showMenuBarIcon: true
           theme: system
+          liquidGlass: true
+          glassStyle: clear
           placement: mouse
           showDelayMilliseconds: 90
 
@@ -93,6 +96,9 @@ final class DiagnosticsReportTests: XCTestCase {
         c.appearance.showAppName = false
         c.appearance.groupByApp = true
         c.appearance.theme = .dark
+        c.appearance.liquidGlass = false
+        c.appearance.glassStyle = .tinted
+        c.appearance.largePreviewPercent = 75
         c.appearance.placement = .activeWindow
         c.appearance.showDelayMilliseconds = 0
         c.behavior.releaseToSwitch = false
@@ -111,7 +117,8 @@ final class DiagnosticsReportTests: XCTestCase {
         for line in [
             "Triggers (2)", "  ⌘⇥  command+tab  apps", "  ⌃⇧`  control+shift+`  activeApp",
             "  style: list", "  size: large", "  showPreviews: true", "  showAppName: false", "  groupByApp: true",
-            "  theme: dark", "  placement: activeWindow", "  showDelayMilliseconds: 0",
+            "  theme: dark", "  liquidGlass: false", "  glassStyle: tinted", "  largePreviewPercent: 75",
+            "  placement: activeWindow", "  showDelayMilliseconds: 0",
             "  releaseToSwitch: false", "  searchEnabled: false", "  startOnPrevious: false",
             "  mouseHoverSelects: false", "  wrapAround: false",
             "  showMinimized: false", "  showHiddenApps: false", "  showWindowlessApps: true",

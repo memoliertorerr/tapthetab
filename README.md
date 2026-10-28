@@ -74,10 +74,12 @@ built around three goals:
 - **Quick tap = previous window** — a tap under the show delay (90 ms by default) switches
   back without the panel ever flashing.
 - **Group by app** if you like — apps in recency order, each app's windows together.
+- **Liquid Glass** — the panel is see-through glass on macOS 26 (Clear or Tinted, like the
+  system setting), a similar translucent look on earlier versions, or the classic dark panel.
 - **Grid or list layout**, three sizes, light/dark/system theme, shows on the display with
   your mouse (or the active window, or the main display).
 - **Optional live previews** (macOS 14+, needs Screen Recording), with a large preview of
-  the selected window.
+  the selected window on its own card floating above the switcher (50–100 % size).
 - **Speaks your language** — English, Italian and Turkish, with VoiceOver support.
 - **Scriptable** — `tapthetab://` links open the switcher pre-filtered from launchers,
   Shortcuts or the terminal (see [Automation](#automation)).
@@ -172,10 +174,13 @@ fall back to defaults, and a file that can't be read is set aside as
     "style": "grid",
     "size": "medium",
     "showPreviews": false,
+    "largePreviewPercent": 66,
     "showAppName": true,
     "showMenuBarIcon": true,
     "groupByApp": false,
     "theme": "system",
+    "liquidGlass": true,
+    "glassStyle": "clear",
     "placement": "mouse",
     "showDelayMilliseconds": 90
   },
@@ -197,6 +202,9 @@ fall back to defaults, and a file that can't be read is set aside as
   entry per app, like ⌘⇥).
 - **Styles:** `grid` or `list`. **Sizes:** `small`, `medium`, `large`.
   **Placement:** `mouse`, `activeWindow`, `main`.
+- **Look:** `liquidGlass` `true` (glass) or `false` (classic dark panel); `glassStyle`
+  `clear` (more see-through) or `tinted` (frosted, more contrast).
+  `largePreviewPercent` (25–100) sizes the large preview.
 
 ## Automation
 
@@ -230,7 +238,8 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Build from source
 
-Requirements: macOS 13+, Xcode 16 (Swift 6 toolchain).
+Requirements: macOS 13+, Xcode 26 (Swift 6.2 toolchain). Xcode 16 still builds the app,
+without the system Liquid Glass (the similar translucent look is used instead).
 
 ```bash
 git clone https://github.com/memoliertorerr/tapthetab.git

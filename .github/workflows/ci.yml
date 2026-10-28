@@ -51,7 +51,7 @@ jobs:
         run: python3 -I scripts/check-strings.py
 
   macos:
-    name: macOS app (Xcode 16)
+    name: macOS app (Xcode 26)
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -62,8 +62,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Select Xcode 16
-        run: scripts/select-xcode.sh 16
+      - name: Select Xcode 26
+        run: scripts/select-xcode.sh 26
 
       - name: Build (warnings are errors)
         run: swift build -Xswiftc -warnings-as-errors

@@ -43,7 +43,7 @@ previous window without the panel ever appearing.
 | `Shortcut`, `KeyCode`, `ModifierFlags` | Human-readable shortcuts (`"option+tab"`) ↔ key codes. |
 | `Configuration`, `ConfigStore` | Lenient JSON config with validation; atomic 0600 saves; broken files are set aside, never overwritten. |
 | `GridLayout` | Columns/rows/scale for the grid on a given screen (shrinks to fit height and width). |
-| `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, large-preview box, minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
+| `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, the large preview's box and the card it floats on (scaled by `largePreviewPercent`, hugging the window's proportions), minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
 | `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings. |
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
@@ -62,7 +62,7 @@ previous window without the panel ever appearing.
 | `FocusTracker` | `NSWorkspace` activation notifications plus an `AXObserver` on the frontmost app for focused-window changes feed the `RecencyTracker`. |
 | `WindowActions` | Raise via `kAXRaiseAction` + `kAXMainAttribute` + app `kAXFrontmostAttribute` + activation; windowless apps are reopened through Launch Services so they create a window. |
 | `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. |
-| `UI/` | Non-activating `NSPanel` (never takes focus — keys come from the tap) hosting SwiftUI; Settings and Onboarding windows. |
+| `UI/` | Non-activating, transparent `NSPanel` (never takes focus — keys come from the tap) hosting SwiftUI: the main block and the preview card floating above it each draw their own backdrop (`PanelBackdrop.swift`): the system's Liquid Glass on macOS 26 (`glassEffect`, Clear or Tinted), a blur with a glass-like rim before, or the classic HUD material. Settings and Onboarding windows. |
 
 ## Localization
 

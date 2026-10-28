@@ -15,8 +15,13 @@ struct SwitcherLayout: Equatable {
     static let gridPadding = CGFloat(PanelLayout.gridPadding)
     static let minimumSize = CGSize(PanelLayout.minimumSize)
     static let fallbackScreenSize = CGSize(PanelLayout.fallbackScreenSize)
-    static let previewInset = CGFloat(PanelLayout.previewInset)
-    static let previewBottomGap = CGFloat(PanelLayout.previewBottomGap)
+    static let previewCardPadding = CGFloat(PanelLayout.previewCardPadding)
+    static let previewGap = CGFloat(PanelLayout.previewGap)
+    /// Corners of the main block (grid or list with its search bar).
+    static let panelCornerRadius: CGFloat = 18
+    /// Corners of the floating preview card; the image inside is inset by the padding,
+    /// so its corners are rounded by the difference.
+    static let previewCardCornerRadius: CGFloat = 14
 
     /// The core's result; everything below reads from it.
     var core: PanelLayout
@@ -32,6 +37,18 @@ struct SwitcherLayout: Equatable {
     /// `.zero` when it is not shown. Included in `panelSize`.
     var previewSize: CGSize { CGSize(core.previewSize) }
     var showsPreview: Bool { core.showsPreview }
+    /// The preview card at its largest (box plus padding), or `.zero`.
+    var previewCardSize: CGSize { CGSize(core.previewCardSize) }
+    /// Height of the preview card area plus the gap below it (0 without a preview).
+    var previewAreaHeight: CGFloat { CGFloat(core.previewAreaHeight) }
+    /// The grid or list block, search bar included, below the preview area.
+    var mainSize: CGSize { CGSize(core.mainSize) }
+
+    /// The preview card hugging an image of `imageSize` (aspect-fit in the box), or the
+    /// whole box's card when there is no image.
+    func previewCardSize(fitting imageSize: CGSize?) -> CGSize {
+        CGSize(core.previewCardSize(fitting: imageSize.map(Size.init)))
+    }
 
     static let initial = SwitcherLayout(core: PanelLayout.initial)
 
@@ -43,6 +60,7 @@ struct SwitcherLayout: Equatable {
         showsSearchBar: Bool,
         screenSize: CGSize,
         showsPreview: Bool = false,
+        previewScale: Double = 1,
         sectionHeaderCount: Int = 0
     ) -> SwitcherLayout {
         SwitcherLayout(core: PanelLayout.compute(
@@ -52,6 +70,7 @@ struct SwitcherLayout: Equatable {
             showsSearchBar: showsSearchBar,
             screenSize: Size(screenSize),
             showsPreview: showsPreview,
+            previewScale: previewScale,
             sectionHeaderCount: sectionHeaderCount
         ))
     }
