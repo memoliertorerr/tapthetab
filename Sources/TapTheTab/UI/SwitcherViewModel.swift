@@ -122,6 +122,14 @@ final class SwitcherViewModel: ObservableObject {
         return thumbnail(for: id)
     }
 
+    /// Size of the preview card as currently drawn: hugging the selected window's image,
+    /// the whole box while there is none, `.zero` without a preview.
+    var previewCardSize: CGSize {
+        guard layout.showsPreview, session.selectedItem != nil else { return .zero }
+        guard let image = selectedPreview else { return layout.previewCardSize }
+        return layout.previewCardSize(fitting: CGSize(width: image.width, height: image.height))
+    }
+
     /// Cached per process; not published, so filling the cache during rendering is fine.
     func icon(for pid: Int32) -> NSImage {
         if let override = iconOverrides[pid] { return override }

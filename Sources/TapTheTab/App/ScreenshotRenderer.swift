@@ -134,8 +134,8 @@ enum ScreenshotRenderer {
 
     /// Desktop visible around the panel or window.
     private static let margin: CGFloat = 64
-    /// Same as `SwitcherPanelController.cornerRadius`.
-    private static let panelCornerRadius: CGFloat = 18
+    private static let panelCornerRadius: CGFloat = SwitcherLayout.panelCornerRadius
+    private static let previewCardCornerRadius: CGFloat = SwitcherLayout.previewCardCornerRadius
     private static let windowCornerRadius: CGFloat = 10
     private static let titleBarHeight: CGFloat = 28
     /// Same as `SettingsWindowController`'s window.
@@ -261,7 +261,13 @@ enum ScreenshotRenderer {
         }
 
         let panel = try renderPanel(model: model, size: layout.panelSize, mode: mode)
-        return try composeSwitcher(panel: panel, size: layout.panelSize, mode: mode)
+        return try composeSwitcher(
+            panel: panel,
+            layout: layout,
+            previewCard: model.previewCardSize,
+            backdrop: PanelBackdropStyle(appearance),
+            mode: mode
+        )
     }
 
     /// Settings → General with the default configuration and both permissions granted.
@@ -286,6 +292,7 @@ enum ScreenshotRenderer {
     /// should it produce nothing, the same view is captured from an offscreen window.
     private static func renderPanel(model: SwitcherViewModel, size: CGSize, mode: ScreenshotMode) throws -> CGImage {
         let content = SwitcherRootView(model: model)
+            .environment(\.switcherDrawsBackdrop, false)
             .frame(width: size.width, height: size.height)
             .environment(\.colorScheme, mode.colorScheme)
         let renderer = ImageRenderer(content: content)
@@ -298,7 +305,7 @@ enum ScreenshotRenderer {
         if let rendered, !looksBlank(rendered) {
             return rendered
         }
-        let hostingView = NSHostingView(rootView: SwitcherRootView(model: model))
+        let hostingView = NSHostingView(rootView: SwitcherRootView(model: model).environment(\.switcherDrawsBackdrop, false))
         hostingView.sizingOptions = []
         return try captureInWindow(hostingView, size: size, mode: mode, titled: false)
     }
@@ -381,28 +388,72 @@ enum ScreenshotRenderer {
 
     // MARK: - Composition
 
-    /// The panel on a desktop: shadow, a translucent material over the desktop (stands in
-    /// for the behind-window blur, which does not render offscreen), the content, a hairline.
-    private static func composeSwitcher(panel: CGImage, size: CGSize, mode: ScreenshotMode) throws -> CGImage {
+    /// The panel on a desktop: the main block (and the preview card floating above it, if
+    /// any), each with a shadow, a translucent fill over the desktop (stands in for the
+    /// behind-window blur or glass, which do not render offscreen) and a hairline; then the
+    /// content on top.
+    private static func composeSwitcher(
+        panel: CGImage,
+        layout: SwitcherLayout,
+        previewCard: CGSize,
+        backdrop: PanelBackdropStyle,
+        mode: ScreenshotMode
+    ) throws -> CGImage {
+        let size = layout.panelSize
         let canvas = CGSize(width: size.width + margin * 2, height: size.height + margin * 2)
         let context = try canvasContext(size: canvas)
         drawDesktop(in: context, size: canvas, mode: mode)
 
-        let frame = CGRect(x: margin, y: margin, width: size.width, height: size.height)
-        let shape = roundedPath(frame, radius: panelCornerRadius)
-        let material = mode == .light ? gray(0.97, 0.80) : gray(0.13, 0.80)
-        drawShadow(of: shape, fill: mode == .light ? gray(0.93) : gray(0.16), in: context, mode: mode)
+        // Core Graphics counts y upwards: the main block is at the bottom of the panel.
+        let mainFrame = CGRect(x: margin, y: margin, width: layout.mainSize.width, height: layout.mainSize.height)
+        var pieces: [(frame: CGRect, radius: CGFloat)] = [(mainFrame, panelCornerRadius)]
+        if previewCard.width > 0, previewCard.height > 0 {
+            let cardFrame = CGRect(
+                x: margin + ((size.width - previewCard.width) / 2).rounded(),
+                y: mainFrame.maxY + SwitcherLayout.previewGap,
+                width: previewCard.width,
+                height: previewCard.height
+            )
+            pieces.append((cardFrame, previewCardCornerRadius))
+        }
 
+        let material: CGColor
+        let shadowFill: CGColor
+        switch backdrop {
+        case .classic:
+            material = mode == .light ? gray(0.97, 0.80) : gray(0.13, 0.80)
+            shadowFill = mode == .light ? gray(0.93) : gray(0.16)
+        case .glass(.clear):
+            material = mode == .light ? gray(1, 0.45) : gray(0.10, 0.45)
+            shadowFill = mode == .light ? gray(0.96, 0.6) : gray(0.20, 0.6)
+        case .glass(.tinted):
+            material = mode == .light ? gray(0.98, 0.70) : gray(0.16, 0.70)
+            shadowFill = mode == .light ? gray(0.95) : gray(0.18)
+        }
+
+        for piece in pieces {
+            drawShadow(of: roundedPath(piece.frame, radius: piece.radius), fill: shadowFill, in: context, mode: mode)
+        }
+        for piece in pieces {
+            context.saveGState()
+            context.addPath(roundedPath(piece.frame, radius: piece.radius))
+            context.clip()
+            drawDesktop(in: context, size: canvas, mode: mode)
+            context.setFillColor(material)
+            context.fill(piece.frame)
+            context.restoreGState()
+        }
+        // Like the real backdrops, the shapes clip the content at their rounded corners.
         context.saveGState()
-        context.addPath(shape)
+        for piece in pieces {
+            context.addPath(roundedPath(piece.frame, radius: piece.radius))
+        }
         context.clip()
-        drawDesktop(in: context, size: canvas, mode: mode)
-        context.setFillColor(material)
-        context.fill(frame)
-        context.draw(panel, in: frame)
+        context.draw(panel, in: CGRect(x: margin, y: margin, width: size.width, height: size.height))
         context.restoreGState()
-
-        strokeHairline(around: frame, radius: panelCornerRadius, in: context, mode: mode)
+        for piece in pieces {
+            strokeHairline(around: piece.frame, radius: piece.radius, in: context, mode: mode)
+        }
         guard let image = context.makeImage() else { throw Failure("could not finish the switcher image") }
         return image
     }

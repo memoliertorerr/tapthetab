@@ -143,3 +143,12 @@
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close" = "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close";
 "Show menu bar icon" = "Show menu bar icon";
 "When hidden, open TapTheTab again to get to Settings." = "When hidden, open TapTheTab again to get to Settings.";
+"%lld%%" = "%lld%%";
+"Large preview size" = "Large preview size";
+"The selected window's preview, floating above the switcher." = "The selected window's preview, floating above the switcher.";
+"Liquid Glass" = "Liquid Glass";
+"A see-through glass panel. Uses the system's Liquid Glass on macOS 26 and later, and a similar look before." = "A see-through glass panel. Uses the system's Liquid Glass on macOS 26 and later, and a similar look before.";
+"Clear" = "Clear";
+"Tinted" = "Tinted";
+"Glass" = "Glass";
+"Clear is more transparent; Tinted is frosted, with more contrast." = "Clear is more transparent; Tinted is frosted, with more contrast.";

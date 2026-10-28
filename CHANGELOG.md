@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Liquid Glass look for the switcher (Settings → Appearance → Liquid Glass), on by default: Clear (more see-through) or Tinted (frosted, more contrast), like the macOS setting. macOS 26 uses the system's glass; earlier versions get a similar translucent look. Turn it off for the classic dark panel.
+- Size setting for the large preview: 50 %, 66 %, 75 % or 100 % (`appearance.largePreviewPercent`).
+
+### Changed
+
+- The large preview of the selected window floats on its own card above the switcher, shaped like the window, and is smaller by default (66 % of its previous size).
+- Built with Xcode 26; still runs on macOS 13 and later.
+
 ## [0.6.0] - 2026-10-28
 
 ### Added

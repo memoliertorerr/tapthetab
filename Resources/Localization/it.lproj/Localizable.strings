@@ -143,3 +143,12 @@
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close" = "⇧W chiudi · ⇧M contrai · ⇧Q esci · ⎋ chiudi";
 "Show menu bar icon" = "Mostra icona nella barra dei menu";
 "When hidden, open TapTheTab again to get to Settings." = "Se è nascosta, apri di nuovo TapTheTab per accedere alle impostazioni.";
+"%lld%%" = "%lld%%";
+"Large preview size" = "Dimensione dell'anteprima grande";
+"The selected window's preview, floating above the switcher." = "L'anteprima della finestra selezionata, sospesa sopra il selettore.";
+"Liquid Glass" = "Liquid Glass";
+"A see-through glass panel. Uses the system's Liquid Glass on macOS 26 and later, and a similar look before." = "Un pannello di vetro trasparente. Usa il Liquid Glass di sistema da macOS 26 in poi e un aspetto simile nelle versioni precedenti.";
+"Clear" = "Trasparente";
+"Tinted" = "Colorato";
+"Glass" = "Vetro";
+"Clear is more transparent; Tinted is frosted, with more contrast." = "Trasparente lascia vedere di più; Colorato è smerigliato, con più contrasto.";

@@ -21,12 +21,11 @@ final class SwitcherPanelController {
 
     var isVisible: Bool { panel.isVisible }
 
-    private static let cornerRadius: CGFloat = 18
-
     private let model: SwitcherViewModel
     private let panel: SwitcherPanel
-    private let effectView: NSVisualEffectView
     private let hostingView: SwitcherHostingView
+    /// A shadow refresh is queued for after SwiftUI has drawn the latest change.
+    private var shadowRefreshPending = false
     private var screen: NSScreen?
     /// Top edge and horizontal centre of the panel for the current showing. Later
     /// resizes keep these fixed, so the search bar does not jump while typing.
@@ -55,26 +54,17 @@ final class SwitcherPanelController {
         panel.animationBehavior = .none
         panel.acceptsMouseMovedEvents = true
 
-        let effectView = NSVisualEffectView(frame: initialRect)
-        effectView.material = .hudWindow
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        effectView.maskImage = Self.roundedMask(radius: Self.cornerRadius)
-        effectView.wantsLayer = true
-        effectView.layer?.cornerRadius = Self.cornerRadius
-        effectView.layer?.masksToBounds = true
-        effectView.autoresizingMask = [.width, .height]
-
+        // The window itself is transparent; the SwiftUI content draws a backdrop (glass or
+        // blur) behind the main block and behind the preview card, and the window shadow
+        // follows those two shapes.
         let hostingView = SwitcherHostingView(rootView: SwitcherRootView(model: model))
         hostingView.sizingOptions = []
-        hostingView.frame = effectView.bounds
+        hostingView.frame = initialRect
         hostingView.autoresizingMask = [.width, .height]
-        effectView.addSubview(hostingView)
-        panel.contentView = effectView
+        panel.contentView = hostingView
 
         self.model = model
         self.panel = panel
-        self.effectView = effectView
         self.hostingView = hostingView
 
         model.inputHandler = { [weak self] input in
@@ -121,28 +111,33 @@ final class SwitcherPanelController {
     @discardableResult
     func update(session: SwitcherSession) -> Int {
         let layout = currentLayout(for: session)
+        let previewCardBefore = model.previewCardSize
         model.update(session: session, layout: layout)
         resizeIfNeeded(to: layout)
+        if model.previewCardSize != previewCardBefore { refreshShadowSoon() }
         return layout.columns
     }
 
     /// Window preview arrived (or nil to clear). Ignored when previews are off.
     /// When it is the selected item's, the large preview appears (or goes) at once.
     func setThumbnail(_ image: CGImage?, for id: ItemID) {
+        let previewCardBefore = model.previewCardSize
         model.setThumbnail(image, for: id)
-        if id == model.session.selectedItem?.id { relayoutForPreview() }
+        if id == model.session.selectedItem?.id { relayoutForPreview(previewCardBefore: previewCardBefore) }
     }
 
     /// A sharper image of a window for the large preview; only the latest is kept.
     func setLargePreview(_ image: CGImage?, for id: ItemID) {
+        let previewCardBefore = model.previewCardSize
         model.setLargePreview(image, for: id)
-        if id == model.session.selectedItem?.id { relayoutForPreview() }
+        if id == model.session.selectedItem?.id { relayoutForPreview(previewCardBefore: previewCardBefore) }
     }
 
     /// Drop all cached thumbnails (e.g. when previews get turned off).
     func clearThumbnails() {
+        let previewCardBefore = model.previewCardSize
         model.clearThumbnails()
-        relayoutForPreview()
+        relayoutForPreview(previewCardBefore: previewCardBefore)
     }
 
     /// Size in pixels of the box the large preview of the selected window gets in the
@@ -195,6 +190,7 @@ final class SwitcherPanelController {
             showsSearchBar: showsSearch,
             screenSize: screenSize,
             showsPreview: showsPreview,
+            previewScale: appearance.largePreviewScale,
             sectionHeaderCount: SwitcherViewModel.sectionHeaderIndices(for: session, appearance: appearance).count
         )
     }
@@ -219,13 +215,32 @@ final class SwitcherPanelController {
     }
 
     /// Re-lays out the shown session after the selected item's thumbnail came or went.
-    private func relayoutForPreview() {
+    /// The preview card can change shape without the panel changing size (another
+    /// window's proportions), so the shadow is refreshed whenever the card changed.
+    private func relayoutForPreview(previewCardBefore: CGSize) {
         guard panel.isVisible else { return }
         let session = model.session
         let layout = currentLayout(for: session)
-        guard layout != model.layout else { return }
-        model.update(session: session, layout: layout)
-        resizeIfNeeded(to: layout)
+        if layout != model.layout {
+            model.update(session: session, layout: layout)
+            resizeIfNeeded(to: layout)
+        }
+        if model.previewCardSize != previewCardBefore { refreshShadowSoon() }
+    }
+
+    /// Recomputes the window shadow from the drawn content once SwiftUI has rendered the
+    /// current state (the shadow follows the main block and the preview card).
+    private func refreshShadowSoon() {
+        guard !shadowRefreshPending else { return }
+        shadowRefreshPending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.shadowRefreshPending = false
+            guard self.panel.isVisible else { return }
+            self.hostingView.layoutSubtreeIfNeeded()
+            self.panel.displayIfNeeded()
+            self.panel.invalidateShadow()
+        }
     }
 
     /// Resizes a visible panel to `layout`, keeping the top edge and horizontal centre from `show`.
@@ -271,15 +286,15 @@ final class SwitcherPanelController {
     private func applyFrame(_ frame: NSRect) {
         if frame != panel.frame {
             panel.setFrame(frame, display: true, animate: false)
-            panel.invalidateShadow()
         }
     }
 
-    /// Pushes pending SwiftUI changes through before the panel becomes visible,
-    /// so it never flashes the previous session's content.
+    /// Pushes pending SwiftUI changes through before the panel becomes visible, so it
+    /// never flashes the previous session's content, then fits the shadow to what was drawn.
     private func renderNow() {
         hostingView.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()
+        panel.invalidateShadow()
     }
 
     private static func nsAppearance(for theme: Theme) -> NSAppearance? {
@@ -288,18 +303,5 @@ final class SwitcherPanelController {
         case .light: return NSAppearance(named: .aqua)
         case .dark: return NSAppearance(named: .darkAqua)
         }
-    }
-
-    /// Stretchable rounded-rect mask for the visual effect view.
-    private static func roundedMask(radius: CGFloat) -> NSImage {
-        let edge = radius * 2 + 1
-        let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
-        }
-        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        image.resizingMode = .stretch
-        return image
     }
 }
