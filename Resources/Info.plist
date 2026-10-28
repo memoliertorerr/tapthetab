@@ -8,6 +8,23 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>it</string>
+		<string>tr</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.memoliertorerr.TapTheTab</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tapthetab</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleName</key>
 	<string>TapTheTab</string>
 	<key>CFBundleDisplayName</key>

@@ -44,10 +44,25 @@ TapTheTab is not sandboxed (the App Sandbox does not allow controlling other app
 windows), but it is built with the hardened runtime and requests no extra
 entitlements.
 
+### Untrusted input
+
+- **`tapthetab://` links** can be opened by any app or web page (browsers ask first).
+  They are parsed strictly: only "open the switcher" (optionally with a search text
+  and a scope) and "open Settings" exist. The search text is length-limited and
+  stripped of control and bidirectional-override characters. No link can close,
+  quit, minimize or move anything.
+- **`config.json`** is read leniently: a bad value falls back to its default, and an
+  unreadable file is moved aside, never executed or partially trusted.
+- **Window titles** come from other apps and are only displayed, never interpreted;
+  they are not written to disk or to the public system log.
+
 ## Our privacy promise
 
 - **No network access.** TapTheTab never makes network connections: no update
-  checks, no crash reporting, no analytics.
+  checks, no crash reporting, no analytics. "Check for Updates…" only opens the
+  releases page in your browser.
+- **Search memory stays in memory.** What you picked for a search is remembered
+  only while TapTheTab runs and is never written to disk.
 - **No telemetry.** Nothing about you, your windows or your usage leaves your Mac.
 - **Local configuration only.** Settings are stored in
   `~/Library/Application Support/TapTheTab/config.json`, readable and writable only

@@ -153,6 +153,25 @@ fall back to defaults, and a file that can't be read is set aside as
 - **Styles:** `grid` or `list`. **Sizes:** `small`, `medium`, `large`.
   **Placement:** `mouse`, `activeWindow`, `main`.
 
+## Automation
+
+TapTheTab answers to `tapthetab://` links, so launchers (Raycast, Alfred), Shortcuts,
+Keyboard Maestro or a terminal can open it:
+
+| Link | Opens |
+|---|---|
+| `tapthetab://switch` | The switcher, locked open (no key to hold) |
+| `tapthetab://switch?query=slack` | The switcher, already searching for "slack" |
+| `tapthetab://switch?scope=activeApp` | Only the frontmost app's windows (`allWindows`, `activeApp`, `apps`) |
+| `tapthetab://settings` | Settings |
+
+```bash
+open "tapthetab://switch?query=pull%20request"
+```
+
+Links can only open TapTheTab's own windows; they can never close, quit or move
+anything.
+
 ## Permissions and privacy
 
 | Permission | Why | Required? |
