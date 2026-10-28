@@ -51,9 +51,9 @@
 | TT28 | Release v0.6.0 | checkpoint | ✅ done |
 | TT29 | Liquid Glass look for the switcher (setting; Clear or Tinted like the system's; a similar translucent look before macOS 26); CI and releases build with Xcode 26 *(maintainer approved 2026-10-28)* | auto | ✅ done |
 | TT30 | Large preview on its own card floating above the grid or list, smaller by default, with a size setting | auto | ✅ done |
-| TT31 | Release v0.7.0 | checkpoint | ⬜ todo |
+| TT31 | Release v0.7.0 | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.6.0 released. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big.
+**Overall status:** v0.1.0–v0.7.0 released. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must

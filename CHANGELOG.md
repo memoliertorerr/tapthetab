@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-28
+
 ### Added
 
 - Liquid Glass look for the switcher (Settings → Appearance → Liquid Glass), on by default: Clear (more see-through) or Tinted (frosted, more contrast), like the macOS setting. macOS 26 uses the system's glass; earlier versions get a similar translucent look. Turn it off for the classic dark panel.
@@ -114,7 +116,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...v0.4.0
