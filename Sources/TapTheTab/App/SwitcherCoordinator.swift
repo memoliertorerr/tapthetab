@@ -20,6 +20,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private var session: SwitcherSession?
     private var activeTrigger: Trigger?
     private var router = KeyRouter(triggerKeyCode: KeyCode.tab)
+    /// What was picked for which search, in memory only (never written to disk).
+    private var searchMemory = SearchMemory()
     private var screen: NSScreen?
     private var sessionToken = 0
     private var showTask: Task<Void, Never>?
@@ -136,7 +138,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             startsOnPrevious: configuration.behavior.startOnPrevious,
             locked: locked,
             columns: panel.columns(forItemCount: items.count, appearance: configuration.appearance, on: screen),
-            wrapsAround: configuration.behavior.wrapAround
+            wrapsAround: configuration.behavior.wrapAround,
+            searchMemory: searchMemory
         )
         if reverse { newSession.handle(.last) }
         session = newSession
@@ -178,6 +181,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
                 showPanel()
             }
         case .activate(let item):
+            if current.isSearching { searchMemory.record(query: current.query, picked: item) }
             let window = catalog.element(for: item.id)
             close()
             WindowActions.activate(item, window: window)
