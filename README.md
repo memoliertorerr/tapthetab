@@ -37,7 +37,7 @@ built around three goals:
 - **All windows, most recent first** — including minimized windows and hidden apps
   (each can be filtered out).
 - **Type to search** — fuzzy, case- and accent-insensitive, matches titles and app names,
-  highlights what matched.
+  highlights what matched, and remembers what you picked so it ranks first next time.
 - **Same-app switcher** — <kbd>⌥</kbd><kbd>\`</kbd> cycles only the frontmost app's windows.
 - **Act without switching** — close, minimize, fullscreen, hide or quit the selected
   window's app straight from the switcher.
@@ -48,6 +48,9 @@ built around three goals:
 - **Optional live previews** (macOS 14+, needs Screen Recording).
 - **Use ⌘⇥ if you like** — TapTheTab can take over the system shortcut while it runs and
   hands it back when it quits.
+- **Any shortcut you like** — record one in Settings, or edit the config.
+- **Always current** — window changes are watched live, so the list is right the moment
+  the switcher opens.
 - **Menu bar app** with Settings, pause/resume and launch at login.
 - **Hand-editable config** that is reloaded live when you save it.
 

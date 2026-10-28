@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-28
+
+### Added
+
+- Search remembers what you picked: choose a window after typing `sl` and it ranks first the next time you type `s` or `sl`. Kept in memory only, never written to disk.
+- Record any shortcut in Settings → General (click the shortcut, press the new one). Common system shortcuts get a warning; presets are still one click away.
+- Live window list: TapTheTab now watches each app's windows, so the switcher opens with an up-to-date list and drops windows closed elsewhere while it is open.
+- Homebrew: `brew tap memoliertorerr/tapthetab https://github.com/memoliertorerr/tapthetab && brew install --cask tapthetab`.
+- "Check for Updates…" in the menu bar and in Settings → About. It only opens the releases page; TapTheTab still never goes online itself.
+
+### Changed
+
+- The switcher keeps its top edge in place while you type instead of re-centring on every keystroke.
+- Hovering no longer steals the selection right after you move it with the keyboard.
+- ↓ from a card above a gap in the last grid row selects the last card instead of jumping to the top.
+- Matches are highlighted in both the title and the app name when both contain the search.
+
+### Fixed
+
+- The same-app switcher (⌥`) shows the app itself when it has no windows, instead of an empty panel.
+
 ## [0.1.0] - 2026-10-28
 
 ### Added
@@ -21,5 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/memoliertorerr/tapthetab/releases/tag/v0.1.0
