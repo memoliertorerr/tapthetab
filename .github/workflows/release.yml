@@ -1,0 +1,340 @@
+name: Release
+
+# Two ways to release version X.Y.Z (VERSION and CHANGELOG.md must already say X.Y.Z):
+#   - push a tag:       git tag vX.Y.Z && git push origin vX.Y.Z
+#   - run it manually:  Actions → Release → Run workflow, version = X.Y.Z.
+#                       The workflow creates the tag vX.Y.Z on the selected commit.
+#
+# Developer ID signing + notarization happen only when all of these repository
+# secrets exist; otherwise the build is ad-hoc signed and the release notes
+# explain how to open an unnotarized app:
+#   MACOS_CERT_P12_BASE64  base64 of the "Developer ID Application" .p12
+#   MACOS_CERT_PASSWORD    password of that .p12
+#   MACOS_SIGN_IDENTITY    e.g. "Developer ID Application: Jane Doe (TEAMID1234)"
+#   NOTARY_KEY_ID          App Store Connect API key ID
+#   NOTARY_ISSUER_ID       App Store Connect API issuer ID
+#   NOTARY_KEY_P8_BASE64   base64 of the AuthKey_<id>.p8 file
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (must match the VERSION file), e.g. 0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    timeout-minutes: 75
+    permissions:
+      contents: write # create the tag (manual runs) and the GitHub release
+    env:
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # build number + tag checks need full history and tags
+          persist-credentials: false
+
+      - name: Resolve version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$INPUT_VERSION"
+          elif [[ "$REF_TYPE" == "tag" && "$REF_NAME" == v* ]]; then
+            version="${REF_NAME#v}"
+          else
+            echo "::error::Unexpected trigger: $EVENT_NAME on $REF_TYPE '$REF_NAME'"
+            exit 1
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$version' is not a valid version (expected MAJOR.MINOR.PATCH[-prerelease], no leading v)"
+            exit 1
+          fi
+
+          file_version="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$file_version" != "$version" ]]; then
+            echo "::error::VERSION file says '$file_version' but the release is '$version'. Bump VERSION (and CHANGELOG.md) first."
+            exit 1
+          fi
+
+          tag="v$version"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            existing="$(git rev-parse -q --verify "refs/tags/$tag^{commit}" || true)"
+            if [[ -n "$existing" && "$existing" != "$GITHUB_SHA" ]]; then
+              echo "::error::Tag $tag already exists on $existing, not on the selected commit $GITHUB_SHA."
+              exit 1
+            fi
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::error::A GitHub release for $tag already exists."
+            exit 1
+          fi
+
+          prerelease=false
+          [[ "$version" == *-* ]] && prerelease=true
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag (prerelease: $prerelease) from $GITHUB_SHA"
+
+      - name: Select Xcode 16
+        run: scripts/select-xcode.sh 16
+
+      - name: Test
+        run: swift test
+
+      - name: Check signing secrets
+        id: signing
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          enabled=true
+          for name in MACOS_CERT_P12_BASE64 MACOS_CERT_PASSWORD MACOS_SIGN_IDENTITY \
+                      NOTARY_KEY_ID NOTARY_ISSUER_ID NOTARY_KEY_P8_BASE64; do
+            if [[ -z "${!name:-}" ]]; then
+              enabled=false
+            fi
+          done
+          echo "enabled=$enabled" >> "$GITHUB_OUTPUT"
+          if [[ "$enabled" == true ]]; then
+            echo "Developer ID signing and notarization: enabled"
+          else
+            echo "::notice::Signing secrets not configured: this release will be ad-hoc signed and not notarized."
+          fi
+
+      - name: Import signing certificate and notary key
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          signing_dir="$RUNNER_TEMP/signing"
+          mkdir -p "$signing_dir"
+          keychain="$signing_dir/tapthetab-signing.keychain-db"
+          cert="$signing_dir/certificate.p12"
+          notary_key="$signing_dir/AuthKey.p8"
+
+          # Random throwaway password for the temporary keychain.
+          keychain_password="$(openssl rand -hex 32)"
+          echo "::add-mask::$keychain_password"
+
+          printf '%s' "$MACOS_CERT_P12_BASE64" | tr -d '\r\n ' | base64 --decode > "$cert"
+          printf '%s' "$NOTARY_KEY_P8_BASE64" | tr -d '\r\n ' | base64 --decode > "$notary_key"
+
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$cert" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -f pkcs12 \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+            -k "$keychain_password" "$keychain" > /dev/null
+          rm -f "$cert"
+
+          # Put the temporary keychain first in the search list, keeping the others.
+          search_list=("$keychain")
+          while IFS= read -r line; do
+            line="$(echo "$line" | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')"
+            if [[ -n "$line" && "$line" != "$keychain" ]]; then
+              search_list+=("$line")
+            fi
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "${search_list[@]}"
+
+          if ! security find-identity -v -p codesigning "$keychain" | grep -qF -- "$MACOS_SIGN_IDENTITY"; then
+            echo "::error::MACOS_SIGN_IDENTITY was not found among the code-signing identities in the imported certificate."
+            exit 1
+          fi
+
+          # The keychain is on the search list, so codesign finds the identity
+          # (and the runner's Apple intermediate certificates) without --keychain.
+          echo "NOTARY_KEY_PATH=$notary_key" >> "$GITHUB_ENV"
+
+      - name: Build universal app
+        env:
+          SIGNING_ENABLED: ${{ steps.signing.outputs.enabled }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [[ "$SIGNING_ENABLED" == true ]]; then
+            scripts/build-app.sh --universal --sign "$MACOS_SIGN_IDENTITY"
+          else
+            scripts/build-app.sh --universal
+          fi
+
+      - name: Package
+        env:
+          SIGNING_ENABLED: ${{ steps.signing.outputs.enabled }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: |
+          set -euo pipefail
+          if [[ "$SIGNING_ENABLED" == true ]]; then
+            scripts/package.sh --sign-dmg "$MACOS_SIGN_IDENTITY"
+          else
+            scripts/package.sh
+          fi
+
+      - name: Notarize and staple
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: scripts/notarize.sh --sign "$MACOS_SIGN_IDENTITY"
+
+      - name: Write release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          NOTARIZED: ${{ steps.signing.outputs.enabled }}
+        run: |
+          set -euo pipefail
+          notes="$RUNNER_TEMP/release-notes.md"
+
+          # Section "## [VERSION] - DATE" of CHANGELOG.md, up to the next "## " heading,
+          # without link reference lines, trimmed of leading/trailing blank lines.
+          section=""
+          if [[ -f CHANGELOG.md ]]; then
+            section="$(awk -v ver="$VERSION" '
+              BEGIN { head = "## [" ver "]" }
+              /^## / {
+                if (found) exit
+                rest = substr($0, length(head) + 1, 1)
+                if (index($0, head) == 1 && (rest == "" || rest == " ")) { found = 1; next }
+              }
+              found && /^\[.*\]: / { next }
+              found { lines[++n] = $0 }
+              END {
+                first = 1; while (first <= n && lines[first] ~ /^[[:space:]]*$/) first++
+                last = n;  while (last >= first && lines[last] ~ /^[[:space:]]*$/) last--
+                for (i = first; i <= last; i++) print lines[i]
+              }
+            ' CHANGELOG.md)"
+          fi
+
+          {
+            if [[ -n "$section" ]]; then
+              printf '%s\n' "$section"
+            else
+              echo "See [CHANGELOG.md](https://github.com/$GH_REPO/blob/main/CHANGELOG.md) for details."
+            fi
+            echo
+            echo "### Install"
+            echo
+            echo "1. Download \`TapTheTab-$VERSION.dmg\` (or the \`.zip\`) and drag **TapTheTab** into **Applications**."
+            echo "2. Open TapTheTab. It lives in the menu bar (no Dock icon)."
+            echo "3. Grant **Accessibility** when asked (System Settings → Privacy & Security → Accessibility)."
+            echo "   **Screen Recording** is optional and only needed for live window previews."
+            echo
+            echo "Requires macOS 13 Ventura or later, Apple silicon or Intel."
+            if [[ "$NOTARIZED" != true ]]; then
+              echo
+              echo "#### This build is not notarized"
+              echo
+              echo "It is ad-hoc signed, not signed with an Apple Developer ID, so macOS Gatekeeper blocks the first launch. To open it anyway, use one of:"
+              echo
+              echo "- **System Settings → Privacy & Security**, scroll down to the message about TapTheTab and click **Open Anyway** (required on macOS 15 Sequoia and later)."
+              echo "- On macOS 13–14: right-click (Control-click) TapTheTab in Applications, choose **Open**, then **Open** again."
+              echo "- Or in Terminal: \`xattr -dr com.apple.quarantine /Applications/TapTheTab.app\`"
+              echo
+              echo "After updating an ad-hoc signed build, macOS may treat it as a new app: if the shortcut stops working, remove TapTheTab from the Accessibility list and add it again."
+            fi
+            echo
+            echo "### Verify the download"
+            echo
+            echo "In the folder you downloaded to (with \`SHA256SUMS.txt\` next to the file):"
+            echo
+            echo '```sh'
+            echo "grep TapTheTab-$VERSION.dmg SHA256SUMS.txt | shasum -a 256 -c"
+            echo '```'
+          } > "$notes"
+
+          cat "$notes"
+
+      - name: Create tag (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "Tag $TAG already exists on this commit; reusing it."
+          else
+            # Created through the API with the job token, so the checkout never holds
+            # push credentials. Tags created by GITHUB_TOKEN do not trigger another
+            # run of this workflow.
+            gh api --method POST "repos/$GH_REPO/git/refs" \
+              -f "ref=refs/tags/$TAG" \
+              -f "sha=$GITHUB_SHA" > /dev/null
+            echo "Created tag $TAG at $GITHUB_SHA"
+          fi
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          args=(
+            release create "$TAG"
+            "dist/TapTheTab-$VERSION.zip"
+            "dist/TapTheTab-$VERSION.dmg"
+            "dist/SHA256SUMS.txt"
+            --title "TapTheTab $VERSION"
+            --notes-file "$RUNNER_TEMP/release-notes.md"
+            --verify-tag
+          )
+          if [[ "$PRERELEASE" == true ]]; then
+            args+=(--prerelease)
+          fi
+          gh "${args[@]}"
+
+      - name: Clean up signing material
+        if: always()
+        run: |
+          signing_dir="$RUNNER_TEMP/signing"
+          keychain="$signing_dir/tapthetab-signing.keychain-db"
+          if [[ -f "$keychain" ]]; then
+            security delete-keychain "$keychain" || true
+          fi
+          rm -rf "$signing_dir"
