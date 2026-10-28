@@ -53,6 +53,15 @@ built around three goals:
 
 ## Install
 
+**Homebrew**
+
+```bash
+brew tap memoliertorerr/tapthetab https://github.com/memoliertorerr/tapthetab
+brew install --cask tapthetab
+```
+
+**Manually**
+
 1. Download `TapTheTab-<version>.dmg` (or `.zip`) from the
    [latest release](https://github.com/memoliertorerr/tapthetab/releases/latest).
 2. Drag **TapTheTab** into **Applications** and open it.

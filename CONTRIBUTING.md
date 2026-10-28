@@ -73,3 +73,7 @@ suffix such as `0.2.0-beta.1` are published as pre-releases. Builds are signed
 with a Developer ID and notarized only when the signing secrets listed at the top
 of `.github/workflows/release.yml` are configured; otherwise they are ad-hoc
 signed and the release notes explain how to open them.
+
+4. Update the Homebrew cask with the new version and the dmg's checksum from the
+   release's `SHA256SUMS.txt`, and merge that:
+   `scripts/update-cask.sh 0.2.0 <sha256-of-TapTheTab-0.2.0.dmg>`.
