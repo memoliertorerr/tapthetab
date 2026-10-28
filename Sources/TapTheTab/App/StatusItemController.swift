@@ -31,6 +31,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         statusItem.menu = menu
     }
 
+    /// Hidden on request; opening the app again (or tapthetab://settings) shows Settings.
+    func setVisible(_ visible: Bool) {
+        if statusItem.isVisible != visible { statusItem.isVisible = visible }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 

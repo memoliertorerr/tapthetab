@@ -135,6 +135,7 @@ fall back to defaults, and a file that can't be read is set aside as
     "size": "medium",
     "showPreviews": false,
     "showAppName": true,
+    "showMenuBarIcon": true,
     "theme": "system",
     "placement": "mouse",
     "showDelayMilliseconds": 90

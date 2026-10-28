@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Option to hide the menu bar icon (Settings → Appearance). Open TapTheTab again, or use `tapthetab://settings`, to get back to Settings.
+
 ## [0.4.0] - 2026-10-28
 
 ### Added

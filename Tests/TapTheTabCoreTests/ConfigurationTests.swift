@@ -279,4 +279,11 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(c.trigger(matching: .optionTab)?.scope, .allWindows)
         XCTAssertNil(c.trigger(matching: .commandTab))
     }
+
+    func testMenuBarIconDefaultsToShownAndDecodes() throws {
+        XCTAssertTrue(Configuration().appearance.showMenuBarIcon)
+        XCTAssertTrue(try decode("{}").appearance.showMenuBarIcon)
+        XCTAssertFalse(try decode(#"{"appearance": {"showMenuBarIcon": false}}"#).appearance.showMenuBarIcon)
+        XCTAssertTrue(try decode(#"{"appearance": {"showMenuBarIcon": "no"}}"#).appearance.showMenuBarIcon, "bad value falls back")
+    }
 }

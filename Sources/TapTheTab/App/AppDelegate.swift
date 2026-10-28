@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             accessibilityGranted: { [weak self] in self?.permissions.accessibilityGranted ?? false }
         ))
 
+        statusItem?.setVisible(configuration.configuration.appearance.showMenuBarIcon)
         installTerminationSignalHandlers()
 
         if permissions.accessibilityGranted {
@@ -187,6 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func settingsChanged(_ newValue: Configuration) {
         let applied = configuration.update(newValue)
         coordinator.apply(configuration: applied)
+        statusItem?.setVisible(applied.appearance.showMenuBarIcon)
         if applied != newValue {
             // Validation changed something; show the user what is actually in effect.
             settings?.update(configuration: applied)
@@ -195,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configurationChangedOnDisk(_ newValue: Configuration) {
         coordinator.apply(configuration: newValue)
+        statusItem?.setVisible(newValue.appearance.showMenuBarIcon)
         settings?.update(configuration: newValue)
     }
 

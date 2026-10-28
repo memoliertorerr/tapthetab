@@ -44,6 +44,17 @@ struct AppearanceSettingsView: View {
             }
 
             Section {
+                Toggle(isOn: $model.configuration.appearance.showMenuBarIcon) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.tr("Show menu bar icon"))
+                        Text(L10n.tr("When hidden, open TapTheTab again to get to Settings."))
+                            .font(.caption)
+                            .foregroundColor(Color.secondary)
+                    }
+                }
+            }
+
+            Section {
                 Picker(L10n.tr("Theme"), selection: $model.configuration.appearance.theme) {
                     Text(L10n.tr("System")).tag(Theme.system)
                     Text(L10n.tr("Light")).tag(Theme.light)

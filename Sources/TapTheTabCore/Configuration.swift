@@ -51,6 +51,9 @@ public struct Appearance: Codable, Equatable, Sendable {
     /// Live window previews. Needs the Screen Recording permission on macOS.
     public var showPreviews: Bool = false
     public var showAppName: Bool = true
+    /// The menu bar icon. When hidden, opening TapTheTab again (or tapthetab://settings)
+    /// shows Settings.
+    public var showMenuBarIcon: Bool = true
     public var theme: Theme = .system
     public var placement: DisplayPlacement = .mouse
     /// Delay before the panel appears. A quick tap within this time switches without
@@ -66,6 +69,7 @@ public struct Appearance: Codable, Equatable, Sendable {
         size = c.lenient(ItemSize.self, .size) ?? d.size
         showPreviews = c.lenient(Bool.self, .showPreviews) ?? d.showPreviews
         showAppName = c.lenient(Bool.self, .showAppName) ?? d.showAppName
+        showMenuBarIcon = c.lenient(Bool.self, .showMenuBarIcon) ?? d.showMenuBarIcon
         theme = c.lenient(Theme.self, .theme) ?? d.theme
         placement = c.lenient(DisplayPlacement.self, .placement) ?? d.placement
         showDelayMilliseconds = c.lenient(Int.self, .showDelayMilliseconds) ?? d.showDelayMilliseconds
