@@ -168,7 +168,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             windowCount: counts.windows,
             appCount: counts.apps,
             watchedAppCount: counts.watchedApps,
-            configuration: configuration.configuration
+            configuration: configuration.configuration,
+            otherSpacesListingAvailable: PrivateAPI.canListOtherSpaces,
+            focusAcrossSpacesAvailable: PrivateAPI.canFocusAcrossSpaces,
+            missingPrivateSymbols: PrivateAPI.missingSymbols
         )
     }
 

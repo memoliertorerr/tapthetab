@@ -42,7 +42,9 @@ MIT licensed. No network access and no telemetry — that is a product promise, 
    in `System/PrivateAPI.swift` (`dlsym`, never `@_silgen_name`, which would stop the app
    from launching if Apple removed the symbol), handle a missing symbol by disabling only
    that feature, and list them in `docs/ARCHITECTURE.md`. Current list:
-   `_AXUIElementGetWindow`, `CGSSetSymbolicHotKeyEnabled`.
+   `_AXUIElementGetWindow`, `CGSSetSymbolicHotKeyEnabled`, `CGSMainConnectionID`,
+   `CGSCopyManagedDisplaySpaces`, `CGSCopyWindowsWithOptionsAndTags`, `GetProcessForPID`
+   (public but deprecated), `_SLPSSetFrontProcessWithOptions`, `SLPSPostEventRecordTo`.
 8. **Never weaken a test to get green.** Change a test only when the behaviour change is
    intended, and say so in the commit message.
 9. **Commits:** Conventional Commit style (`feat:`, `fix:`, `docs:`, `ci:`, `test:`,

@@ -89,6 +89,11 @@ struct FiltersSettingsView: View {
                 Toggle(L10n.tr("Show apps without windows"), isOn: $model.configuration.filters.showWindowlessApps)
                 Toggle(L10n.tr("Only windows on the current Space"), isOn: $model.configuration.filters.currentSpaceOnly)
                 Toggle(L10n.tr("Only windows on the current display"), isOn: $model.configuration.filters.currentDisplayOnly)
+                Toggle(isOn: $model.configuration.filters.showOtherSpaces) {
+                    // A second Text in a grouped form's label is shown as its subtitle.
+                    Text(L10n.tr("Show windows on other Spaces"))
+                    Text(L10n.tr("Uses private macOS interfaces; may change with macOS updates."))
+                }
             } header: {
                 Text(L10n.tr("Show"))
             }

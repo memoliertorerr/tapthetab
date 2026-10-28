@@ -90,3 +90,9 @@ symbol missing from a future macOS disables one feature instead of preventing la
 |---|---|---|
 | `_AXUIElementGetWindow` | Map an AX window to its window-server ID (needed to join AX data with z-order and to capture previews). | Window is skipped. |
 | `CGSSetSymbolicHotKeyEnabled` | ⌘⇥ is consumed by the Window Server before event taps; the system shortcut must be switched off to use it as a trigger. | ⌘⇥ keeps opening the system switcher. |
+| `CGSMainConnectionID` | The process's window-server connection, which the two Space calls below take. | Other Spaces' windows are not listed. |
+| `CGSCopyManagedDisplaySpaces` | Every Space per display, including fullscreen Spaces, and which one is shown (only with "Show windows on other Spaces"). | Other Spaces' windows are not listed. |
+| `CGSCopyWindowsWithOptionsAndTags` | The windows of each Space; the Accessibility API only reports the current Space's windows for most apps. | Other Spaces' windows are not listed. |
+| `GetProcessForPID` | Public but deprecated; looked up at runtime so the build stays warning-free. Gives the process serial number the two calls below take. | Windows on other Spaces are focused through the public path (the app is activated, its Space may not switch). |
+| `_SLPSSetFrontProcessWithOptions` | Makes the app frontmost with the chosen window, switching to that window's Space (only with "Show windows on other Spaces"). | Same as above. |
+| `SLPSPostEventRecordTo` | Makes the chosen window key (a 0x100-byte event record, posted twice). | Same as above. |

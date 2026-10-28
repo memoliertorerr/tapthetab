@@ -34,6 +34,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         self.permissions = permissions
         super.init()
         panel.onInput = { [weak self] input in self?.handle(input) }
+        configureCatalog()
     }
 
     // MARK: - Lifecycle
@@ -85,6 +86,15 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             panel.clearThumbnails()
         }
         close()
+        let listedOtherSpaces = catalog.includesOtherSpaces
+        configureCatalog()
+        // Add or drop other Spaces' windows now, not at the next window change.
+        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces { windowsChanged() }
+    }
+
+    /// Windows on other Spaces are listed only when shown and not filtered out anyway.
+    private func configureCatalog() {
+        catalog.includesOtherSpaces = configuration.filters.showOtherSpaces && !configuration.filters.currentSpaceOnly
     }
 
     /// Opens the switcher from the menu bar, locked open (no modifier to release).
@@ -237,7 +247,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             if current.isSearching { searchMemory.record(query: current.query, picked: item) }
             let window = catalog.element(for: item.id) ?? lookUpWindow(item)
             close()
-            WindowActions.activate(item, window: window)
+            WindowActions.activate(item, window: window, acrossSpaces: configuration.filters.showOtherSpaces)
             focus.touch(item.id)
         case .perform(let action, let item):
             perform(action, on: item)
@@ -248,7 +258,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     private func perform(_ action: WindowAction, on item: SwitcherItem) {
-        let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id))
+        let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id), acrossSpaces: configuration.filters.showOtherSpaces)
         guard ok, var current = session else {
             if !ok { NSSound.beep() }
             return
