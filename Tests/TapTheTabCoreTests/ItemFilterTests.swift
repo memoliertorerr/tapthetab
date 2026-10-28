@@ -126,6 +126,50 @@ final class ItemFilterTests: XCTestCase {
         )
     }
 
+    func testActiveAppScopeWithWindowlessFrontmostAppShowsItsEntry() {
+        // Windowless apps are hidden by default, but an empty panel helps nobody.
+        let items = [window(1, pid: 2), windowlessApp(pid: 1, app: "Finder"), windowlessApp(pid: 3)]
+        XCTAssertEqual(
+            apply(items, scope: .activeApp, context: FilterContext(activePID: 1)),
+            [.app(pid: 1)]
+        )
+    }
+
+    func testActiveAppScopeFallsBackWhenAllWindowsAreFilteredOut() {
+        let items = [window(1, pid: 1, minimized: true), windowlessApp(pid: 1)]
+        XCTAssertEqual(
+            apply(items, options: FilterOptions(showMinimized: false), scope: .activeApp, context: FilterContext(activePID: 1)),
+            [.app(pid: 1)]
+        )
+    }
+
+    func testActiveAppScopeWithoutWindowlessEntryStaysEmpty() {
+        let items = [window(1, pid: 2), windowlessApp(pid: 3)]
+        XCTAssertEqual(apply(items, scope: .activeApp, context: FilterContext(activePID: 1)), [])
+    }
+
+    func testActiveAppScopeFallbackStillHonoursExclusionsAndOwnPID() {
+        let items = [windowlessApp(pid: 1, bundle: "com.example.x")]
+        XCTAssertEqual(
+            apply(items, options: FilterOptions(excludedBundleIDs: ["com.example.x"]), scope: .activeApp, context: FilterContext(activePID: 1)),
+            []
+        )
+        XCTAssertEqual(
+            apply(items, scope: .activeApp, context: FilterContext(activePID: 1, ownPID: 1)),
+            []
+        )
+        let hidden = [windowlessApp(pid: 1, hidden: true)]
+        XCTAssertEqual(
+            apply(hidden, options: FilterOptions(showHiddenApps: false), scope: .activeApp, context: FilterContext(activePID: 1)),
+            []
+        )
+    }
+
+    func testActiveAppScopeWithWindowsNeverAddsWindowlessEntry() {
+        let items = [window(1, pid: 1), windowlessApp(pid: 1)]
+        XCTAssertEqual(apply(items, scope: .activeApp, context: FilterContext(activePID: 1)), [.window(1)])
+    }
+
     func testActiveAppScopeWithoutActivePIDKeepsEverything() {
         let items = [window(1, pid: 1), window(2, pid: 2)]
         XCTAssertEqual(apply(items, scope: .activeApp), [.window(1), .window(2)])

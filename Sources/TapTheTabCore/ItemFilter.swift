@@ -71,10 +71,10 @@ public enum ItemFilter {
         context: FilterContext
     ) -> [SwitcherItem] {
         let excluded = Set(options.excludedBundleIDs.map { $0.lowercased() })
-        var result = items.filter { item in
+        func passes(_ item: SwitcherItem, allowWindowless: Bool) -> Bool {
             if let own = context.ownPID, item.pid == own { return false }
             if let bundle = item.bundleID, excluded.contains(bundle.lowercased()) { return false }
-            if item.isWindowless && !options.showWindowlessApps { return false }
+            if item.isWindowless && !options.showWindowlessApps && !allowWindowless { return false }
             if item.isMinimized && !options.showMinimized { return false }
             if item.isAppHidden && !options.showHiddenApps { return false }
             if options.currentSpaceOnly && !item.isOnActiveSpace && !item.isMinimized && !item.isAppHidden && !item.isWindowless {
@@ -86,6 +86,7 @@ public enum ItemFilter {
             }
             return true
         }
+        var result = items.filter { passes($0, allowWindowless: false) }
 
         switch scope {
         case .allWindows:
@@ -93,6 +94,14 @@ public enum ItemFilter {
         case .activeApp:
             if let pid = context.activePID {
                 result = result.filter { $0.pid == pid && !$0.isWindowless }
+                // A frontmost app with no (remaining) windows would leave an empty panel:
+                // show its windowless entry instead, even when windowless apps are hidden,
+                // so it can be activated (which reopens a window). Every other filter,
+                // including exclusions and our own PID, still applies.
+                if result.isEmpty,
+                   let app = items.first(where: { $0.pid == pid && $0.isWindowless && passes($0, allowWindowless: true) }) {
+                    result = [app]
+                }
             }
         case .apps:
             var seen = Set<Int32>()
