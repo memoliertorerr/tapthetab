@@ -28,6 +28,9 @@ final class SwitcherPanelController {
     private let effectView: NSVisualEffectView
     private let hostingView: SwitcherHostingView
     private var screen: NSScreen?
+    /// Top edge and horizontal centre of the panel for the current showing. Later
+    /// resizes keep these fixed, so the search bar does not jump while typing.
+    private var anchor: (top: CGFloat, midX: CGFloat)?
 
     init() {
         let model = SwitcherViewModel()
@@ -100,13 +103,16 @@ final class SwitcherPanelController {
 
         let layout = Self.layout(for: session, appearance: appearance, screenSize: screen.visibleFrame.size)
         model.present(session: session, appearance: appearance, behavior: behavior, layout: layout)
-        applyFrame(size: layout.panelSize, on: screen)
+        let frame = Self.centredFrame(size: layout.panelSize, in: screen.visibleFrame)
+        anchor = (top: frame.maxY, midX: frame.midX)
+        applyFrame(frame)
         renderNow()
         panel.orderFrontRegardless()
         return layout.columns
     }
 
-    /// Re-renders with a new session state (selection, query, items). Resizes/recentres if needed. Returns columns.
+    /// Re-renders with a new session state (selection, query, items). Resizes if needed,
+    /// keeping the top edge and horizontal centre from `show`. Returns columns.
     @discardableResult
     func update(session: SwitcherSession) -> Int {
         let screenSize: CGSize = (screen ?? NSScreen.main)?.visibleFrame.size ?? SwitcherLayout.fallbackScreenSize
@@ -116,7 +122,14 @@ final class SwitcherPanelController {
         if panel.isVisible, let screen {
             let current = panel.frame.size
             if current.width != layout.panelSize.width || current.height != layout.panelSize.height {
-                applyFrame(size: layout.panelSize, on: screen)
+                let visible = screen.visibleFrame
+                let frame: NSRect
+                if let anchor {
+                    frame = Self.anchoredFrame(size: layout.panelSize, top: anchor.top, midX: anchor.midX, in: visible)
+                } else {
+                    frame = Self.centredFrame(size: layout.panelSize, in: visible)
+                }
+                applyFrame(frame)
                 renderNow()
                 // Cards moved under a resting pointer must not count as hover.
                 model.resetHoverBaseline()
@@ -136,6 +149,7 @@ final class SwitcherPanelController {
     }
 
     func hide() {
+        anchor = nil
         panel.orderOut(nil)
     }
 
@@ -152,15 +166,29 @@ final class SwitcherPanelController {
         )
     }
 
-    private func applyFrame(size: CGSize, on screen: NSScreen) {
-        let visible = screen.visibleFrame
+    /// Centred in `visible`, at most as large as it.
+    private static func centredFrame(size: CGSize, in visible: NSRect) -> NSRect {
         let width = min(size.width, visible.width)
         let height = min(size.height, visible.height)
         let origin = NSPoint(
             x: (visible.midX - width / 2).rounded(),
             y: (visible.midY - height / 2).rounded()
         )
-        let frame = NSRect(origin: origin, size: NSSize(width: width, height: height))
+        return NSRect(origin: origin, size: NSSize(width: width, height: height))
+    }
+
+    /// Top edge at `top` and centred on `midX`, shifted as little as needed to stay inside `visible`.
+    private static func anchoredFrame(size: CGSize, top: CGFloat, midX: CGFloat, in visible: NSRect) -> NSRect {
+        let width = min(size.width, visible.width)
+        let height = min(size.height, visible.height)
+        var x = (midX - width / 2).rounded()
+        x = min(max(x, visible.minX), visible.maxX - width)
+        var y = (top - height).rounded()
+        y = min(max(y, visible.minY), visible.maxY - height)
+        return NSRect(x: x, y: y, width: width, height: height)
+    }
+
+    private func applyFrame(_ frame: NSRect) {
         if frame != panel.frame {
             panel.setFrame(frame, display: true, animate: false)
             panel.invalidateShadow()

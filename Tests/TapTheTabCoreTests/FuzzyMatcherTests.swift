@@ -186,6 +186,43 @@ final class FuzzyMatcherTests: XCTestCase {
         XCTAssertEqual(characters(of: item.displayTitle, at: m.titleIndices), "Calc")
     }
 
+    func testTokenHittingBothFieldsHighlightsBoth() throws {
+        let title = "Slack — general"
+        let m = try XCTUnwrap(match("slack", app: "Slack", title: title))
+        XCTAssertEqual(characters(of: "Slack", at: m.appNameIndices), "Slack")
+        XCTAssertEqual(characters(of: title, at: m.titleIndices), "Slack")
+        // Scoring is unchanged: only the better field (the app name, +8 bonus) counts.
+        let appOnly = try XCTUnwrap(match("slack", app: "Slack", title: "Inbox — general"))
+        XCTAssertEqual(m.score, appOnly.score)
+    }
+
+    func testTitleWinsAndAppNameIsHighlightedToo() throws {
+        let m = try XCTUnwrap(match("notes", app: "Sticky Notes", title: "Notes"))
+        XCTAssertEqual(characters(of: "Notes", at: m.titleIndices), "Notes")
+        XCTAssertEqual(characters(of: "Sticky Notes", at: m.appNameIndices), "Notes")
+    }
+
+    func testScatteredHitInLosingFieldIsNotHighlighted() throws {
+        // "mail" is a scattered subsequence of the title; highlighting it would be noise.
+        let m = try XCTUnwrap(match("mail", app: "Mail", title: "my alpha in lab"))
+        XCTAssertEqual(m.appNameIndices, [0, 1, 2, 3])
+        XCTAssertEqual(m.titleIndices, [])
+    }
+
+    func testBothFieldsHighlightedPerTokenWithMultipleTokens() throws {
+        let title = "Slack huddle — design"
+        let m = try XCTUnwrap(match("slack design", app: "Slack", title: title))
+        XCTAssertEqual(characters(of: "Slack", at: m.appNameIndices), "Slack")
+        XCTAssertEqual(characters(of: title, at: m.titleIndices), "Slackdesign")
+    }
+
+    func testIsContiguous() {
+        XCTAssertTrue(FuzzyMatcher.isContiguous([3]))
+        XCTAssertTrue(FuzzyMatcher.isContiguous([3, 4, 5]))
+        XCTAssertFalse(FuzzyMatcher.isContiguous([3, 5]))
+        XCTAssertFalse(FuzzyMatcher.isContiguous([]))
+    }
+
     func testIndicesAreUniqueWhenTokensOverlap() throws {
         let m = try XCTUnwrap(match("git github", app: "X", title: "GitHub"))
         XCTAssertEqual(m.titleIndices, Array(Set(m.titleIndices)).sorted())

@@ -25,18 +25,18 @@
 | TT4 | macOS UI layer: switcher panel, grid + list, settings, onboarding | auto | ✅ done |
 | TT5 | CI (Linux core + macOS build), app bundle + icon, packaging, tag-driven release workflow, security docs | auto | ✅ done |
 | TT6 | First green macOS CI build; fix compile errors surfaced there | checkpoint | ✅ done |
-| TT7 | Release v0.1.0 | checkpoint | ⬜ todo |
-| TT8 | Live window cache: per-app `AXObserver`s for window created / destroyed / title / minimized, so the list is correct the instant the panel opens | auto | ⬜ todo |
-| TT9 | Shortcut recorder in Settings (any key + modifiers), conflict warnings | auto | ⬜ todo |
-| TT10 | Frecency for search: remember which window was picked for a query prefix and boost it | auto | ⬜ todo |
-| TT11 | Homebrew cask in a tap repo, documented in README | checkpoint | ⬜ todo |
+| TT7 | Release v0.1.0 | checkpoint | ✅ done |
+| TT8 | Live window cache: per-app `AXObserver`s for window created / destroyed / title / minimized, so the list is correct the instant the panel opens | auto | ✅ done |
+| TT9 | Shortcut recorder in Settings (any key + modifiers), conflict warnings | auto | ✅ done |
+| TT10 | Frecency for search: remember which window was picked for a query prefix and boost it | auto | ✅ done |
+| TT11 | Homebrew cask (in this repo, tapped by URL), documented in README | checkpoint | ✅ done |
 | TT12 | Release v0.2.0 | checkpoint | ⬜ todo |
 | TT13 | Windows on other Spaces (private CGS space APIs behind a setting), Space badge on cards | auto | ⬜ todo |
 | TT14 | Large preview of the selected window on hover/selection (previews mode) | auto | ⬜ todo |
 | TT15 | VoiceOver pass and localization scaffolding (English + Italian + Turkish) | checkpoint | ⬜ todo |
 | TT16 | Release v0.3.0 | checkpoint | ⬜ todo |
 
-**Overall status:** phase 1 complete and green on CI (Linux core + macOS universal build); releasing v0.1.0 (TT7).
+**Overall status:** v0.1.0 released; phase 2 complete and green on CI; releasing v0.2.0 (TT12). Next: phase 3.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -113,14 +113,31 @@ See `AGENTS.md`. In addition, for this plan:
   target 13.0) for arm64 + x86_64 with no fixes needed, produced the icon, signed ad-hoc,
   and packaged the dmg and zip (~1.3 MB each).
 
+### TT7 (2026-10-28)
+- Released v0.1.0 through the Release workflow's manual trigger (it creates the tag); the
+  dmg checksum was verified independently after download.
+
+### TT8–TT11 (2026-10-28)
+- Live list: `WindowWatcher` keeps one AXObserver per regular app (created, destroyed,
+  title, minimized, hidden/shown, focus) and coalesces events into a catalog refresh.
+- Search memory is in-memory only, keyed by window and by app; boost ≤ 90 points and
+  only ever added to items that already match.
+- Shortcut recorder uses a local key monitor in Settings; the tap still swallows active
+  triggers, so recording a shortcut already in use needs a different one first.
+- The cask lives in `Casks/` here and is tapped by URL, so no separate tap repository.
+- CI now builds the macOS app with warnings as errors.
+
 ## Deferred follow-ups
-- Grid ↓ from a column that has no cell in a partial last row wraps to the top instead of
-  the last item (tested as current behaviour; revisit with TT14 layout work).
+- ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
 - `GridLayout` shrinks to fit height only; very large card sizes on tiny screens can
   overflow horizontally.
-- `.activeApp` scope with a frontmost app that has no windows shows an empty panel; show
-  the app's windowless entry instead.
-- Search highlights only the higher-scoring field when a token matches both.
+- ~~`.activeApp` with a windowless frontmost app shows an empty panel~~ — fixed in phase 2.
+- ~~Search highlights only the higher-scoring field~~ — contiguous hits in both fields are
+  highlighted since phase 2.
+- `ShortcutAdvisor` (system-shortcut conflict list) lives in the UI layer; move it to the
+  core with tests.
+- Warn when a new trigger equals another trigger plus ⇧ (it can never fire, because ⇧
+  reverses the other trigger).
 
 ## Landmines
 - ⌘⇥ never reaches an event tap; it is a Window Server symbolic hotkey (see ARCHITECTURE).

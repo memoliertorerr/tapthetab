@@ -51,7 +51,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
+        model.cancelRecording()
         stopStatusTimer()
+    }
+
+    /// A shortcut recording only makes sense while this window gets the keys.
+    func windowDidResignKey(_ notification: Notification) {
+        model.cancelRecording()
     }
 
     // MARK: - Private

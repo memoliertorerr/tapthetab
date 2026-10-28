@@ -52,6 +52,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let version = NSMenuItem(title: "TapTheTab \(AppInfo.version)", action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
+        menu.addItem(item("Check for Updates…", #selector(checkForUpdates)))
         menu.addItem(item("Quit TapTheTab", #selector(quit), key: "q"))
     }
 
@@ -70,4 +71,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func showSettings() { actions.showSettings() }
     @objc private func showPermissions() { actions.showPermissions() }
     @objc private func quit() { NSApp.terminate(nil) }
+
+    /// Opens the releases page in the browser. TapTheTab itself never goes online.
+    @objc private func checkForUpdates() { NSWorkspace.shared.open(AppInfo.releasesURL) }
 }
