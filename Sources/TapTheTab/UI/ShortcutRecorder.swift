@@ -82,7 +82,8 @@ final class ShortcutRecorder: ObservableObject {
         let required: ModifierFlags = [.command, .option, .control]
         if modifiers.intersection(required).isEmpty {
             let typed = Shortcut(keyCode: keyCode, modifiers: modifiers).displayString
-            rejection = "\(typed) needs ⌘, ⌥ or ⌃ — for example ⌥\(KeyCode.symbol(for: keyCode))."
+            let example: String = "⌥" + KeyCode.symbol(for: keyCode)
+            rejection = L10n.tr("%@ needs ⌘, ⌥ or ⌃ — for example %@.", typed, example)
             return nil
         }
 
@@ -136,24 +137,54 @@ struct ShortcutFeedback: Equatable {
 
 /// Well-known macOS shortcuts a trigger would collide with. Plain values only.
 enum ShortcutAdvisor {
-    private static let known: [(shortcut: Shortcut, message: String)] = [
-        (Shortcut(keyCode: KeyCode.space, modifiers: .command), "is Spotlight's shortcut"),
-        (Shortcut(keyCode: KeyCode.space, modifiers: .control), "switches input sources"),
-        (Shortcut(keyCode: 0x14, modifiers: [.shift, .command]), "takes a screenshot"),            // 3
-        (Shortcut(keyCode: 0x15, modifiers: [.shift, .command]), "takes a screenshot of a selection"), // 4
-        (Shortcut(keyCode: 0x17, modifiers: [.shift, .command]), "opens the Screenshot toolbar"),  // 5
-        (Shortcut(keyCode: 0x0C, modifiers: .command), "quits the frontmost app"),                 // Q
-        (Shortcut(keyCode: 0x0D, modifiers: .command), "closes windows"),                          // W
-        (Shortcut(keyCode: 0x04, modifiers: .command), "hides the frontmost app"),                 // H
-        (Shortcut(keyCode: 0x2E, modifiers: .command), "minimizes windows"),                       // M
-        (Shortcut(keyCode: KeyCode.grave, modifiers: .command), "normally cycles an app's windows; TapTheTab takes it over while running"),
+    private enum Conflict {
+        case spotlight
+        case inputSources
+        case screenshot
+        case screenshotSelection
+        case screenshotToolbar
+        case quit
+        case close
+        case hide
+        case minimize
+        case cycleWindows
+
+        /// Whole sentences, so translations can put the shortcut (`%@`) wherever they need.
+        func message(shortcut: String) -> String {
+            switch self {
+            case .spotlight: return L10n.tr("%@ is Spotlight's shortcut.", shortcut)
+            case .inputSources: return L10n.tr("%@ switches input sources.", shortcut)
+            case .screenshot: return L10n.tr("%@ takes a screenshot.", shortcut)
+            case .screenshotSelection: return L10n.tr("%@ takes a screenshot of a selection.", shortcut)
+            case .screenshotToolbar: return L10n.tr("%@ opens the Screenshot toolbar.", shortcut)
+            case .quit: return L10n.tr("%@ quits the frontmost app.", shortcut)
+            case .close: return L10n.tr("%@ closes windows.", shortcut)
+            case .hide: return L10n.tr("%@ hides the frontmost app.", shortcut)
+            case .minimize: return L10n.tr("%@ minimizes windows.", shortcut)
+            case .cycleWindows:
+                return L10n.tr("%@ normally cycles an app's windows; TapTheTab takes it over while running.", shortcut)
+            }
+        }
+    }
+
+    private static let known: [(shortcut: Shortcut, conflict: Conflict)] = [
+        (Shortcut(keyCode: KeyCode.space, modifiers: .command), .spotlight),
+        (Shortcut(keyCode: KeyCode.space, modifiers: .control), .inputSources),
+        (Shortcut(keyCode: 0x14, modifiers: [.shift, .command]), .screenshot),          // 3
+        (Shortcut(keyCode: 0x15, modifiers: [.shift, .command]), .screenshotSelection), // 4
+        (Shortcut(keyCode: 0x17, modifiers: [.shift, .command]), .screenshotToolbar),   // 5
+        (Shortcut(keyCode: 0x0C, modifiers: .command), .quit),                          // Q
+        (Shortcut(keyCode: 0x0D, modifiers: .command), .close),                         // W
+        (Shortcut(keyCode: 0x04, modifiers: .command), .hide),                          // H
+        (Shortcut(keyCode: 0x2E, modifiers: .command), .minimize),                      // M
+        (Shortcut(keyCode: KeyCode.grave, modifiers: .command), .cycleWindows),
     ]
 
     /// A warning when `shortcut` is a common system shortcut, else nil.
     static func systemConflict(for shortcut: Shortcut) -> String? {
         let modifiers = shortcut.modifiers.intersection([.control, .option, .shift, .command])
         for entry in known where entry.shortcut.keyCode == shortcut.keyCode && entry.shortcut.modifiers == modifiers {
-            return "\(entry.shortcut.displayString) \(entry.message)."
+            return entry.conflict.message(shortcut: entry.shortcut.displayString)
         }
         return nil
     }

@@ -21,6 +21,7 @@ struct ListRowView: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 28, height: 28)
+                .accessibilityHidden(true)
             HighlightedText.make(item.displayTitle, indices: match?.titleIndices ?? [])
                 .font(.system(size: 13, weight: .medium))
                 .lineLimit(1)
@@ -46,6 +47,7 @@ struct ListRowView: View {
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(item.displayTitle), \(item.appName)"))
+        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item)))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 }

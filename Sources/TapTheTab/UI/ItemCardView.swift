@@ -67,6 +67,7 @@ struct ItemCardView: View {
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(item.displayTitle), \(item.appName)"))
+        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item)))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 
@@ -78,6 +79,7 @@ struct ItemCardView: View {
                 .interpolation(.medium)
                 .aspectRatio(contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .accessibilityHidden(true)
                 .shadow(color: Color.black.opacity(0.25), radius: 2, x: 0, y: 1)
                 .overlay(alignment: .bottomLeading) {
                     Image(nsImage: icon)
@@ -85,6 +87,7 @@ struct ItemCardView: View {
                         .interpolation(.high)
                         .frame(width: 24, height: 24)
                         .offset(x: -4, y: 4)
+                        .accessibilityHidden(true)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -92,6 +95,7 @@ struct ItemCardView: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: iconSide, height: iconSide)
+                .accessibilityHidden(true)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -102,23 +106,45 @@ struct ItemBadges: View {
     let item: SwitcherItem
     let size: CGFloat
 
+    private static var minimizedText: String { L10n.tr("Minimized") }
+    private static var hiddenText: String { L10n.tr("App is hidden") }
+    private static var fullscreenText: String { L10n.tr("Full screen") }
+    private static var windowlessText: String { L10n.tr("No open windows") }
+
+    /// The badges as words, e.g. "Minimized, App is hidden"; empty when there are none.
+    /// Used as the accessibility value of a card or row, whose label is "<title>, <app>".
+    static func accessibilityDescription(for item: SwitcherItem) -> String {
+        var parts: [String] = []
+        if item.isMinimized { parts.append(minimizedText) }
+        if item.isAppHidden { parts.append(hiddenText) }
+        if item.isFullscreen { parts.append(fullscreenText) }
+        if item.isWindowless { parts.append(windowlessText) }
+        return parts.joined(separator: ", ")
+    }
+
     var body: some View {
         HStack(spacing: 3) {
             if item.isMinimized {
-                Image(systemName: "minus.circle").help("Minimized")
+                badge("minus.circle", Self.minimizedText)
             }
             if item.isAppHidden {
-                Image(systemName: "eye.slash").help("App is hidden")
+                badge("eye.slash", Self.hiddenText)
             }
             if item.isFullscreen {
-                Image(systemName: "arrow.up.left.and.arrow.down.right").help("Full screen")
+                badge("arrow.up.left.and.arrow.down.right", Self.fullscreenText)
             }
             if item.isWindowless {
-                Image(systemName: "app.dashed").help("No open windows")
+                badge("app.dashed", Self.windowlessText)
             }
         }
         .font(.system(size: size, weight: .semibold))
         .foregroundColor(Color.secondary)
+    }
+
+    private func badge(_ systemName: String, _ text: String) -> some View {
+        Image(systemName: systemName)
+            .help(text)
+            .accessibilityLabel(Text(text))
     }
 }
 

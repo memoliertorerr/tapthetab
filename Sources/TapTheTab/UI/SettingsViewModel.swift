@@ -167,7 +167,11 @@ final class SettingsViewModel: ObservableObject {
             feedback = ShortcutFeedback(
                 index: index,
                 kind: .info,
-                message: "\(shortcut.displayString) was already in use, so that shortcut now uses \(previous.displayString)."
+                message: L10n.tr(
+                    "%@ was already in use, so that shortcut now uses %@.",
+                    shortcut.displayString,
+                    previous.displayString
+                )
             )
         } else if let warning = ShortcutAdvisor.systemConflict(for: shortcut) {
             feedback = ShortcutFeedback(index: index, kind: .warning, message: warning)

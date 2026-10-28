@@ -5,61 +5,70 @@ import TapTheTabCore
 struct AppearanceSettingsView: View {
     @ObservedObject var model: SettingsViewModel
 
+    private var showDelayText: String {
+        L10n.tr("%lld ms", Int(model.showDelay.rounded()))
+    }
+
     var body: some View {
         Form {
             Section {
-                Picker("Style", selection: $model.configuration.appearance.style) {
-                    Text("Grid").tag(LayoutStyle.grid)
-                    Text("List").tag(LayoutStyle.list)
+                Picker(L10n.tr("Style"), selection: $model.configuration.appearance.style) {
+                    Text(L10n.tr("Grid")).tag(LayoutStyle.grid)
+                    Text(L10n.tr("List")).tag(LayoutStyle.list)
                 }
                 .pickerStyle(.segmented)
 
-                Picker("Size", selection: $model.configuration.appearance.size) {
-                    Text("Small").tag(ItemSize.small)
-                    Text("Medium").tag(ItemSize.medium)
-                    Text("Large").tag(ItemSize.large)
+                Picker(L10n.tr("Size"), selection: $model.configuration.appearance.size) {
+                    Text(L10n.tr("Small")).tag(ItemSize.small)
+                    Text(L10n.tr("Medium")).tag(ItemSize.medium)
+                    Text(L10n.tr("Large")).tag(ItemSize.large)
                 }
                 .pickerStyle(.segmented)
 
-                Toggle("Show live window previews", isOn: $model.configuration.appearance.showPreviews)
+                Toggle(L10n.tr("Show live window previews"), isOn: $model.configuration.appearance.showPreviews)
                 if model.configuration.appearance.showPreviews && !model.screenRecordingGranted {
                     HStack(spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundColor(Color.orange)
-                        Text("Previews need the Screen Recording permission.")
+                            .accessibilityHidden(true)
+                        Text(L10n.tr("Previews need the Screen Recording permission."))
                             .font(.callout)
                         Spacer(minLength: 8)
-                        Button("Grant Screen Recording…") {
+                        Button(L10n.tr("Grant Screen Recording…")) {
                             model.requestScreenRecording()
                         }
                     }
                 }
 
-                Toggle("Show app names", isOn: $model.configuration.appearance.showAppName)
+                Toggle(L10n.tr("Show app names"), isOn: $model.configuration.appearance.showAppName)
             }
 
             Section {
-                Picker("Theme", selection: $model.configuration.appearance.theme) {
-                    Text("System").tag(Theme.system)
-                    Text("Light").tag(Theme.light)
-                    Text("Dark").tag(Theme.dark)
+                Picker(L10n.tr("Theme"), selection: $model.configuration.appearance.theme) {
+                    Text(L10n.tr("System")).tag(Theme.system)
+                    Text(L10n.tr("Light")).tag(Theme.light)
+                    Text(L10n.tr("Dark")).tag(Theme.dark)
                 }
 
-                Picker("Show on", selection: $model.configuration.appearance.placement) {
-                    Text("Display with the mouse pointer").tag(DisplayPlacement.mouse)
-                    Text("Display with the active window").tag(DisplayPlacement.activeWindow)
-                    Text("Main display").tag(DisplayPlacement.main)
+                Picker(L10n.tr("Show on"), selection: $model.configuration.appearance.placement) {
+                    Text(L10n.tr("Display with the mouse pointer")).tag(DisplayPlacement.mouse)
+                    Text(L10n.tr("Display with the active window")).tag(DisplayPlacement.activeWindow)
+                    Text(L10n.tr("Main display")).tag(DisplayPlacement.main)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 12) {
-                        Text("Show delay")
+                        Text(L10n.tr("Show delay"))
+                            .accessibilityHidden(true)
                         Slider(value: $model.showDelay, in: 0...500, step: 10)
-                        Text(verbatim: "\(Int(model.showDelay.rounded())) ms")
+                            .accessibilityLabel(Text(L10n.tr("Show delay")))
+                            .accessibilityValue(Text(showDelayText))
+                        Text(verbatim: showDelayText)
                             .font(.body.monospacedDigit())
                             .frame(width: 56, alignment: .trailing)
+                            .accessibilityHidden(true)
                     }
-                    Text("Quick taps under this delay switch without showing the panel.")
+                    Text(L10n.tr("Quick taps under this delay switch without showing the panel."))
                         .font(.caption)
                         .foregroundColor(Color.secondary)
                 }
@@ -75,18 +84,18 @@ struct FiltersSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Show minimized windows", isOn: $model.configuration.filters.showMinimized)
-                Toggle("Show hidden apps", isOn: $model.configuration.filters.showHiddenApps)
-                Toggle("Show apps without windows", isOn: $model.configuration.filters.showWindowlessApps)
-                Toggle("Only windows on the current Space", isOn: $model.configuration.filters.currentSpaceOnly)
-                Toggle("Only windows on the current display", isOn: $model.configuration.filters.currentDisplayOnly)
+                Toggle(L10n.tr("Show minimized windows"), isOn: $model.configuration.filters.showMinimized)
+                Toggle(L10n.tr("Show hidden apps"), isOn: $model.configuration.filters.showHiddenApps)
+                Toggle(L10n.tr("Show apps without windows"), isOn: $model.configuration.filters.showWindowlessApps)
+                Toggle(L10n.tr("Only windows on the current Space"), isOn: $model.configuration.filters.currentSpaceOnly)
+                Toggle(L10n.tr("Only windows on the current display"), isOn: $model.configuration.filters.currentDisplayOnly)
             } header: {
-                Text("Show")
+                Text(L10n.tr("Show"))
             }
 
             Section {
                 if model.configuration.filters.excludedBundleIDs.isEmpty {
-                    Text("No excluded apps.")
+                    Text(L10n.tr("No excluded apps."))
                         .foregroundColor(Color.secondary)
                 }
                 ForEach(model.configuration.filters.excludedBundleIDs, id: \.self) { bundleID in
@@ -98,10 +107,12 @@ struct FiltersSettingsView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Menu("Add running app") {
+                    Menu(L10n.tr("Add running app")) {
                         ForEach(model.addableRunningApps) { app in
-                            Button(app.name) {
+                            Button {
                                 model.addExcluded(app.bundleID)
+                            } label: {
+                                Text(verbatim: app.name)
                             }
                         }
                     }
@@ -110,22 +121,22 @@ struct FiltersSettingsView: View {
 
                     Spacer(minLength: 16)
 
-                    TextField("Bundle ID", text: $model.newBundleID, prompt: Text("Bundle ID, e.g. com.example.App"))
+                    TextField(L10n.tr("Bundle ID"), text: $model.newBundleID, prompt: Text(L10n.tr("Bundle ID, e.g. com.example.App")))
                         .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 240)
                         .onSubmit {
                             model.addTypedBundleID()
                         }
-                    Button("Add") {
+                    Button(L10n.tr("Add")) {
                         model.addTypedBundleID()
                     }
                     .disabled(!model.canAddTypedBundleID)
                 }
             } header: {
-                Text("Excluded apps")
+                Text(L10n.tr("Excluded apps"))
             } footer: {
-                Text("Windows of excluded apps never appear in the switcher.")
+                Text(L10n.tr("Windows of excluded apps never appear in the switcher."))
                     .font(.caption)
                     .foregroundColor(Color.secondary)
             }
@@ -148,11 +159,13 @@ struct ExcludedAppRow: View {
                 Image(nsImage: icon)
                     .resizable()
                     .frame(width: 22, height: 22)
+                    .accessibilityHidden(true)
             } else {
                 Image(systemName: "app.dashed")
                     .font(.system(size: 18))
                     .frame(width: 22, height: 22)
                     .foregroundColor(Color.secondary)
+                    .accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: info.name)
@@ -169,7 +182,8 @@ struct ExcludedAppRow: View {
                 Image(systemName: "minus.circle")
             }
             .buttonStyle(.borderless)
-            .help("Remove from the excluded apps")
+            .help(L10n.tr("Remove from the excluded apps"))
+            .accessibilityLabel(Text(L10n.tr("Remove %@ from the excluded apps", info.name)))
         }
     }
 }

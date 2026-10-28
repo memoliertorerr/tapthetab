@@ -35,25 +35,25 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.removeAllItems()
 
         if !actions.accessibilityGranted() {
-            let warning = item("Accessibility permission needed…", #selector(showPermissions))
+            let warning = item(L10n.tr("Accessibility permission needed…"), #selector(showPermissions))
             warning.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
             menu.addItem(warning)
             menu.addItem(.separator())
         }
 
-        let show = item("Show Switcher", #selector(showSwitcher))
+        let show = item(L10n.tr("Show Switcher"), #selector(showSwitcher))
         show.isEnabled = actions.accessibilityGranted() && !actions.isPaused()
         menu.addItem(show)
-        menu.addItem(item(actions.isPaused() ? "Resume TapTheTab" : "Pause TapTheTab", #selector(togglePause)))
+        menu.addItem(item(actions.isPaused() ? L10n.tr("Resume TapTheTab") : L10n.tr("Pause TapTheTab"), #selector(togglePause)))
         menu.addItem(.separator())
-        menu.addItem(item("Settings…", #selector(showSettings), key: ","))
-        menu.addItem(item("Permissions…", #selector(showPermissions)))
+        menu.addItem(item(L10n.tr("Settings…"), #selector(showSettings), key: ","))
+        menu.addItem(item(L10n.tr("Permissions…"), #selector(showPermissions)))
         menu.addItem(.separator())
         let version = NSMenuItem(title: "TapTheTab \(AppInfo.version)", action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
-        menu.addItem(item("Check for Updates…", #selector(checkForUpdates)))
-        menu.addItem(item("Quit TapTheTab", #selector(quit), key: "q"))
+        menu.addItem(item(L10n.tr("Check for Updates…"), #selector(checkForUpdates)))
+        menu.addItem(item(L10n.tr("Quit TapTheTab"), #selector(quit), key: "q"))
     }
 
     private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {

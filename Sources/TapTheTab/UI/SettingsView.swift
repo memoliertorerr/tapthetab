@@ -8,15 +8,15 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             GeneralSettingsView(model: model)
-                .tabItem { Label("General", systemImage: "gearshape") }
+                .tabItem { Label(L10n.tr("General"), systemImage: "gearshape") }
             AppearanceSettingsView(model: model)
-                .tabItem { Label("Appearance", systemImage: "paintbrush") }
+                .tabItem { Label(L10n.tr("Appearance"), systemImage: "paintbrush") }
             FiltersSettingsView(model: model)
-                .tabItem { Label("Filters", systemImage: "line.3.horizontal.decrease.circle") }
+                .tabItem { Label(L10n.tr("Filters"), systemImage: "line.3.horizontal.decrease.circle") }
             PermissionsSettingsView(model: model)
-                .tabItem { Label("Permissions", systemImage: "lock.shield") }
+                .tabItem { Label(L10n.tr("Permissions"), systemImage: "lock.shield") }
             AboutSettingsView(model: model)
-                .tabItem { Label("About", systemImage: "info.circle") }
+                .tabItem { Label(L10n.tr("About"), systemImage: "info.circle") }
         }
         .padding(12)
         .frame(minWidth: 640, minHeight: 520)
@@ -45,7 +45,7 @@ struct GeneralSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Launch at login", isOn: $model.launchAtLoginEnabled)
+                Toggle(L10n.tr("Launch at login"), isOn: $model.launchAtLoginEnabled)
                 if let error = model.launchAtLoginError {
                     Text(verbatim: error)
                         .font(.caption)
@@ -68,16 +68,16 @@ struct GeneralSettingsView: View {
                         onRemove: { model.removeTrigger(at: row.index) }
                     )
                 }
-                Button("Add shortcut") {
+                Button(L10n.tr("Add shortcut")) {
                     model.addTrigger()
                 }
                 .disabled(!model.canAddTrigger)
             } header: {
-                Text("Shortcuts")
+                Text(L10n.tr("Shortcuts"))
             } footer: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Click a shortcut, then press the new one; ⎋ cancels. ⌘⇥ replaces the system app switcher while TapTheTab is running.")
-                    Text("To record a shortcut that TapTheTab already uses, pick a different one first.")
+                    Text(L10n.tr("Click a shortcut, then press the new one; ⎋ cancels. ⌘⇥ replaces the system app switcher while TapTheTab is running."))
+                    Text(L10n.tr("To record a shortcut that TapTheTab already uses, pick a different one first."))
                 }
                 .font(.caption)
                 .foregroundColor(Color.secondary)
@@ -85,13 +85,13 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                Toggle("Release modifier to switch", isOn: $model.configuration.behavior.releaseToSwitch)
-                Toggle("Type to search", isOn: $model.configuration.behavior.searchEnabled)
-                Toggle("Start on previous window", isOn: $model.configuration.behavior.startOnPrevious)
-                Toggle("Select on mouse hover", isOn: $model.configuration.behavior.mouseHoverSelects)
-                Toggle("Wrap around at the ends", isOn: $model.configuration.behavior.wrapAround)
+                Toggle(L10n.tr("Release modifier to switch"), isOn: $model.configuration.behavior.releaseToSwitch)
+                Toggle(L10n.tr("Type to search"), isOn: $model.configuration.behavior.searchEnabled)
+                Toggle(L10n.tr("Start on previous window"), isOn: $model.configuration.behavior.startOnPrevious)
+                Toggle(L10n.tr("Select on mouse hover"), isOn: $model.configuration.behavior.mouseHoverSelects)
+                Toggle(L10n.tr("Wrap around at the ends"), isOn: $model.configuration.behavior.wrapAround)
             } header: {
-                Text("Behaviour")
+                Text(L10n.tr("Behaviour"))
             }
         }
         .formStyle(.grouped)
@@ -166,15 +166,15 @@ struct TriggerRowView: View {
                         }
                     }
                 } label: {
-                    Text("Presets")
+                    Text(L10n.tr("Presets"))
                 }
                 .fixedSize()
-                .help("Pick a common shortcut")
+                .help(L10n.tr("Pick a common shortcut"))
 
-                Picker("Shows", selection: $scope) {
-                    Text("All windows").tag(SwitcherScope.allWindows)
-                    Text("Current app's windows").tag(SwitcherScope.activeApp)
-                    Text("Apps").tag(SwitcherScope.apps)
+                Picker(L10n.tr("Shows"), selection: $scope) {
+                    Text(L10n.tr("All windows")).tag(SwitcherScope.allWindows)
+                    Text(L10n.tr("Current app's windows")).tag(SwitcherScope.activeApp)
+                    Text(L10n.tr("Apps")).tag(SwitcherScope.apps)
                 }
                 .labelsHidden()
                 .frame(maxWidth: 220)
@@ -189,14 +189,15 @@ struct TriggerRowView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(!canRemove)
-                .help("Remove this shortcut")
+                .help(L10n.tr("Remove this shortcut"))
+                .accessibilityLabel(Text(L10n.tr("Remove shortcut %@", trigger.shortcut.displayString)))
             }
 
             if isRecording {
                 if let rejection = recorder.rejection {
                     ShortcutFeedbackLine(kind: .error, message: rejection)
                 } else {
-                    Text("Press the new shortcut with ⌘, ⌥ or ⌃. ⎋ cancels.")
+                    Text(L10n.tr("Press the new shortcut with ⌘, ⌥ or ⌃. ⎋ cancels."))
                         .font(.caption)
                         .foregroundColor(Color.secondary)
                 }
@@ -219,7 +220,7 @@ struct ShortcutRecorderButton: View {
 
     private var title: String {
         guard isRecording else { return shortcut.displayString }
-        return heldModifiers.isEmpty ? "Type shortcut…" : heldModifiers.symbols + "…"
+        return heldModifiers.isEmpty ? L10n.tr("Type shortcut…") : heldModifiers.symbols + "…"
     }
 
     private var fill: Color {
@@ -231,11 +232,11 @@ struct ShortcutRecorderButton: View {
     }
 
     private var helpText: String {
-        isRecording ? "Press the new shortcut. ⎋ cancels." : "Click to record a new shortcut"
+        isRecording ? L10n.tr("Press the new shortcut. ⎋ cancels.") : L10n.tr("Click to record a new shortcut")
     }
 
     private var accessibilityText: String {
-        isRecording ? "Recording shortcut" : "Shortcut \(shortcut.displayString)"
+        isRecording ? L10n.tr("Recording shortcut") : L10n.tr("Shortcut, %@", shortcut.displayString)
     }
 
     var body: some View {
@@ -260,7 +261,7 @@ struct ShortcutRecorderButton: View {
         .buttonStyle(.plain)
         .help(Text(verbatim: helpText))
         .accessibilityLabel(Text(verbatim: accessibilityText))
-        .accessibilityHint(Text("Click to record a new shortcut"))
+        .accessibilityHint(Text(helpText))
     }
 }
 
@@ -288,6 +289,7 @@ struct ShortcutFeedbackLine: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Image(systemName: symbolName)
+                .accessibilityHidden(true)
             Text(verbatim: message)
                 .fixedSize(horizontal: false, vertical: true)
         }

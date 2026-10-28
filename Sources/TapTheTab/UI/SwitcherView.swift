@@ -43,8 +43,16 @@ struct SwitcherSearchBar: View {
     private var fontSize: CGFloat { isLarge ? 17 : 15 }
 
     private var hint: String {
-        let escape = query.isEmpty ? "⎋ close" : "⎋ clear"
-        return "⇧W close · ⇧M minimize · ⇧Q quit · " + escape
+        query.isEmpty
+            ? L10n.tr("⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close")
+            : L10n.tr("⇧W close · ⇧M minimize · ⇧Q quit · ⎋ clear")
+    }
+
+    /// Shown in place of an empty query.
+    private var placeholder: String {
+        if isLocked { return L10n.tr("Locked open — ↩ to switch") }
+        if searchEnabled { return L10n.tr("Type to search windows") }
+        return L10n.tr("Search is turned off in Settings")
     }
 
     var body: some View {
@@ -62,6 +70,12 @@ struct SwitcherSearchBar: View {
         }
         .padding(.horizontal, 16)
         .frame(height: SwitcherLayout.searchBarHeight - 1)
+        // One element for VoiceOver: "Search", the query (or the placeholder), the key hints.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(L10n.tr("Search")))
+        .accessibilityValue(Text(verbatim: query.isEmpty ? placeholder : query))
+        .accessibilityHint(Text(verbatim: hint))
+        .accessibilityAddTraits(.isSearchField)
     }
 
     @ViewBuilder
@@ -76,18 +90,8 @@ struct SwitcherSearchBar: View {
                     .fill(Color.accentColor)
                     .frame(width: 2, height: fontSize + 3)
             }
-        } else if isLocked {
-            Text("Locked open — ↩ to switch")
-                .font(.system(size: fontSize))
-                .foregroundColor(Color.secondary)
-                .lineLimit(1)
-        } else if searchEnabled {
-            Text("Type to search windows")
-                .font(.system(size: fontSize))
-                .foregroundColor(Color.secondary)
-                .lineLimit(1)
         } else {
-            Text("Search is turned off in Settings")
+            Text(verbatim: placeholder)
                 .font(.system(size: fontSize))
                 .foregroundColor(Color.secondary)
                 .lineLimit(1)
@@ -99,7 +103,7 @@ struct SwitcherEmptyView: View {
     let query: String
 
     private var message: String {
-        query.isEmpty ? "No windows to show" : "No windows match “\(query)”"
+        query.isEmpty ? L10n.tr("No windows to show") : L10n.tr("No windows match “%@”", query)
     }
 
     var body: some View {
@@ -107,6 +111,7 @@ struct SwitcherEmptyView: View {
             Image(systemName: query.isEmpty ? "macwindow" : "magnifyingglass")
                 .font(.system(size: 22))
                 .foregroundColor(Color.secondary)
+                .accessibilityHidden(true)
             Text(verbatim: message)
                 .font(.system(size: 14))
                 .foregroundColor(Color.secondary)

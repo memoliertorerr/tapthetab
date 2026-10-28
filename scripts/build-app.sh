@@ -103,6 +103,17 @@ for bundle in "$BIN_DIR"/*.bundle; do
 done
 shopt -u nullglob
 
+# Localizations (en, it, tr): Bundle.main finds Contents/Resources/<lang>.lproj.
+LPROJS=(Resources/Localization/*.lproj)
+[[ -d "${LPROJS[0]}" ]] || die "no localizations found in Resources/Localization"
+for lproj in "${LPROJS[@]}"; do
+    [[ -f "$lproj/Localizable.strings" ]] || die "$lproj has no Localizable.strings"
+    cp -R "$lproj" "$CONTENTS/Resources/"
+    plutil -lint "$CONTENTS/Resources/$(basename "$lproj")/Localizable.strings" >/dev/null \
+        || die "invalid strings file: $lproj/Localizable.strings"
+done
+log "Copied localizations: $(cd Resources/Localization && echo *.lproj)"
+
 sed -e "s/__VERSION__/$VERSION/g" -e "s/__BUILD__/$BUILD/g" Resources/Info.plist > "$CONTENTS/Info.plist"
 if grep -q '__[A-Z]*__' "$CONTENTS/Info.plist"; then
     die "unsubstituted placeholder left in Info.plist"

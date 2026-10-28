@@ -69,7 +69,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "TapTheTab Settings"
+        window.title = L10n.tr("TapTheTab Settings")
         window.isReleasedWhenClosed = false
         window.delegate = self
         let hostingView = NSHostingView(rootView: SettingsView(model: model))
