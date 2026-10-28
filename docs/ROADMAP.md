@@ -50,7 +50,7 @@
 | TT27.2 | Virtual machines / guest apps: research and support where possible *(added 2026-10-28)* | auto | ✅ done |
 | TT28 | Release v0.6.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.5.0 released. Phase 6 (v0.6.0) in progress: testability, self-rescue, grouping.
+**Overall status:** v0.1.0–v0.5.0 released; phase 6 complete, releasing v0.6.0 (TT28). Next: real-Mac feedback (performance numbers and skipped-window counts from Copy Diagnostics).
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -181,6 +181,17 @@ See `AGENTS.md`. In addition, for this plan:
   resized to ≤1600 px and quantized (~1.5 MB for 8 images). Settings toggles render grey
   because the offscreen window isn't key — acceptable.
 - Menu bar icon can be hidden (`appearance.showMenuBarIcon`).
+
+### TT25–TT27.2 (2026-10-28)
+- Layout math moved to `PanelLayout` (core), verified bit-identical over ~1M inputs.
+- Performance: scoped catalog refreshes (watcher reports which apps changed; opening
+  re-asks only the frontmost app unless the list is >30 s old), ScreenCaptureKit window
+  list reused for 1.5 s, one large preview kept in memory, refresh timings in diagnostics.
+- Grouping by app keeps a quick tap on the previously used window.
+- VM / Windows apps: see `docs/research/vm-windows.md`; `WindowAdmission` admits titled
+  `AXUnknown` windows (Wine family) and drops untitled dialogs.
+- Two compile errors reached CI this phase (a missed call site after a rename, a
+  redeclared binding); both were caught there and fixed before merge.
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.

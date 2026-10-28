@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-28
+
 ### Added
 
 - Rescue options for the command line: `--restore-system-shortcuts` turns ⌘⇥ back on if it stayed off, `--reset-settings` starts over with defaults (the old `config.json` is kept); also `--version` and `--help`.
@@ -102,7 +104,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...v0.3.0
