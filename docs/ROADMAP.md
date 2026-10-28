@@ -47,7 +47,7 @@
 | TT26 | Rescue: `TapTheTab --restore-system-shortcuts` and `--reset-settings`; README Troubleshooting + Uninstall | auto | ✅ done |
 | TT27 | Optional grouping of windows by app (`appearance.groupByApp`), apps ordered by recency | auto | ✅ done |
 | TT27.1 | Performance: scoped catalog refreshes, cheaper opens, capture list reuse, one large preview in memory, timings in diagnostics *(added 2026-10-28)* | auto | ✅ done |
-| TT27.2 | Virtual machines / guest apps: research and support where possible *(added 2026-10-28)* | auto | ⬜ todo |
+| TT27.2 | Virtual machines / guest apps: research and support where possible *(added 2026-10-28)* | auto | ✅ done |
 | TT28 | Release v0.6.0 | checkpoint | ⬜ todo |
 
 **Overall status:** v0.1.0–v0.5.0 released. Phase 6 (v0.6.0) in progress: testability, self-rescue, grouping.

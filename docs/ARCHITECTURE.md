@@ -49,6 +49,7 @@ previous window without the panel ever appearing.
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
 | `SpaceLayout`, `OtherSpaceWindows` | Pure logic for the opt-in other-Spaces pass: reading the Space layout and choosing which window-server windows are switchable. |
+| `WindowAdmission` | Which Accessibility windows are switchable (standard; titled dialogs; titled, normal-layer, sizable "unknown" windows such as Wine's). |
 | `DiagnosticsReport` | Bug-report text: versions, permissions, counts, settings — no titles or bundle IDs. |
 
 ## macOS layer (`Sources/TapTheTab`)

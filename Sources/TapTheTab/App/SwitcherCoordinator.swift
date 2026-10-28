@@ -119,12 +119,15 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     /// Counts for the diagnostics report. No titles or app names.
-    var diagnosticsCounts: (windows: Int, apps: Int, watchedApps: Int, fullRefreshMilliseconds: Int?, partialRefreshMilliseconds: Int?) {
+    var diagnosticsCounts: (windows: Int, apps: Int, watchedApps: Int, fullRefreshMilliseconds: Int?, partialRefreshMilliseconds: Int?, skippedBySubrole: [String: Int]?) {
         let items = catalog.latest.items
         let windows = items.filter { !$0.isWindowless }.count
         let apps = Set(items.map(\.pid)).count
-        return (windows, apps, watcher.watchedCount, lastFullRefreshMilliseconds, lastPartialRefreshMilliseconds)
+        return (windows, apps, watcher.watchedCount, lastFullRefreshMilliseconds, lastPartialRefreshMilliseconds, lastFullRefreshSkipped)
     }
+
+    /// From the last full refresh, where every app was asked.
+    private var lastFullRefreshSkipped: [String: Int]?
 
     private var lastFullRefreshMilliseconds: Int?
     private var lastPartialRefreshMilliseconds: Int?
@@ -316,6 +319,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let milliseconds = Int((snapshot.duration * 1000).rounded())
         if snapshot.refreshedPIDs == nil {
             lastFullRefreshMilliseconds = milliseconds
+            lastFullRefreshSkipped = snapshot.skippedBySubrole
         } else {
             lastPartialRefreshMilliseconds = milliseconds
         }

@@ -12,7 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rescue options for the command line: `--restore-system-shortcuts` turns ⌘⇥ back on if it stayed off, `--reset-settings` starts over with defaults (the old `config.json` is kept); also `--version` and `--help`.
 - README sections on troubleshooting and uninstalling.
 - Optional grouping of windows by app (Settings → Appearance), with a heading per app in the list style. A quick ⌥⇥ still goes to the window you used before.
-- Copy Diagnostics reports how long the last window-list refreshes took.
+- Copy Diagnostics reports how long the last window-list refreshes took, and how many windows were left out by window type.
+- Windows from CrossOver, Wine, Whisky and Game Porting Toolkit that draw their own title bar now appear in the switcher. Windows kept above the normal window layer count as on screen.
+
+### Fixed
+
+- Untitled dialogs (pop-ups, toasts) no longer appear as switcher entries.
 
 ### Changed
 

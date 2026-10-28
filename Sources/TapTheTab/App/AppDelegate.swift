@@ -174,7 +174,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             focusAcrossSpacesAvailable: PrivateAPI.canFocusAcrossSpaces,
             missingPrivateSymbols: PrivateAPI.missingSymbols,
             lastFullRefreshMilliseconds: counts.fullRefreshMilliseconds,
-            lastPartialRefreshMilliseconds: counts.partialRefreshMilliseconds
+            lastPartialRefreshMilliseconds: counts.partialRefreshMilliseconds,
+            skippedWindowsBySubrole: counts.skippedBySubrole
         )
     }
 

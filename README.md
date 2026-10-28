@@ -264,6 +264,19 @@ The core logic (`Sources/TapTheTabCore`) is plain Swift and also builds and test
 More detail in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); what's next in
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Virtual machines and Windows apps
+
+- **Parallels Desktop in Coherence mode:** each Windows app shows up as its own entry, with
+  its own name and icon.
+- **CrossOver, Wine, Whisky, Game Porting Toolkit:** each Windows program shows up as its
+  own entry (from 0.6.0, including windows that draw their own title bar).
+- **UTM, VirtualBox, VMware Fusion, Parallels in window mode, macOS VMs:** you see the VM
+  window. The apps inside it are pixels inside that one window — no Mac app can tell them
+  apart. Use the guest's own switcher (Alt+Tab in Windows) once you're inside.
+
+Something missing? Copy Diagnostics (Settings → About) lists how many windows were left
+out and why, without names.
+
 ## Known limitations
 
 - Windows on **other Spaces** are listed only with Settings → Filters → *Show windows on
