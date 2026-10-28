@@ -23,6 +23,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
     /// Names of private functions that could not be found (Apple's symbol names, never
     /// user data); nil when the caller did not say.
     public var missingPrivateSymbols: [String]?
+    /// How long the last full and the last partial window-list refresh took, in ms.
+    public var lastFullRefreshMilliseconds: Int?
+    public var lastPartialRefreshMilliseconds: Int?
     public var configuration: Configuration
 
     public init(
@@ -38,7 +41,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
         configuration: Configuration,
         otherSpacesListingAvailable: Bool? = nil,
         focusAcrossSpacesAvailable: Bool? = nil,
-        missingPrivateSymbols: [String]? = nil
+        missingPrivateSymbols: [String]? = nil,
+        lastFullRefreshMilliseconds: Int? = nil,
+        lastPartialRefreshMilliseconds: Int? = nil
     ) {
         self.appVersion = appVersion
         self.build = build
@@ -53,6 +58,13 @@ public struct DiagnosticsReport: Equatable, Sendable {
         self.otherSpacesListingAvailable = otherSpacesListingAvailable
         self.focusAcrossSpacesAvailable = focusAcrossSpacesAvailable
         self.missingPrivateSymbols = missingPrivateSymbols
+        self.lastFullRefreshMilliseconds = lastFullRefreshMilliseconds
+        self.lastPartialRefreshMilliseconds = lastPartialRefreshMilliseconds
+    }
+
+    static func milliseconds(_ value: Int?) -> String {
+        guard let value else { return "unknown" }
+        return "\(max(0, value)) ms"
     }
 
     /// Longest free-text value (versions, architecture) kept in the report.
@@ -78,6 +90,8 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  Windows: \(windowCount)")
         lines.append("  Apps: \(appCount)")
         lines.append("  Watched apps: \(watchedAppCount)")
+        lines.append("  Last full refresh: \(Self.milliseconds(lastFullRefreshMilliseconds))")
+        lines.append("  Last partial refresh: \(Self.milliseconds(lastPartialRefreshMilliseconds))")
         lines.append("")
         lines.append("Private APIs")
         lines.append("  List other Spaces: \(Self.available(otherSpacesListingAvailable))")

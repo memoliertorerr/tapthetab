@@ -34,6 +34,8 @@ final class DiagnosticsReportTests: XCTestCase {
           Windows: 12
           Apps: 5
           Watched apps: 4
+          Last full refresh: unknown
+          Last partial refresh: unknown
 
         Private APIs
           List other Spaces: unknown
@@ -218,5 +220,16 @@ final class DiagnosticsReportTests: XCTestCase {
         var other = report()
         other.build = "43"
         XCTAssertNotEqual(report(), other)
+    }
+
+    func testRefreshTimingsAreReported() {
+        var report = DiagnosticsReport(
+            appVersion: "1", build: "1", osVersion: "14", architecture: "arm64",
+            accessibilityGranted: true, screenRecordingGranted: false,
+            windowCount: 3, appCount: 2, watchedAppCount: 2, configuration: Configuration(),
+            lastFullRefreshMilliseconds: 42, lastPartialRefreshMilliseconds: 3)
+        XCTAssertTrue(report.markdown.contains("  Last full refresh: 42 ms\n  Last partial refresh: 3 ms\n"))
+        report.lastFullRefreshMilliseconds = -5
+        XCTAssertTrue(report.markdown.contains("  Last full refresh: 0 ms\n"))
     }
 }

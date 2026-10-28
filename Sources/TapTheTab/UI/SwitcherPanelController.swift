@@ -133,6 +133,12 @@ final class SwitcherPanelController {
         if id == model.session.selectedItem?.id { relayoutForPreview() }
     }
 
+    /// A sharper image of a window for the large preview; only the latest is kept.
+    func setLargePreview(_ image: CGImage?, for id: ItemID) {
+        model.setLargePreview(image, for: id)
+        if id == model.session.selectedItem?.id { relayoutForPreview() }
+    }
+
     /// Drop all cached thumbnails (e.g. when previews get turned off).
     func clearThumbnails() {
         model.clearThumbnails()

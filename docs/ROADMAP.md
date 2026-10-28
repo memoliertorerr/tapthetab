@@ -43,9 +43,11 @@
 | TT22 | Screenshot renderer: the app draws the switcher and Settings from sample data (`--render-screenshots`), CI produces the PNGs, README shows them | auto | ✅ done |
 | TT23 | Menu bar icon can be hidden (reopen the app to get Settings) | auto | ✅ done |
 | TT24 | Release v0.5.0 | checkpoint | ✅ done |
-| TT25 | Panel layout math (`SwitcherLayout`) moves into the core with tests | auto | ⬜ todo |
-| TT26 | Rescue: `TapTheTab --restore-system-shortcuts` and `--reset-settings`; README Troubleshooting + Uninstall | auto | ⬜ todo |
-| TT27 | Optional grouping of windows by app (`appearance.groupByApp`), apps ordered by recency | auto | ⬜ todo |
+| TT25 | Panel layout math (`SwitcherLayout`) moves into the core with tests | auto | ✅ done |
+| TT26 | Rescue: `TapTheTab --restore-system-shortcuts` and `--reset-settings`; README Troubleshooting + Uninstall | auto | ✅ done |
+| TT27 | Optional grouping of windows by app (`appearance.groupByApp`), apps ordered by recency | auto | ✅ done |
+| TT27.1 | Performance: scoped catalog refreshes, cheaper opens, capture list reuse, one large preview in memory, timings in diagnostics *(added 2026-10-28)* | auto | ✅ done |
+| TT27.2 | Virtual machines / guest apps: research and support where possible *(added 2026-10-28)* | auto | ⬜ todo |
 | TT28 | Release v0.6.0 | checkpoint | ⬜ todo |
 
 **Overall status:** v0.1.0–v0.5.0 released. Phase 6 (v0.6.0) in progress: testability, self-rescue, grouping.

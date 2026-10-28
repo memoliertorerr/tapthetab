@@ -73,6 +73,7 @@ built around three goals:
   window's app straight from the switcher.
 - **Quick tap = previous window** — a tap under the show delay (90 ms by default) switches
   back without the panel ever flashing.
+- **Group by app** if you like — apps in recency order, each app's windows together.
 - **Grid or list layout**, three sizes, light/dark/system theme, shows on the display with
   your mouse (or the active window, or the main display).
 - **Optional live previews** (macOS 14+, needs Screen Recording), with a large preview of
@@ -173,6 +174,7 @@ fall back to defaults, and a file that can't be read is set aside as
     "showPreviews": false,
     "showAppName": true,
     "showMenuBarIcon": true,
+    "groupByApp": false,
     "theme": "system",
     "placement": "mouse",
     "showDelayMilliseconds": 90

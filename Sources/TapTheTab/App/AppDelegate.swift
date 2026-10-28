@@ -172,7 +172,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             configuration: configuration.configuration,
             otherSpacesListingAvailable: PrivateAPI.canListOtherSpaces,
             focusAcrossSpacesAvailable: PrivateAPI.canFocusAcrossSpaces,
-            missingPrivateSymbols: PrivateAPI.missingSymbols
+            missingPrivateSymbols: PrivateAPI.missingSymbols,
+            lastFullRefreshMilliseconds: counts.fullRefreshMilliseconds,
+            lastPartialRefreshMilliseconds: counts.partialRefreshMilliseconds
         )
     }
 

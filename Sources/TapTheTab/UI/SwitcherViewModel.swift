@@ -11,6 +11,8 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var behavior: Behavior = Behavior()
     @Published private(set) var layout: SwitcherLayout = SwitcherLayout.initial
     @Published private(set) var thumbnails: [ItemID: CGImage] = [:]
+    /// The sharper image for the large preview. Only one is kept: the selected window's.
+    @Published private(set) var largePreview: (id: ItemID, image: CGImage)?
     /// Bumped on every show so scroll views start fresh.
     @Published private(set) var generation: Int = 0
 
@@ -73,6 +75,16 @@ final class SwitcherViewModel: ObservableObject {
 
     func clearThumbnails() {
         if !thumbnails.isEmpty { thumbnails = [:] }
+        if largePreview != nil { largePreview = nil }
+    }
+
+    func setLargePreview(_ image: CGImage?, for id: ItemID) {
+        guard appearance.showPreviews else { return }
+        if let image {
+            largePreview = (id, image)
+        } else if largePreview?.id == id {
+            largePreview = nil
+        }
     }
 
     func thumbnail(for id: ItemID) -> CGImage? {
@@ -106,6 +118,7 @@ final class SwitcherViewModel: ObservableObject {
     /// The large preview's image: the selected item's thumbnail, when the layout has room for it.
     var selectedPreview: CGImage? {
         guard layout.showsPreview, let id = session.selectedItem?.id else { return nil }
+        if let large = largePreview, large.id == id, appearance.showPreviews { return large.image }
         return thumbnail(for: id)
     }
 

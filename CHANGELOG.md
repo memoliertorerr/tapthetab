@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Rescue options for the command line: `--restore-system-shortcuts` turns ⌘⇥ back on if it stayed off, `--reset-settings` starts over with defaults (the old `config.json` is kept); also `--version` and `--help`.
 - README sections on troubleshooting and uninstalling.
+- Optional grouping of windows by app (Settings → Appearance), with a heading per app in the list style. A quick ⌥⇥ still goes to the window you used before.
+- Copy Diagnostics reports how long the last window-list refreshes took.
+
+### Changed
+
+- Faster and lighter: when windows change, only that app is asked again; opening the switcher re-asks only the frontmost app; previews reuse the screen-capture window list; large previews are no longer kept for every window you selected (this could add up to over 100 MB).
 
 ## [0.5.0] - 2026-10-28
 
