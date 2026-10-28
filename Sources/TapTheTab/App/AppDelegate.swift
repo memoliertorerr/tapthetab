@@ -125,6 +125,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings?.show()
     }
 
+    /// Facts for a bug report: versions, permissions, counts, settings. Nothing personal.
+    private func makeDiagnostics() -> DiagnosticsReport {
+        let counts = coordinator.diagnosticsCounts
+        #if arch(arm64)
+        let architecture = "arm64"
+        #else
+        let architecture = Self.isRunningUnderRosetta ? "x86_64 (Rosetta)" : "x86_64"
+        #endif
+        return DiagnosticsReport(
+            appVersion: AppInfo.version,
+            build: AppInfo.build,
+            osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
+            architecture: architecture,
+            accessibilityGranted: permissions.accessibilityGranted,
+            screenRecordingGranted: permissions.screenRecordingGranted,
+            windowCount: counts.windows,
+            appCount: counts.apps,
+            watchedAppCount: counts.watchedApps,
+            configuration: configuration.configuration
+        )
+    }
+
+    /// Apple's documented check: sysctl.proc_translated is 1 under Rosetta.
+    private static var isRunningUnderRosetta: Bool {
+        var translated: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        return sysctlbyname("sysctl.proc_translated", &translated, &size, nil, 0) == 0 && translated == 1
+    }
+
     // MARK: - Configuration
 
     private func settingsChanged(_ newValue: Configuration) {

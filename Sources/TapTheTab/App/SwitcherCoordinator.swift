@@ -105,6 +105,14 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }
     }
 
+    /// Counts for the diagnostics report. No titles or app names.
+    var diagnosticsCounts: (windows: Int, apps: Int, watchedApps: Int) {
+        let items = catalog.latest.items
+        let windows = items.filter { !$0.isWindowless }.count
+        let apps = Set(items.map(\.pid)).count
+        return (windows, apps, watcher.watchedCount)
+    }
+
     // MARK: - HotkeyMonitorDelegate
 
     func hotkeyMonitor(_ monitor: HotkeyMonitor, didTrigger trigger: Trigger, reverse: Bool) {
