@@ -30,19 +30,22 @@
 | TT9 | Shortcut recorder in Settings (any key + modifiers), conflict warnings | auto | ✅ done |
 | TT10 | Frecency for search: remember which window was picked for a query prefix and boost it | auto | ✅ done |
 | TT11 | Homebrew cask (in this repo, tapped by URL), documented in README | checkpoint | ✅ done |
-| TT12 | Release v0.2.0 | checkpoint | ⬜ todo |
-| TT13 | Windows on other Spaces (private CGS space APIs behind a setting), Space badge on cards | auto | ⬜ todo |
-| TT14 | Large preview of the selected window on hover/selection (previews mode) | auto | ⬜ todo |
-| TT15 | VoiceOver pass and localization scaffolding (English + Italian + Turkish) | checkpoint | ⬜ todo |
-| TT16 | Release v0.3.0 | checkpoint | ⬜ todo |
+| TT12 | Release v0.2.0 | checkpoint | ✅ done |
+| TT13 | Localization (English, Italian, Turkish) and a VoiceOver pass over every UI string | auto | ⬜ todo |
+| TT14 | `tapthetab://` URL scheme: open the switcher (optionally pre-filtered or scoped), open Settings — for Raycast/Alfred/Shortcuts | auto | ⬜ todo |
+| TT15 | Large preview of the selected window (previews mode) | auto | ⬜ todo |
+| TT16 | Core hygiene: shortcut-conflict advisor in the core (+ ⇧-reverse conflict), grid shrinks to fit width, diagnostics report | auto | ⬜ todo |
+| TT17 | Release v0.3.0 | checkpoint | ⬜ todo |
+| TT18 | Windows on other Spaces (research spike; private APIs, behind a setting, off by default) | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0 released; phase 2 complete and green on CI; releasing v0.2.0 (TT12). Next: phase 3.
+**Overall status:** v0.1.0 and v0.2.0 released. Phase 3 (v0.3.0) in progress.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
    never get stuck), window activation correctness, permissions onboarding.
 2. **TT8 → TT12** — v0.2.0, speed and customisation.
-3. **TT13 → TT16** — v0.3.0, reach and accessibility.
+3. **TT13 → TT17** — v0.3.0, reach, accessibility and automation.
+4. **TT18 →** — v0.4.0, other Spaces and whatever real-Mac feedback asks for first.
 
 ---
 
