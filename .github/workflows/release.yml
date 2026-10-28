@@ -106,8 +106,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Releasing $tag (prerelease: $prerelease) from $GITHUB_SHA"
 
-      - name: Select Xcode 16
-        run: scripts/select-xcode.sh 16
+      - name: Select Xcode 26
+        run: scripts/select-xcode.sh 26
 
       - name: Test
         run: swift test
