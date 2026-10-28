@@ -59,8 +59,12 @@ final class ConfigurationController {
     }
 
     private func reloadFromDisk() {
-        guard FileManager.default.fileExists(atPath: store.fileURL.path) else { return }
-        let result = store.load()
+        // Editors save in steps; a half-written or mistyped file must not reset settings
+        // or be moved aside while the app runs. Keep the current settings until it parses.
+        guard let result = store.readIfValid() else {
+            Log.config.notice("config.json is missing or not valid right now; keeping current settings")
+            return
+        }
         for note in result.notes { Log.config.notice("\(note, privacy: .public)") }
         guard result.configuration != configuration else { return }
         configuration = result.configuration
