@@ -17,6 +17,9 @@ public struct FilterOptions: Codable, Equatable, Sendable {
     public var showWindowlessApps: Bool = false
     public var currentSpaceOnly: Bool = false
     public var currentDisplayOnly: Bool = false
+    /// List windows on other Spaces (including fullscreen Spaces) too. Off by default: it
+    /// relies on private macOS interfaces. `currentSpaceOnly` still hides those windows.
+    public var showOtherSpaces: Bool = false
     public var excludedBundleIDs: [String] = []
 
     public init(
@@ -25,6 +28,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         showWindowlessApps: Bool = false,
         currentSpaceOnly: Bool = false,
         currentDisplayOnly: Bool = false,
+        showOtherSpaces: Bool = false,
         excludedBundleIDs: [String] = []
     ) {
         self.showMinimized = showMinimized
@@ -32,6 +36,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         self.showWindowlessApps = showWindowlessApps
         self.currentSpaceOnly = currentSpaceOnly
         self.currentDisplayOnly = currentDisplayOnly
+        self.showOtherSpaces = showOtherSpaces
         self.excludedBundleIDs = excludedBundleIDs
     }
 
@@ -43,6 +48,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         showWindowlessApps = c.lenient(Bool.self, .showWindowlessApps) ?? d.showWindowlessApps
         currentSpaceOnly = c.lenient(Bool.self, .currentSpaceOnly) ?? d.currentSpaceOnly
         currentDisplayOnly = c.lenient(Bool.self, .currentDisplayOnly) ?? d.currentDisplayOnly
+        showOtherSpaces = c.lenient(Bool.self, .showOtherSpaces) ?? d.showOtherSpaces
         excludedBundleIDs = c.lenientArray(String.self, .excludedBundleIDs) ?? d.excludedBundleIDs
     }
 }
@@ -77,6 +83,8 @@ public enum ItemFilter {
             if item.isWindowless && !options.showWindowlessApps && !allowWindowless { return false }
             if item.isMinimized && !options.showMinimized { return false }
             if item.isAppHidden && !options.showHiddenApps { return false }
+            // Windows listed from other Spaces (`showOtherSpaces`) are never minimized or
+            // hidden, so this also removes them.
             if options.currentSpaceOnly && !item.isOnActiveSpace && !item.isMinimized && !item.isAppHidden && !item.isWindowless {
                 return false
             }

@@ -35,6 +35,11 @@ final class DiagnosticsReportTests: XCTestCase {
           Apps: 5
           Watched apps: 4
 
+        Private APIs
+          List other Spaces: unknown
+          Focus across Spaces: unknown
+          Missing symbols: unknown
+
         Triggers (2)
           ⌥⇥  option+tab  allWindows
           ⌥`  option+`  activeApp
@@ -61,6 +66,7 @@ final class DiagnosticsReportTests: XCTestCase {
           showWindowlessApps: false
           currentSpaceOnly: false
           currentDisplayOnly: false
+          showOtherSpaces: false
           excludedApps: 0
 
         Config version: 1
@@ -93,6 +99,7 @@ final class DiagnosticsReportTests: XCTestCase {
         c.filters.showWindowlessApps = true
         c.filters.currentSpaceOnly = true
         c.filters.currentDisplayOnly = true
+        c.filters.showOtherSpaces = true
 
         let markdown = report(c).markdown
         for line in [
@@ -102,7 +109,7 @@ final class DiagnosticsReportTests: XCTestCase {
             "  releaseToSwitch: false", "  searchEnabled: false", "  startOnPrevious: false",
             "  mouseHoverSelects: false", "  wrapAround: false",
             "  showMinimized: false", "  showHiddenApps: false", "  showWindowlessApps: true",
-            "  currentSpaceOnly: true", "  currentDisplayOnly: true",
+            "  currentSpaceOnly: true", "  currentDisplayOnly: true", "  showOtherSpaces: true",
         ] {
             XCTAssertTrue(markdown.components(separatedBy: "\n").contains(line), "missing line: \(line)")
         }
@@ -151,6 +158,34 @@ final class DiagnosticsReportTests: XCTestCase {
         let markdown = r.markdown
         XCTAssertTrue(markdown.contains("  Accessibility: not granted\n  Screen Recording: granted\n"))
         XCTAssertTrue(markdown.contains("  Windows: 0\n  Apps: 1\n  Watched apps: 0\n"))
+    }
+
+    func testPrivateAPIStatus() {
+        var r = report()
+        r.otherSpacesListingAvailable = true
+        r.focusAcrossSpacesAvailable = false
+        r.missingPrivateSymbols = ["GetProcessForPID", "SLPSPostEventRecordTo"]
+        XCTAssertTrue(r.markdown.contains(
+            "Private APIs\n  List other Spaces: available\n  Focus across Spaces: unavailable\n"
+                + "  Missing symbols: GetProcessForPID, SLPSPostEventRecordTo\n\n"))
+
+        r.missingPrivateSymbols = []
+        r.focusAcrossSpacesAvailable = true
+        XCTAssertTrue(r.markdown.contains("  Focus across Spaces: available\n  Missing symbols: none\n"))
+    }
+
+    func testPrivateAPIStatusThroughInitializer() {
+        let r = DiagnosticsReport(
+            appVersion: "1", build: "1", osVersion: "15", architecture: "arm64",
+            accessibilityGranted: true, screenRecordingGranted: true,
+            windowCount: 0, appCount: 0, watchedAppCount: 0, configuration: Configuration(),
+            otherSpacesListingAvailable: false, focusAcrossSpacesAvailable: true, missingPrivateSymbols: ["A\n```"]
+        )
+        let lines = r.markdown.components(separatedBy: "\n")
+        XCTAssertTrue(lines.contains("  List other Spaces: unavailable"))
+        XCTAssertTrue(lines.contains("  Focus across Spaces: available"))
+        XCTAssertTrue(lines.contains("  Missing symbols: A"), "names are cleaned like other free text")
+        XCTAssertEqual(lines.filter { $0.hasPrefix("```") }.count, 2)
     }
 
     func testFreeTextFieldsCannotBreakTheReport() {

@@ -59,6 +59,17 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(c, expected)
     }
 
+    func testShowOtherSpacesIsOffByDefaultAndReadFromFilters() throws {
+        XCTAssertFalse(Configuration().filters.showOtherSpaces)
+        // Config files written before the key existed keep it off.
+        XCTAssertFalse(try decode(#"{"filters": {"currentSpaceOnly": true}}"#).filters.showOtherSpaces)
+        XCTAssertTrue(try decode(#"{"filters": {"showOtherSpaces": true}}"#).filters.showOtherSpaces)
+        // A bad value turns only this key off; the rest of the section still applies.
+        let bad = try decode(#"{"filters": {"showOtherSpaces": "on", "showMinimized": false}}"#)
+        XCTAssertFalse(bad.filters.showOtherSpaces)
+        XCTAssertFalse(bad.filters.showMinimized)
+    }
+
     func testDecodesTriggers() throws {
         let c = try decode(#"{"triggers": [{"shortcut": "cmd+tab", "scope": "apps"}]}"#)
         XCTAssertEqual(c.triggers, [Trigger(shortcut: .commandTab, scope: .apps)])
@@ -111,7 +122,8 @@ final class ConfigurationTests: XCTestCase {
         var c = Configuration()
         c.triggers = [Trigger(shortcut: Shortcut(keyCode: KeyCode.space, modifiers: [.control, .option]), scope: .apps)]
         c.filters = FilterOptions(showMinimized: false, showHiddenApps: false, showWindowlessApps: true,
-                                  currentSpaceOnly: true, currentDisplayOnly: true, excludedBundleIDs: ["com.a", "com.b"])
+                                  currentSpaceOnly: true, currentDisplayOnly: true, showOtherSpaces: true,
+                                  excludedBundleIDs: ["com.a", "com.b"])
         c.appearance.style = .list
         c.appearance.size = .small
         c.appearance.showPreviews = true
