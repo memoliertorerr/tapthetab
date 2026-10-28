@@ -24,6 +24,12 @@ public struct GridMetrics: Equatable, Sendable {
 }
 
 /// Works out how many cards fit per row on a screen, shrinking them when needed.
+///
+/// Cards shrink (down to `minimumScale`) until the content fits within
+/// `maxScreenFraction` of the screen in both directions. If it still is too tall at the
+/// minimum scale, the height is capped and `needsScrolling` is set. Width never scrolls:
+/// the available width is never taken as less than one card at the minimum scale plus
+/// padding, so `contentSize.width` can exceed the screen only on screens narrower than that.
 public enum GridLayout {
     public static let minimumScale = 0.6
 
@@ -56,9 +62,11 @@ public enum GridLayout {
             return (columns, rows, Size(width: w, height: h), Size(width: contentW, height: contentH))
         }
 
+        // Shrink in 5% steps until the content fits both the height and the width (a single
+        // column of very large cards, or a narrow screen, can be wider than the screen).
         var scale = 1.0
         var result = fit(scale: scale)
-        while result.content.height > maxHeight && scale > minimumScale {
+        while (result.content.height > maxHeight || result.content.width > maxWidth) && scale > minimumScale {
             scale = max(minimumScale, scale - 0.05)
             result = fit(scale: scale)
         }
