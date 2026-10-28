@@ -1,12 +1,6 @@
 import AppKit
 import ApplicationServices
 
-/// Private but long-stable API that maps an Accessibility window to its window-server ID.
-/// Used by every serious window manager on macOS; there is no public equivalent.
-@_silgen_name("_AXUIElementGetWindow")
-@discardableResult
-func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
-
 /// Thin, typed wrappers over the C Accessibility API.
 enum AX {
     static let fullScreenAttribute = "AXFullScreen"
@@ -76,8 +70,9 @@ enum AX {
     }
 
     static func windowID(_ window: AXUIElement) -> CGWindowID? {
+        guard let getWindow = PrivateAPI.axUIElementGetWindow else { return nil }
         var id: CGWindowID = 0
-        guard _AXUIElementGetWindow(window, &id) == .success, id != 0 else { return nil }
+        guard getWindow(window, &id) == .success, id != 0 else { return nil }
         return id
     }
 }

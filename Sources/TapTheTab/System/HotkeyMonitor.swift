@@ -178,19 +178,15 @@ final class HotkeyMonitor {
     }
 }
 
-/// Private CoreGraphics API for the system's own shortcuts. Same approach as other
-/// switchers; restored on quit.
-@_silgen_name("CGSSetSymbolicHotKeyEnabled")
-@discardableResult
-private func CGSSetSymbolicHotKeyEnabled(_ hotKey: Int32, _ isEnabled: Bool) -> CGError
-
+/// The system's own shortcuts, switched off while TapTheTab owns them and restored on quit.
 enum SymbolicHotkey: Int32, Hashable {
     case commandTab = 1
     case commandShiftTab = 2
     case commandKeyAboveTab = 6
 
     func setEnabled(_ enabled: Bool) {
-        CGSSetSymbolicHotKeyEnabled(rawValue, enabled)
+        // If the private function is missing, ⌘⇥ simply stays with the system.
+        _ = PrivateAPI.cgsSetSymbolicHotKeyEnabled?(rawValue, enabled)
     }
 }
 

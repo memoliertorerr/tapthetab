@@ -83,6 +83,9 @@ only open TapTheTab's own UI.
 
 ## Private API use
 
+All private symbols are resolved at runtime in `System/PrivateAPI.swift` with `dlsym`, so a
+symbol missing from a future macOS disables one feature instead of preventing launch.
+
 | Symbol | Why | Failure mode |
 |---|---|---|
 | `_AXUIElementGetWindow` | Map an AX window to its window-server ID (needed to join AX data with z-order and to capture previews). | Window is skipped. |

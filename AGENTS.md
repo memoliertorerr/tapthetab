@@ -38,9 +38,11 @@ MIT licensed. No network access and no telemetry — that is a product promise, 
 5. **macOS 13 deployment target.** APIs newer than 13 must be behind `#available`.
 6. **Swift 5 language mode.** Main-actor UI types are `@MainActor`; callbacks from C APIs
    (event taps, AX observers) hop with `DispatchQueue.main.async` rather than unchecked casts.
-7. **Private APIs** are allowed only where no public API exists, must be isolated in one
-   function with a comment, and must fail soft. Current list: `_AXUIElementGetWindow`,
-   `CGSSetSymbolicHotKeyEnabled`.
+7. **Private APIs** are allowed only where no public API exists. Resolve them at runtime
+   in `System/PrivateAPI.swift` (`dlsym`, never `@_silgen_name`, which would stop the app
+   from launching if Apple removed the symbol), handle a missing symbol by disabling only
+   that feature, and list them in `docs/ARCHITECTURE.md`. Current list:
+   `_AXUIElementGetWindow`, `CGSSetSymbolicHotKeyEnabled`.
 8. **Never weaken a test to get green.** Change a test only when the behaviour change is
    intended, and say so in the commit message.
 9. **Commits:** Conventional Commit style (`feat:`, `fix:`, `docs:`, `ci:`, `test:`,
