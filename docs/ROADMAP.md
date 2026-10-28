@@ -35,17 +35,20 @@
 | TT14 | `tapthetab://` URL scheme: open the switcher (optionally pre-filtered or scoped), open Settings — for Raycast/Alfred/Shortcuts | auto | ✅ done |
 | TT15 | Large preview of the selected window (previews mode) | auto | ✅ done |
 | TT16 | Core hygiene: shortcut-conflict advisor in the core (+ ⇧-reverse conflict), grid shrinks to fit width, diagnostics report | auto | ✅ done |
-| TT17 | Release v0.3.0 | checkpoint | ⬜ todo |
-| TT18 | Windows on other Spaces (research spike; private APIs, behind a setting, off by default) | checkpoint | ⬜ todo |
+| TT17 | Release v0.3.0 | checkpoint | ✅ done |
+| TT18 | Hardening audit of the macOS layer (stuck keys, focus, threading, leaks, ⌘⇥ restore) and fixes | auto | ⬜ todo |
+| TT19 | Windows on other Spaces: research, then the most robust no-SIP approach behind a setting (off by default) | checkpoint | ⬜ todo |
+| TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ⬜ todo |
+| TT21 | Release v0.4.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0 and v0.2.0 released; phase 3 complete, releasing v0.3.0 (TT17). Next: phase 4.
+**Overall status:** v0.1.0, v0.2.0 and v0.3.0 released. Phase 4 (v0.4.0) in progress: hardening before the first real-Mac feedback, then other Spaces.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
    never get stuck), window activation correctness, permissions onboarding.
 2. **TT8 → TT12** — v0.2.0, speed and customisation.
 3. **TT13 → TT17** — v0.3.0, reach, accessibility and automation.
-4. **TT18 →** — v0.4.0, other Spaces and whatever real-Mac feedback asks for first.
+4. **TT18 → TT21** — v0.4.0, hardening and other Spaces.
 
 ---
 
