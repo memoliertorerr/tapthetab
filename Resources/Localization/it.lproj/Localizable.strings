@@ -139,3 +139,5 @@
 "Wrap around at the ends" = "Ricomincia dall'inizio alla fine dell'elenco";
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ clear" = "⇧W chiudi · ⇧M contrai · ⇧Q esci · ⎋ cancella";
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close" = "⇧W chiudi · ⇧M contrai · ⇧Q esci · ⎋ chiudi";
+"Show menu bar icon" = "Mostra icona nella barra dei menu";
+"When hidden, open TapTheTab again to get to Settings." = "Se è nascosta, apri di nuovo TapTheTab per accedere alle impostazioni.";

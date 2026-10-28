@@ -139,3 +139,5 @@
 "Wrap around at the ends" = "Sona gelince başa dön";
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ clear" = "⇧W kapat · ⇧M küçült · ⇧Q çık · ⎋ temizle";
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close" = "⇧W kapat · ⇧M küçült · ⇧Q çık · ⎋ kapat";
+"Show menu bar icon" = "Menü çubuğu simgesini göster";
+"When hidden, open TapTheTab again to get to Settings." = "Gizliyken Ayarlar'a ulaşmak için TapTheTab'ı yeniden açın.";

@@ -5,10 +5,10 @@ SWIFT ?= swift
 APP   := dist/TapTheTab.app
 
 .DEFAULT_GOAL := help
-.PHONY: help build test app universal package run clean lint
+.PHONY: help build test app universal package run screenshots clean lint
 
 help: ## Show this help
-	@grep -E '^[a-z][a-zA-Z_-]*:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
+	@grep -E '^[a-z][a-zA-Z_-]*:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
 
 build: ## Debug build (core only on Linux)
 	$(SWIFT) build
@@ -29,6 +29,10 @@ package: ## Zip + dmg + SHA256SUMS.txt from dist/TapTheTab.app (builds it if mis
 run: ## Open dist/TapTheTab.app (builds it if missing)
 	@test -d $(APP) || $(MAKE) app
 	open $(APP)
+
+screenshots: ## Render the README screenshots from sample data into dist/screenshots
+	@test -d $(APP) || $(MAKE) app
+	$(APP)/Contents/MacOS/TapTheTab --render-screenshots dist/screenshots
 
 clean: ## Remove build products
 	rm -rf .build dist

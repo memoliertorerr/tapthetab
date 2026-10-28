@@ -49,6 +49,7 @@ final class DiagnosticsReportTests: XCTestCase {
           size: medium
           showPreviews: false
           showAppName: true
+          showMenuBarIcon: true
           theme: system
           placement: mouse
           showDelayMilliseconds: 90

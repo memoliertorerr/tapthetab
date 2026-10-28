@@ -15,6 +15,9 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var generation: Int = 0
 
     var inputHandler: ((SwitcherInput) -> Void)?
+    /// Icons to show instead of the running process's, by pid. Always empty in the app;
+    /// `ScreenshotRenderer` sets it because its sample items have no real processes.
+    var iconOverrides: [Int32: NSImage] = [:]
 
     private var iconCache: [Int32: NSImage] = [:]
     /// Mouse position when hover last counted (or when the panel appeared / relaid out).
@@ -91,6 +94,7 @@ final class SwitcherViewModel: ObservableObject {
 
     /// Cached per process; not published, so filling the cache during rendering is fine.
     func icon(for pid: Int32) -> NSImage {
+        if let override = iconOverrides[pid] { return override }
         if let cached = iconCache[pid] { return cached }
         let image: NSImage = NSRunningApplication(processIdentifier: pid)?.icon ?? genericAppIcon
         iconCache[pid] = image

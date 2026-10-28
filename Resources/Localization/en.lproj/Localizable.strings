@@ -139,3 +139,5 @@
 "Wrap around at the ends" = "Wrap around at the ends";
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ clear" = "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ clear";
 "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close" = "⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close";
+"Show menu bar icon" = "Show menu bar icon";
+"When hidden, open TapTheTab again to get to Settings." = "When hidden, open TapTheTab again to get to Settings.";

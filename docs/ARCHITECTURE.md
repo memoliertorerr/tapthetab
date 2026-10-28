@@ -76,6 +76,19 @@ placeholders across languages, unused keys, and bare literals passed to SwiftUI 
 `NSApplicationDelegate.application(_:open:)`, are parsed by `AutomationCommand`, and can
 only open TapTheTab's own UI.
 
+## Screenshots
+
+`TapTheTab --render-screenshots <dir>` (`make screenshots`, and every macOS CI run, which
+uploads the result as the `screenshots-<sha>` artifact) is a hidden mode handled in
+`TapTheTabMain` before anything else starts: no event tap, menu bar item, config file or
+permission prompt. `App/ScreenshotRenderer.swift` feeds the real `SwitcherRootView` and
+`SettingsView` with made-up windows (fictional titles, icons of apps that ship with macOS,
+synthetic previews drawn with Core Graphics), lays the panel out with the same
+`SwitcherLayout` math for a 1512×945 pt screen, and writes 2× PNGs in light and dark onto a
+gradient "desktop". The switcher is drawn with `ImageRenderer`; Settings (AppKit-backed
+controls) from an offscreen window that is never shown. The README images in
+`docs/images/` come from that artifact.
+
 ## Permissions
 
 - **Accessibility** — required for the event tap and AX. Without it the app shows
