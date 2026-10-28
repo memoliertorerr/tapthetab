@@ -29,9 +29,29 @@ final class HotkeyMonitor {
     /// While true every key press is swallowed and forwarded to the delegate.
     private(set) var isSessionActive = false
 
+    /// While true, trigger shortcuts are not captured (Settings is recording a shortcut).
+    var isMatchingSuspended = false
+
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
-    private var disabledSymbolicHotkeys: Set<SymbolicHotkey> = []
+    /// Key that opened or drove the current session, swallowed until it is released so
+    /// its autorepeat and key-up don't leak into the window that gets activated.
+    private var heldSessionKey: UInt16?
+
+    private static let disabledHotkeysDefaultsKey = "disabledSymbolicHotkeys"
+
+    /// System shortcuts we switched off. Persisted, because the Window Server keeps them off
+    /// after a crash; the next launch turns back on any that are no longer wanted.
+    private var disabledSymbolicHotkeys: Set<SymbolicHotkey> = HotkeyMonitor.loadDisabledHotkeys() {
+        didSet {
+            UserDefaults.standard.set(disabledSymbolicHotkeys.map(\.rawValue).sorted(), forKey: Self.disabledHotkeysDefaultsKey)
+        }
+    }
+
+    private static func loadDisabledHotkeys() -> Set<SymbolicHotkey> {
+        let raw = UserDefaults.standard.array(forKey: disabledHotkeysDefaultsKey) as? [Int] ?? []
+        return Set(raw.compactMap { SymbolicHotkey(rawValue: Int32(truncatingIfNeeded: $0)) })
+    }
 
     var isRunning: Bool { tap != nil }
 
@@ -56,6 +76,8 @@ final class HotkeyMonitor {
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             Log.hotkey.error("Could not create event tap (Accessibility permission missing?)")
+            // Without a tap we can't stand in for ⌘⇥: give it back to the system.
+            restoreSystemHotkeys()
             return false
         }
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
@@ -77,6 +99,7 @@ final class HotkeyMonitor {
         tap = nil
         source = nil
         isSessionActive = false
+        heldSessionKey = nil
         restoreSystemHotkeys()
     }
 
@@ -91,13 +114,24 @@ final class HotkeyMonitor {
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
-            // macOS disables slow taps; turn it straight back on.
-            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            if !AXIsProcessTrusted() {
+            guard AXIsProcessTrusted() else {
+                // Permission was revoked: don't keep a dead tap around.
                 isSessionActive = false
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.delegate?.hotkeyMonitorDidFail(self)
+                }
+                return Unmanaged.passUnretained(event)
+            }
+            // macOS disables slow taps; turn it straight back on.
+            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            if isSessionActive {
+                // A modifier release may have happened while the tap was off; re-read the
+                // real state so an open switcher can't wait forever for it.
+                let flags = ModifierFlags(CGEventSource.flagsState(.combinedSessionState))
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.delegate?.hotkeyMonitor(self, modifiersChanged: flags)
                 }
             }
             return Unmanaged.passUnretained(event)
@@ -105,7 +139,13 @@ final class HotkeyMonitor {
         case .keyDown:
             let keyCode = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
             let flags = ModifierFlags(event.flags)
+            if !isSessionActive, keyCode == heldSessionKey,
+               event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
+                // ⇥ still held after the switcher closed: don't type tabs into the new window.
+                return nil
+            }
             if isSessionActive {
+                heldSessionKey = keyCode
                 let characters = NSEvent(cgEvent: event)?.charactersIgnoringModifiers
                 let press = KeyPress(keyCode: keyCode, modifiers: flags, characters: characters)
                 DispatchQueue.main.async { [weak self] in
@@ -114,10 +154,11 @@ final class HotkeyMonitor {
                 }
                 return nil
             }
-            if let found = match(keyCode: keyCode, flags: flags) {
+            if !isMatchingSuspended, let found = match(keyCode: keyCode, flags: flags) {
                 let trigger = found.trigger
                 let reverse = found.reverse
                 isSessionActive = true
+                heldSessionKey = keyCode
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.delegate?.hotkeyMonitor(self, didTrigger: trigger, reverse: reverse)
@@ -127,6 +168,11 @@ final class HotkeyMonitor {
             return Unmanaged.passUnretained(event)
 
         case .keyUp:
+            let keyCode = UInt16(truncatingIfNeeded: event.getIntegerValueField(.keyboardEventKeycode))
+            if keyCode == heldSessionKey {
+                heldSessionKey = nil
+                return nil
+            }
             return isSessionActive ? nil : Unmanaged.passUnretained(event)
 
         case .flagsChanged:
