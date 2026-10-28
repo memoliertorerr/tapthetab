@@ -166,14 +166,65 @@ final class SwitcherSessionTests: XCTestCase {
         XCTAssertEqual(s.selectedIndex, 6)
     }
 
-    func testGridDownFromAboveGapInPartialRowWrapsToTop() {
+    func testGridDownFromAboveGapInPartialRowLandsOnLastItem() {
+        // 7 items in 3 columns: rows [0 1 2] [3 4 5] [6]. Index 5 has no cell below it,
+        // but a lower row exists, so ↓ goes to the last item instead of wrapping (Finder).
         var s = grid(count: 7, columns: 3)
         s.handle(.select(index: 5))
+        XCTAssertEqual(s.handle(.moveDown), .refresh)
+        XCTAssertEqual(s.selectedIndex, 6)
+        s.handle(.select(index: 4))
         s.handle(.moveDown)
-        XCTAssertEqual(s.selectedIndex, 2)
+        XCTAssertEqual(s.selectedIndex, 6)
+    }
+
+    func testGridDownFromAboveGapLandsOnLastItemWithoutWrap() {
+        // Landing on the last item is not a wrap, so it also happens with wrapping off.
+        var s = grid(count: 8, columns: 3, wraps: false)
+        s.handle(.select(index: 5))
+        XCTAssertEqual(s.handle(.moveDown), .refresh)
+        XCTAssertEqual(s.selectedIndex, 7)
+        XCTAssertEqual(s.handle(.moveDown), .none, "already on the last row")
+        XCTAssertEqual(s.selectedIndex, 7)
+    }
+
+    func testGridDownColumnWithCellBelowStillMovesStraightDown() {
+        var s = grid(count: 8, columns: 3)
+        s.handle(.select(index: 3))
+        s.handle(.moveDown)
+        XCTAssertEqual(s.selectedIndex, 6)
+        s.handle(.select(index: 4))
+        s.handle(.moveDown)
+        XCTAssertEqual(s.selectedIndex, 7)
+    }
+
+    func testGridDownFromLastRowWrapsToItsColumnOnFirstRow() {
+        var s = grid(count: 7, columns: 3)
         s.handle(.select(index: 6))
         s.handle(.moveDown)
         XCTAssertEqual(s.selectedIndex, 0)
+
+        var t = grid(count: 8, columns: 3)
+        t.handle(.select(index: 7))
+        t.handle(.moveDown)
+        XCTAssertEqual(t.selectedIndex, 1)
+    }
+
+    func testGridDownThenUpFromGapReturnsToTheRowAbove() {
+        // ↓ from 5 lands on 6; ↑ from 6 goes straight up to 3 (↑ never needs a gap rule:
+        // every row above the last one is full).
+        var s = grid(count: 7, columns: 3)
+        s.handle(.select(index: 5))
+        s.handle(.moveDown)
+        s.handle(.moveUp)
+        XCTAssertEqual(s.selectedIndex, 3)
+    }
+
+    func testGridDownInSingleRowWraps() {
+        var s = grid(count: 3, columns: 4)
+        s.handle(.select(index: 2))
+        XCTAssertEqual(s.handle(.moveDown), .none, "single row: wrapping lands on the same cell")
+        XCTAssertEqual(s.selectedIndex, 2)
     }
 
     func testGridWithoutWrapStopsAtEdges() {
@@ -288,6 +339,111 @@ final class SwitcherSessionTests: XCTestCase {
     func testDeleteBackwardOnEmptyQueryIsNoOp() {
         var s = session()
         XCTAssertEqual(s.handle(.deleteBackward), .none)
+    }
+
+    // MARK: - Search memory
+
+    private let slackAndSafari: [SwitcherItem] = [
+        window(1, pid: 1, app: "Safari", bundle: "com.apple.Safari", title: "Apple"),
+        window(2, pid: 2, app: "Slack", bundle: "com.tinyspeck.slackmacgap", title: "general"),
+        window(3, pid: 3, app: "Mail", bundle: "com.apple.mail", title: "Inbox"),
+    ]
+
+    func testSessionStartsWithEmptySearchMemoryByDefault() {
+        XCTAssertTrue(session().searchMemory.isEmpty)
+    }
+
+    func testSearchMemoryReordersCloseMatches() {
+        var plain = session(slackAndSafari)
+        plain.handle(.type("s"))
+        XCTAssertEqual(plain.visible.map(\.id), [.window(1), .window(2)], "equal scores keep recency order")
+
+        var memory = SearchMemory()
+        memory.record(query: "sl", picked: slackAndSafari[1])
+        var s = SwitcherSession(items: slackAndSafari, searchMemory: memory)
+        XCTAssertEqual(s.searchMemory, memory)
+        s.handle(.type("s"))
+        XCTAssertEqual(s.visible.map(\.id), [.window(2), .window(1)], "Slack was picked for \"sl\"")
+        XCTAssertEqual(s.selectedItem?.id, .window(2))
+        s.handle(.type("l"))
+        XCTAssertEqual(s.selectedItem?.id, .window(2))
+    }
+
+    func testSearchMemoryKeepsRawMatchScores() throws {
+        var memory = SearchMemory()
+        memory.record(query: "s", picked: slackAndSafari[1])
+        var plain = session(slackAndSafari)
+        var boosted = SwitcherSession(items: slackAndSafari, searchMemory: memory)
+        plain.handle(.type("s"))
+        boosted.handle(.type("s"))
+        let a = try XCTUnwrap(plain.visible.first { $0.id == .window(2) })
+        let b = try XCTUnwrap(boosted.visible.first { $0.id == .window(2) })
+        XCTAssertEqual(a.match, b.match, "the boost changes order only, not FuzzyMatch")
+    }
+
+    func testSearchMemoryNeverAddsNonMatchingItems() {
+        var memory = SearchMemory()
+        for _ in 0..<10 { memory.record(query: "s", picked: slackAndSafari[2]) } // Mail, for "s"
+        var s = SwitcherSession(items: slackAndSafari, searchMemory: memory)
+        s.handle(.type("s"))
+        XCTAssertFalse(s.visible.contains { $0.id == .window(3) }, "\"Mail\"/\"Inbox\" does not match \"s\"")
+        XCTAssertEqual(Set(s.visible.map(\.id)), [.window(1), .window(2)])
+    }
+
+    func testSearchMemoryDoesNotChangeEmptyQueryOrder() {
+        var memory = SearchMemory()
+        memory.record(query: "mail", picked: slackAndSafari[2])
+        var s = SwitcherSession(items: slackAndSafari, searchMemory: memory)
+        XCTAssertEqual(s.visible.map(\.id), slackAndSafari.map(\.id))
+        XCTAssertEqual(s.selectedIndex, 1)
+        s.handle(.type("m"))
+        s.handle(.deleteBackward)
+        XCTAssertEqual(s.visible.map(\.id), slackAndSafari.map(\.id))
+        XCTAssertEqual(s.selectedIndex, 1)
+    }
+
+    func testSearchMemoryDoesNotOverrideStrongMatchAfterOnePick() {
+        // A scattered subsequence hit stays below a strong contiguous prefix hit.
+        let list = [
+            window(1, pid: 1, app: "Terminal", title: "zsh"),
+            window(2, pid: 2, app: "Notes", title: "the error message"),
+        ]
+        var memory = SearchMemory()
+        memory.record(query: "term", picked: list[1])
+        var s = SwitcherSession(items: list, searchMemory: memory)
+        s.handle(.type("term"))
+        XCTAssertEqual(s.visible.map(\.id), [.window(1), .window(2)])
+    }
+
+    func testSearchMemoryPrefersPickedWindowOverSiblingOfSameApp() {
+        let list = [
+            window(1, pid: 1, app: "Code", bundle: "com.microsoft.VSCode", title: "server.swift"),
+            window(2, pid: 1, app: "Code", bundle: "com.microsoft.VSCode", title: "client.swift"),
+        ]
+        var memory = SearchMemory()
+        memory.record(query: "swift", picked: list[1])
+        var s = SwitcherSession(items: list, searchMemory: memory)
+        s.handle(.type("swift"))
+        XCTAssertEqual(s.visible.map(\.id), [.window(2), .window(1)])
+    }
+
+    func testSearchMemorySurvivesReplaceItems() {
+        var memory = SearchMemory()
+        memory.record(query: "s", picked: slackAndSafari[1])
+        var s = SwitcherSession(items: slackAndSafari, searchMemory: memory)
+        s.handle(.type("s"))
+        s.replaceItems(slackAndSafari + [window(4, pid: 4, app: "Stocks", title: "")])
+        XCTAssertEqual(s.searchMemory, memory)
+        XCTAssertEqual(s.visible.first?.id, .window(2))
+    }
+
+    func testSearchMemoryUsesAppIdentityForNewWindows() {
+        // The window Slack was picked in is gone; Slack's new window still benefits.
+        var memory = SearchMemory()
+        memory.record(query: "s", picked: window(99, pid: 2, app: "Slack", bundle: "com.tinyspeck.slackmacgap", title: "old"))
+        var s = SwitcherSession(items: slackAndSafari, searchMemory: memory)
+        s.handle(.type("s"))
+        XCTAssertEqual(s.visible.first?.id, .window(2))
     }
 
     // MARK: - Cancel / commit / release

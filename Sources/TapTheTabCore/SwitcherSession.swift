@@ -76,19 +76,26 @@ public struct SwitcherSession: Equatable, Sendable {
     public var wrapsAround: Bool
     /// Selects the second entry on open, so a quick tap switches to the previous window.
     public let startsOnPrevious: Bool
+    /// Past picks for past queries. While searching, items are ranked by
+    /// `match.score + searchMemory.boost(query:for:)`; it never affects the empty-query
+    /// order and never adds items that did not match. The session only reads it: the app
+    /// records a pick (`record(query:picked:)`) when a search session activates an item.
+    public private(set) var searchMemory: SearchMemory
 
     public init(
         items: [SwitcherItem],
         startsOnPrevious: Bool = true,
         locked: Bool = false,
         columns: Int = 1,
-        wrapsAround: Bool = true
+        wrapsAround: Bool = true,
+        searchMemory: SearchMemory = SearchMemory()
     ) {
         self.items = items
         self.startsOnPrevious = startsOnPrevious
         self.isLocked = locked
         self.columns = max(1, columns)
         self.wrapsAround = wrapsAround
+        self.searchMemory = searchMemory
         recompute(keeping: nil)
     }
 
@@ -180,15 +187,15 @@ public struct SwitcherSession: Equatable, Sendable {
         if query.trimmingCharacters(in: .whitespaces).isEmpty {
             visible = items.map { RankedItem(item: $0) }
         } else {
-            let scored = items.enumerated().compactMap { offset, item -> (Int, RankedItem)? in
+            let boost = searchMemory.scorer(for: query)
+            let scored = items.enumerated().compactMap { offset, item -> (offset: Int, rank: Int, item: RankedItem)? in
                 guard let match = FuzzyMatcher.match(query, item: item) else { return nil }
-                return (offset, RankedItem(item: item, match: match))
+                // The boost is only added to items that already matched.
+                return (offset, match.score + boost(item), RankedItem(item: item, match: match))
             }
             visible = scored.sorted { a, b in
-                let sa = a.1.match?.score ?? 0
-                let sb = b.1.match?.score ?? 0
-                return sa != sb ? sa > sb : a.0 < b.0
-            }.map(\.1)
+                a.rank != b.rank ? a.rank > b.rank : a.offset < b.offset
+            }.map(\.item)
         }
 
         if let id, let index = visible.firstIndex(where: { $0.id == id }) {
@@ -224,12 +231,19 @@ public struct SwitcherSession: Equatable, Sendable {
         guard !visible.isEmpty, let current = selectedIndex else { return step(by: rows) }
         let target = current + rows * columns
         if visible.indices.contains(target) { return select(target) }
-        guard wrapsAround else { return .none }
-        // Wrap to the same column on the first/last row.
         let column = current % columns
         if rows > 0 {
+            // A partial last row has a gap under this column: land on the last item
+            // (like Finder) instead of wrapping past a row that still exists.
+            let lastRow = (visible.count - 1) / columns
+            if current / columns < lastRow { return select(visible.count - 1) }
+            // Already on the last row: wrap to the same column on the first row.
+            guard wrapsAround else { return .none }
             return select(column < visible.count ? column : 0)
         }
+        // Moving up from the first row: wrap to the same column on the last row,
+        // or to the last item when that row is too short.
+        guard wrapsAround else { return .none }
         let lastRowStart = ((visible.count - 1) / columns) * columns
         let candidate = lastRowStart + column
         return select(candidate < visible.count ? candidate : visible.count - 1)
