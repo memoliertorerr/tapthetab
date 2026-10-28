@@ -13,6 +13,13 @@ Hold <kbd>⌥</kbd>, tap <kbd>⇥</kbd>, see every window. Type to search. Let g
 
 </div>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-grid-dark.png">
+    <img alt="The TapTheTab switcher showing fourteen windows from different apps in a grid, the second one selected" src="docs/images/switcher-grid-light.png" width="800">
+  </picture>
+</p>
+
 ---
 
 macOS's <kbd>⌘</kbd><kbd>⇥</kbd> switches **apps**, not windows. If you have three Safari
@@ -33,6 +40,29 @@ built around three goals:
    run on any platform, and a thin macOS layer on top.
 
 ## Features
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-search-dark.png">
+        <img alt="List layout while searching for 're': matching letters are highlighted in titles and app names" src="docs/images/switcher-search-light.png">
+      </picture>
+      <p align="center"><sub>Type to search — matches are highlighted</sub></p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-previews-dark.png">
+        <img alt="Grid with live window previews and a large preview of the selected window" src="docs/images/switcher-previews-light.png">
+      </picture>
+      <p align="center"><sub>Optional live previews</sub></p>
+    </td>
+  </tr>
+</table>
+
+<sub>Screenshots are rendered by the app itself from fictional sample windows
+(`make screenshots`), so they always match the current UI.</sub>
+
 
 - **All windows, most recent first** — including minimized windows and hidden apps
   (each can be filtered out).
@@ -110,6 +140,13 @@ brew install --cask tapthetab
 The mouse works too: hover to select, click to switch, click outside to dismiss.
 
 ## Configuration
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-general-dark.png">
+    <img alt="TapTheTab Settings, General tab: launch at login, shortcut recorder rows and behaviour toggles" src="docs/images/settings-general-light.png" width="460">
+  </picture>
+</p>
 
 Everything in Settings is stored in
 `~/Library/Application Support/TapTheTab/config.json` (owner-only permissions). Edit it

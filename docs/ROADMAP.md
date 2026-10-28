@@ -40,11 +40,11 @@
 | TT19 | Windows on other Spaces: research, then the most robust no-SIP approach behind a setting (off by default) | checkpoint | ✅ done |
 | TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ✅ done |
 | TT21 | Release v0.4.0 | checkpoint | ✅ done |
-| TT22 | Screenshot renderer: the app draws the switcher and Settings from sample data (`--render-screenshots`), CI produces the PNGs, README shows them | auto | ⬜ todo |
-| TT23 | Menu bar icon can be hidden (reopen the app to get Settings); option to start on the first item | auto | ⬜ todo |
+| TT22 | Screenshot renderer: the app draws the switcher and Settings from sample data (`--render-screenshots`), CI produces the PNGs, README shows them | auto | ✅ done |
+| TT23 | Menu bar icon can be hidden (reopen the app to get Settings) | auto | ✅ done |
 | TT24 | Release v0.5.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.4.0 released. Phase 5 (v0.5.0) in progress: visuals for the README and small conveniences, while waiting for real-Mac feedback.
+**Overall status:** v0.1.0–v0.4.0 released; phase 5 complete, releasing v0.5.0 (TT24). Next: act on real-Mac feedback.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -166,6 +166,14 @@ See `AGENTS.md`. In addition, for this plan:
   are carried over between refreshes.
 - Skipped the remote-token element scan: costly, unreliable, untestable here. Without an
   element, close/minimize/fullscreen on an other-Space window beep instead of acting.
+
+### TT22–TT23 (2026-10-28)
+- Screenshots: `ScreenshotRenderer` renders the real SwiftUI views with fictional sample
+  windows (system app icons, synthetic previews) via `ImageRenderer`, composited on a
+  gradient; Settings through an offscreen window. CI uploads them; the README copies are
+  resized to ≤1600 px and quantized (~1.5 MB for 8 images). Settings toggles render grey
+  because the offscreen window isn't key — acceptable.
+- Menu bar icon can be hidden (`appearance.showMenuBarIcon`).
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
