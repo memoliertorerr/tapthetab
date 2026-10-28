@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-28
+
+### Fixed
+
+- Switching to a window no longer brings the app's other windows forward too: only the window you picked comes to the front, like clicking it.
+
 ## [0.7.0] - 2026-10-28
 
 ### Added
@@ -116,7 +122,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.4.0...v0.5.0

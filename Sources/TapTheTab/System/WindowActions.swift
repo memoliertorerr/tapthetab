@@ -2,37 +2,30 @@ import AppKit
 import ApplicationServices
 import TapTheTabCore
 
-/// Focus, close, minimize and friends. Public APIs only, except focusing a window on
-/// another Space (see `focusAcrossSpaces`), which only happens when windows on other
-/// Spaces are shown.
+/// Focus, close, minimize and friends. Focusing a window goes through the window server
+/// (see `focusWindow`) so only the chosen window comes forward; the public path is the
+/// fallback when those private functions are missing.
 enum WindowActions {
     /// Brings a window (or a windowless app) to the front, un-hiding and
-    /// un-minimizing as needed.
+    /// un-minimizing as needed. Only the chosen window comes forward: the app's other
+    /// windows stay where they are in the stack, like clicking a window does.
     ///
-    /// `acrossSpaces` is true while "Show windows on other Spaces" is on: a window that is
-    /// not on the current Space (or has no Accessibility element) is then made frontmost
-    /// through the window server, which also switches to its Space. Without it, or when
-    /// that fails, the public path below runs as before.
+    /// `acrossSpaces` is true while "Show windows on other Spaces" is on: a window on
+    /// another Space (or without an Accessibility element) is then focused through the
+    /// window server too, which also switches to its Space.
     static func activate(_ item: SwitcherItem, window: AXUIElement?, acrossSpaces: Bool = false) {
         guard let app = NSRunningApplication(processIdentifier: item.pid) else { return }
 
         if acrossSpaces, case .window(let number) = item.id,
            !item.isOnActiveSpace || window == nil,
            // Minimized windows and hidden apps' windows are off-screen on every Space;
-           // the public path below restores those.
+           // the path below restores those first.
            !item.isMinimized, !item.isAppHidden,
-           focusAcrossSpaces(pid: item.pid, windowID: number) {
+           focusWindow(pid: item.pid, windowID: number) {
             if let window {
                 AX.set(window, kAXMainAttribute, true)
                 AX.perform(window, kAXRaiseAction)
-            }
-            activateApp(app)
-            if let window {
-                // The Space switch is animated; raise once more when it has settled.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    AX.perform(window, kAXRaiseAction)
-                    AX.set(window, kAXMainAttribute, true)
-                }
+                raiseAgainSoon(window)
             }
             return
         }
@@ -55,12 +48,26 @@ enum WindowActions {
         if AX.bool(window, kAXMinimizedAttribute) == true {
             AX.set(window, kAXMinimizedAttribute, false)
         }
+        // The chosen window first becomes the app's front window…
         AX.set(window, kAXMainAttribute, true)
         AX.perform(window, kAXRaiseAction)
+        // …then the window server makes the app frontmost with just that window, the way
+        // a click on it would. Making the app frontmost any other way (its Accessibility
+        // "frontmost" attribute, or activating it) brings all its windows forward.
+        if case .window(let number) = item.id, focusWindow(pid: item.pid, windowID: number) {
+            raiseAgainSoon(window)
+            return
+        }
+        // Fallback when the window-server functions are missing: public calls only,
+        // which may bring the app's other windows forward too.
         AX.set(AX.application(item.pid), kAXFrontmostAttribute, true)
         activateApp(app)
-        // Activation can reorder the app's windows (and Space switches are animated);
-        // raising once more afterwards keeps the chosen window on top.
+        raiseAgainSoon(window)
+    }
+
+    /// Activation can reorder the app's windows (and Space switches are animated);
+    /// raising once more afterwards keeps the chosen window on top.
+    private static func raiseAgainSoon(_ window: AXUIElement) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             AX.perform(window, kAXRaiseAction)
             AX.set(window, kAXMainAttribute, true)
@@ -94,17 +101,18 @@ enum WindowActions {
         }
     }
 
-    // MARK: - Other Spaces (private window-server calls)
+    // MARK: - Window-server focus (private calls)
 
     /// `_SLPSSetFrontProcessWithOptions` mode: act as if the user chose the window, so
-    /// the window server switches to its Space.
+    /// the window server switches to its Space if needed. Without the "all windows" flag
+    /// (0x100), only that window comes forward.
     private static let userGeneratedFrontProcess: UInt32 = 0x200
 
-    /// Makes `windowID` the key window of the frontmost process `pid`, switching to its
-    /// Space. Returns false (having changed nothing that matters) when a private function
-    /// is missing or the window server refuses, so the caller can use the public path.
-    /// Main thread.
-    private static func focusAcrossSpaces(pid: pid_t, windowID: CGWindowID) -> Bool {
+    /// Makes process `pid` frontmost with `windowID` as its key window, bringing only that
+    /// window forward and switching to its Space if needed. Returns false (having changed
+    /// nothing that matters) when a private function is missing or the window server
+    /// refuses, so the caller can use the public path. Main thread.
+    private static func focusWindow(pid: pid_t, windowID: CGWindowID) -> Bool {
         guard let getProcess = PrivateAPI.getProcessForPID,
               let setFront = PrivateAPI.slpsSetFrontProcessWithOptions,
               let post = PrivateAPI.slpsPostEventRecordTo,

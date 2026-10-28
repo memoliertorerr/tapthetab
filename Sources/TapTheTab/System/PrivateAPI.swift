@@ -54,8 +54,9 @@ enum PrivateAPI {
     /// Process serial number for a PID, which the two front-process calls take.
     static let getProcessForPID: GetProcessForPID? = resolve("GetProcessForPID")
 
-    /// Makes a process frontmost with a given window as its key window, switching to that
-    /// window's Space. Public activation APIs cannot target a window on another Space.
+    /// Makes a process frontmost with a given window as its key window, bringing only that
+    /// window forward and switching to its Space if needed. Used for every switch: public
+    /// activation brings all of an app's windows forward and cannot target another Space.
     static let slpsSetFrontProcessWithOptions: SLPSSetFrontProcessWithOptions? = resolve("_SLPSSetFrontProcessWithOptions")
 
     /// Posts a raw event record to a process; used to make the chosen window key.
@@ -66,7 +67,8 @@ enum PrivateAPI {
         cgsMainConnectionID != nil && cgsCopyManagedDisplaySpaces != nil && cgsCopyWindowsWithOptionsAndTags != nil
     }
 
-    /// A window on another Space can be focused (which switches to its Space).
+    /// A single window can be focused through the window server (only that window comes
+    /// forward; on another Space, its Space is shown).
     static var canFocusAcrossSpaces: Bool {
         getProcessForPID != nil && slpsSetFrontProcessWithOptions != nil && slpsPostEventRecordTo != nil
     }
