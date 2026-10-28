@@ -3,8 +3,8 @@
 #   brew install --cask tapthetab
 # Bump with scripts/update-cask.sh after each release.
 cask "tapthetab" do
-  version "0.2.0"
-  sha256 "2630f290c3480bf7806c7f639d6645333861cf1bd2af82a26681e548d3e8ff02"
+  version "0.3.0"
+  sha256 "b7caaeb33f9deb293a8e160fe15f9ec70ac324a5ace9762a6f211c7a7bee0207"
 
   url "https://github.com/memoliertorerr/tapthetab/releases/download/v#{version}/TapTheTab-#{version}.dmg"
   name "TapTheTab"
