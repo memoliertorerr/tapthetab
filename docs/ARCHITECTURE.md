@@ -42,7 +42,11 @@ previous window without the panel ever appearing.
 | `KeyRouter` | Maps `KeyPress` to `SwitcherInput` (cycling, arrows, search text, ⇧-letter actions). |
 | `Shortcut`, `KeyCode`, `ModifierFlags` | Human-readable shortcuts (`"option+tab"`) ↔ key codes. |
 | `Configuration`, `ConfigStore` | Lenient JSON config with validation; atomic 0600 saves; broken files are set aside, never overwritten. |
-| `GridLayout` | Columns/rows/scale for the grid on a given screen. |
+| `GridLayout` | Columns/rows/scale for the grid on a given screen (shrinks to fit height and width). |
+| `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
+| `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
+| `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
+| `DiagnosticsReport` | Bug-report text: versions, permissions, counts, settings — no titles or bundle IDs. |
 
 ## macOS layer (`Sources/TapTheTab`)
 
@@ -50,10 +54,26 @@ previous window without the panel ever appearing.
 |---|---|
 | `HotkeyMonitor` | Session-level `CGEventTap`. Decides synchronously whether to swallow; re-enables itself after `tapDisabledByTimeout`. Takes over ⌘⇥/⌘\` by disabling the system symbolic hotkeys while running and restoring them on stop, quit and SIGTERM/SIGINT/SIGHUP. |
 | `WindowCatalog` | `CGWindowListCopyWindowInfo` gives z-order and which windows are on the current Space; the Accessibility API gives titles, minimized/fullscreen state and the elements to act on. Apps are enumerated concurrently with a 250 ms AX timeout each, off the main thread. |
+| `WindowWatcher` | One `AXObserver` per regular app (window created/destroyed/retitled/minimized, app hidden/shown) whose coalesced events refresh the catalog, so the list is current when the switcher opens. |
 | `FocusTracker` | `NSWorkspace` activation notifications plus an `AXObserver` on the frontmost app for focused-window changes feed the `RecencyTracker`. |
 | `WindowActions` | Raise via `kAXRaiseAction` + `kAXMainAttribute` + app `kAXFrontmostAttribute` + activation; windowless apps are reopened through Launch Services so they create a window. |
 | `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. |
 | `UI/` | Non-activating `NSPanel` (never takes focus — keys come from the tap) hosting SwiftUI; Settings and Onboarding windows. |
+
+## Localization
+
+User-facing strings go through `L10n.tr("English sentence")` (App/Localization.swift),
+which looks them up in `Resources/Localization/<lang>.lproj/Localizable.strings` copied
+into the app bundle by `scripts/build-app.sh`. English sentences are the keys, so a
+missing table still shows English. Window titles, app names and search text are never
+localized. `scripts/check-strings.py` (run in CI) checks syntax, matching keys and
+placeholders across languages, unused keys, and bare literals passed to SwiftUI views.
+
+## Automation
+
+`tapthetab://switch[?scope=…&query=…]` and `tapthetab://settings` arrive through
+`NSApplicationDelegate.application(_:open:)`, are parsed by `AutomationCommand`, and can
+only open TapTheTab's own UI.
 
 ## Permissions
 

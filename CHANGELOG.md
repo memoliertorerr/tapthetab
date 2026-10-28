@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Italian and Turkish translations, and VoiceOver labels throughout.
+- `tapthetab://` links: `tapthetab://switch?query=…&scope=…` opens the switcher already searching, `tapthetab://settings` opens Settings. Handy from Raycast, Alfred, Shortcuts or `open` in a terminal.
+- Settings warns when a shortcut clashes with a macOS shortcut or with another trigger plus ⇧.
+
+### Changed
+
+- Grid cards also shrink to fit narrow screens.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added
