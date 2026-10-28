@@ -1,0 +1,43 @@
+# Build output
+.build/
+.swiftpm/
+build/
+dist/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserstate
+Package.resolved.orig
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Secrets and signing material: never commit these
+.env
+.env.*
+*.p12
+*.pfx
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+*.pem
+*.key
+AuthKey_*.p8
+notary-*.json
+
+# Logs and local scratch
+*.log
+/tmp/
