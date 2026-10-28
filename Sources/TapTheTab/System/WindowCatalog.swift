@@ -79,8 +79,9 @@ final class WindowCatalog {
         let completions = pendingCompletions
         pendingCompletions = []
 
+        let previous = latest
         queue.async { [weak self] in
-            let snapshot = WindowCatalog.enumerate(apps: apps, screens: screens)
+            let snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous)
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.latest = snapshot
@@ -96,7 +97,7 @@ final class WindowCatalog {
 
     // MARK: - Enumeration (background queue)
 
-    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo]) -> Snapshot {
+    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot) -> Snapshot {
         // Front-to-back order of on-screen windows on the current Space(s).
         var zOrder: [CGWindowID: Int] = [:]
         if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
@@ -108,12 +109,34 @@ final class WindowCatalog {
         }
 
         let results = Results(count: apps.count)
+        // Windows from the last snapshot, per app, for apps too busy to answer this time.
+        var previousByPID: [pid_t: [SwitcherItem]] = [:]
+        for item in previous.items where !item.isWindowless {
+            previousByPID[item.pid, default: []].append(item)
+        }
 
         DispatchQueue.concurrentPerform(iterations: apps.count) { index in
             let app = apps[index]
             let appElement = AX.application(app.pid)
             var found: [Found] = []
-            for window in AX.elements(appElement, kAXWindowsAttribute) {
+            var value: CFTypeRef?
+            let status = AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &value)
+            if status == .cannotComplete, let kept = previousByPID[app.pid], !kept.isEmpty {
+                // The app didn't answer within the timeout (busy, beachballing). Keep its
+                // windows as last seen rather than making them vanish from the switcher.
+                for (offset, original) in kept.enumerated() {
+                    var item = original
+                    item.isAppHidden = app.isHidden
+                    guard case .window(let number) = item.id else { continue }
+                    item.isOnActiveSpace = zOrder[number] != nil
+                    let order = zOrder[number] ?? (100_000 + index * 100 + offset)
+                    found.append(Found(item: item, element: previous.elements[item.id], order: order))
+                }
+                results.set(found, at: index)
+                return
+            }
+            let windows: [AXUIElement] = status == .success ? ((value as? [AXUIElement]) ?? []) : []
+            for window in windows {
                 guard isSwitchable(window), let windowID = AX.windowID(window) else { continue }
                 let minimized = AX.bool(window, kAXMinimizedAttribute) ?? false
                 let fullscreen = AX.bool(window, AX.fullScreenAttribute) ?? false

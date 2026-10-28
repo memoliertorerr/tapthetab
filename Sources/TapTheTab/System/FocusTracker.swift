@@ -6,6 +6,12 @@ import TapTheTabCore
 /// inside the frontmost app, focused-window changes. Main-thread only.
 final class FocusTracker {
     private(set) var recency = RecencyTracker()
+    /// The most recent app other than TapTheTab that was frontmost.
+    private(set) var lastActivePID: pid_t?
+    /// Which process each seen item belongs to, so pruning can keep the history of
+    /// windows that are only temporarily missing (busy app, other Space).
+    private var owners: [ItemID: pid_t] = [:]
+    private var observeRetries: [pid_t: Int] = [:]
     private var observer: AXObserver?
     private var observedPID: pid_t?
     private var workspaceTokens: [NSObjectProtocol] = []
@@ -33,19 +39,29 @@ final class FocusTracker {
 
     func ordered(_ items: [SwitcherItem]) -> [SwitcherItem] { recency.ordered(items) }
 
-    func prune(keeping ids: Set<ItemID>) { recency.prune(keeping: ids) }
+    /// Forgets history only for items whose app is no longer running. Items missing from
+    /// one snapshot (an app too busy to answer, a window on another Space) keep their place.
+    func prune(after snapshot: [SwitcherItem]) {
+        for item in snapshot { owners[item.id] = item.pid }
+        let running = Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier))
+        owners = owners.filter { running.contains($0.value) }
+        recency.prune(keeping: Set(owners.keys))
+    }
 
     // MARK: - Private
 
     private func appActivated(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
         guard pid != ProcessInfo.processInfo.processIdentifier else { return }
+        lastActivePID = pid
         recordFocusedWindow(of: pid)
         observe(pid: pid)
     }
 
     private func appTerminated(_ pid: pid_t) {
         recency.forget(.app(pid: pid))
+        if lastActivePID == pid { lastActivePID = nil }
+        observeRetries[pid] = nil
         if observedPID == pid { removeObserver() }
     }
 
@@ -71,8 +87,21 @@ final class FocusTracker {
         guard AXObserverCreate(pid, callback, &created) == .success, let observer = created else { return }
         let app = AX.application(pid)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
-        AXObserverAddNotification(observer, app, kAXFocusedWindowChangedNotification as CFString, refcon)
-        AXObserverAddNotification(observer, app, kAXMainWindowChangedNotification as CFString, refcon)
+        let focused = AXObserverAddNotification(observer, app, kAXFocusedWindowChangedNotification as CFString, refcon)
+        let main = AXObserverAddNotification(observer, app, kAXMainWindowChangedNotification as CFString, refcon)
+        guard focused == .success || main == .success else {
+            // A freshly launched app often isn't ready for AX yet; try again shortly.
+            let attempt = (observeRetries[pid] ?? 0) + 1
+            observeRetries[pid] = attempt
+            if attempt <= 3 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5 * Double(attempt)) { [weak self] in
+                    guard let self, NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return }
+                    self.observe(pid: pid)
+                }
+            }
+            return
+        }
+        observeRetries[pid] = nil
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         self.observer = observer
         self.observedPID = pid
