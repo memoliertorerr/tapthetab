@@ -1,0 +1,75 @@
+import Foundation
+
+/// A key-down event as seen by the platform layer, stripped to what routing needs.
+public struct KeyPress: Equatable, Sendable {
+    public var keyCode: UInt16
+    public var modifiers: ModifierFlags
+    /// Characters produced ignoring modifiers other than shift (layout aware).
+    public var characters: String?
+
+    public init(keyCode: UInt16, modifiers: ModifierFlags = [], characters: String? = nil) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        self.characters = characters
+    }
+}
+
+/// Turns key presses into switcher inputs while the switcher is open.
+///
+/// Rules (documented in the README):
+/// - the trigger key cycles forward, with ⇧ it cycles backward;
+/// - arrows move, ↩ activates, ⎋ clears the search or closes;
+/// - Space with an empty search keeps the switcher open after release;
+/// - ⇧W/⇧M/⇧F/⇧H/⇧Q close, minimize, fullscreen, hide, quit;
+/// - any other printable character goes into the search field.
+public struct KeyRouter: Sendable {
+    public var triggerKeyCode: UInt16
+    public var searchEnabled: Bool
+    /// Modifiers held as part of the trigger (e.g. ⌘ for ⌘⇥). They are ignored when
+    /// deciding whether a key press is text, so searching works while holding them.
+    public var triggerModifiers: ModifierFlags
+
+    public static let actionKeys: [Character: WindowAction] = [
+        "w": .close, "m": .minimize, "f": .toggleFullscreen, "h": .hideApp, "q": .quitApp,
+    ]
+
+    public init(triggerKeyCode: UInt16, searchEnabled: Bool = true, triggerModifiers: ModifierFlags = []) {
+        self.triggerKeyCode = triggerKeyCode
+        self.searchEnabled = searchEnabled
+        self.triggerModifiers = triggerModifiers.subtracting(.shift)
+    }
+
+    public func route(_ press: KeyPress, isSearching: Bool) -> SwitcherInput? {
+        let shift = press.modifiers.contains(.shift)
+        switch press.keyCode {
+        case triggerKeyCode:
+            return shift ? .previous : .next
+        case KeyCode.leftArrow: return .moveLeft
+        case KeyCode.rightArrow: return .moveRight
+        case KeyCode.upArrow: return .moveUp
+        case KeyCode.downArrow: return .moveDown
+        case KeyCode.home, KeyCode.pageUp: return .first
+        case KeyCode.end, KeyCode.pageDown: return .last
+        case KeyCode.returnKey, KeyCode.keypadEnter: return .commit
+        case KeyCode.escape: return .cancel
+        case KeyCode.delete, KeyCode.forwardDelete: return searchEnabled ? .deleteBackward : nil
+        case KeyCode.tab: return shift ? .previous : .next
+        case KeyCode.space where !isSearching: return .lockOpen
+        default: break
+        }
+
+        guard let chars = press.characters, let first = chars.first, chars.count == 1 else { return nil }
+        // ⌃ and ⌘ chords (other than the trigger, handled above) are not text.
+        let extra = press.modifiers.subtracting(triggerModifiers)
+        if extra.contains(.control) || extra.contains(.command) { return nil }
+
+        if shift, let action = Self.actionKeys[Character(first.lowercased())] {
+            return .action(action)
+        }
+        guard searchEnabled else { return nil }
+        if first.isLetter || first.isNumber || first.isPunctuation || first.isSymbol || first == " " {
+            return .type(String(first))
+        }
+        return nil
+    }
+}
