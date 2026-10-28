@@ -26,6 +26,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private var sessionToken = 0
     private var showTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
+    private var lastThumbnailRequestIDs: [ItemID] = []
     private var outsideClickMonitor: Any?
 
     init(configuration: Configuration, permissions: PermissionsProviding) {
@@ -60,6 +61,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         focus.stop()
         watcher.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        DistributedNotificationCenter.default().removeObserver(self)
         isStarted = false
     }
 
@@ -117,11 +119,20 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     // MARK: - HotkeyMonitorDelegate
 
     func hotkeyMonitor(_ monitor: HotkeyMonitor, didTrigger trigger: Trigger, reverse: Bool) {
+        // The tap may have matched just before a pause or config change stopped capture.
+        guard monitor.isSessionActive, session == nil else { return }
         open(trigger: trigger, reverse: reverse, locked: !configuration.behavior.releaseToSwitch)
     }
 
     func hotkeyMonitor(_ monitor: HotkeyMonitor, keyDown press: KeyPress) {
         guard let current = session, let trigger = activeTrigger else { return }
+        // If the modifier release itself was missed (the tap was briefly off), the next key
+        // press shows the modifiers are up: treat it as the release.
+        let required = trigger.shortcut.modifiers.intersection([.command, .option, .control])
+        if !current.isLocked, !press.modifiers.isSuperset(of: required) {
+            handle(.triggerReleased)
+            return
+        }
         // Another trigger's key (e.g. ⌥` during ⌥⇥) is not text.
         if press.keyCode != trigger.shortcut.keyCode,
            configuration.triggers.contains(where: { $0.shortcut.keyCode == press.keyCode && !$0.shortcut.modifiers.isEmpty && press.modifiers.isSuperset(of: $0.shortcut.modifiers.subtracting(.shift)) }) {
@@ -137,8 +148,25 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         if !flags.isSuperset(of: required) { handle(.triggerReleased) }
     }
 
+    /// Called when keyboard capture stopped working (Accessibility permission revoked).
+    var onMonitorFailure: (() -> Void)?
+
     func hotkeyMonitorDidFail(_ monitor: HotkeyMonitor) {
         close()
+        // Release the dead tap and hand ⌘⇥ back to the system until permission returns.
+        monitor.stop()
+        onMonitorFailure?()
+    }
+
+    /// Accessibility was revoked while we run: stop capture as if the tap had failed.
+    func hotkeyMonitorDidFailFromPermissionChange() {
+        guard monitor.isRunning else { return }
+        hotkeyMonitorDidFail(monitor)
+    }
+
+    /// Settings is recording a shortcut: let existing triggers reach it.
+    func setShortcutRecording(_ recording: Bool) {
+        monitor.isMatchingSuspended = recording
     }
 
     // MARK: - Session
@@ -207,7 +235,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             }
         case .activate(let item):
             if current.isSearching { searchMemory.record(query: current.query, picked: item) }
-            let window = catalog.element(for: item.id)
+            let window = catalog.element(for: item.id) ?? lookUpWindow(item)
             close()
             WindowActions.activate(item, window: window)
             focus.touch(item.id)
@@ -215,6 +243,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             perform(action, on: item)
         case .dismiss:
             close()
+            returnFocusIfNeeded()
         }
     }
 
@@ -255,7 +284,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     private func catalogDidRefresh(_ snapshot: WindowCatalog.Snapshot, token: Int) {
-        focus.prune(keeping: Set(snapshot.items.map(\.id)))
+        focus.prune(after: snapshot.items)
         thumbnails?.prune(keeping: Set(snapshot.items.compactMap { item -> UInt32? in
             if case .window(let number) = item.id { return number }
             return nil
@@ -266,13 +295,17 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         session = current
         if panel.isVisible {
             updatePanel()
-            requestThumbnails()
+            let ids = current.visible.map(\.id)
+            if ids != lastThumbnailRequestIDs { requestThumbnails() }
         }
     }
 
     private func buildItems(from items: [SwitcherItem], scope: SwitcherScope, screen: NSScreen) -> [SwitcherItem] {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let context = FilterContext(
-            activePID: NSWorkspace.shared.frontmostApplication?.processIdentifier,
+            // Opened from a link, TapTheTab itself is frontmost; use the app before it.
+            activePID: front == ownPID ? focus.lastActivePID : front,
             activeDisplayID: screen.displayID,
             ownPID: ProcessInfo.processInfo.processIdentifier
         )
@@ -311,6 +344,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private func requestThumbnails() {
         guard configuration.appearance.showPreviews, let thumbnails, let current = session,
               permissions.screenRecordingGranted else { return }
+        lastThumbnailRequestIDs = current.visible.map(\.id)
         var ids: [UInt32] = []
         for ranked in current.visible {
             guard case .window(let number) = ranked.id, !ranked.item.isMinimized, !ranked.item.isAppHidden else { continue }
@@ -380,6 +414,10 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
 
     private func observeWorkspace() {
         let center = NSWorkspace.shared.notificationCenter
+        // A session can't end by key release while the screen is locked or the Mac sleeps.
+        center.addObserver(self, selector: #selector(systemWillSleepOrLock(_:)), name: NSWorkspace.willSleepNotification, object: nil)
+        center.addObserver(self, selector: #selector(systemWillSleepOrLock(_:)), name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
+        DistributedNotificationCenter.default().addObserver(self, selector: #selector(systemWillSleepOrLock(_:)), name: Notification.Name("com.apple.screenIsLocked"), object: nil)
         for name in [NSWorkspace.didLaunchApplicationNotification,
                      NSWorkspace.didTerminateApplicationNotification,
                      NSWorkspace.didActivateApplicationNotification,
@@ -388,6 +426,25 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
                      NSWorkspace.activeSpaceDidChangeNotification] {
             center.addObserver(self, selector: #selector(workspaceChanged(_:)), name: name, object: nil)
         }
+    }
+
+    /// A selected window the cached snapshot has no element for (the app was busy during
+    /// the last refresh): ask the app directly before falling back to reopening it.
+    private func lookUpWindow(_ item: SwitcherItem) -> AXUIElement? {
+        guard case .window(let number) = item.id else { return nil }
+        return AX.elements(AX.application(item.pid), kAXWindowsAttribute).first { AX.windowID($0) == number }
+    }
+
+    /// After a link opened the switcher TapTheTab is the active app; dismissing must not
+    /// leave the keyboard focus on an app with no windows.
+    private func returnFocusIfNeeded() {
+        guard NSApp.isActive, let pid = focus.lastActivePID,
+              let app = NSRunningApplication(processIdentifier: pid) else { return }
+        app.activate(options: [])
+    }
+
+    @objc private func systemWillSleepOrLock(_ note: Notification) {
+        close()
     }
 
     @objc private func workspaceChanged(_ note: Notification) {

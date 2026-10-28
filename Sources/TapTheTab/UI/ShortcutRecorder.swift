@@ -24,6 +24,9 @@ final class ShortcutRecorder: ObservableObject {
     @Published private(set) var rejection: String?
 
     weak var delegate: ShortcutRecorderDelegate?
+    /// Told when recording starts and stops, so the app can stop capturing its own
+    /// triggers meanwhile (otherwise pressing an existing trigger opens the switcher).
+    var onRecordingChanged: ((Bool) -> Void)?
 
     private var monitor: Any?
 
@@ -42,6 +45,7 @@ final class ShortcutRecorder: ObservableObject {
             guard let self else { return event }
             return self.handle(event)
         }
+        onRecordingChanged?(true)
     }
 
     /// Stops recording without a result. Safe to call when not recording.
@@ -97,7 +101,9 @@ final class ShortcutRecorder: ObservableObject {
     }
 
     private func finish() {
+        let wasRecording = monitor != nil
         removeMonitor()
+        if wasRecording { onRecordingChanged?(false) }
         if recordingIndex != nil { recordingIndex = nil }
         if !heldModifiers.isEmpty { heldModifiers = [] }
         if rejection != nil { rejection = nil }

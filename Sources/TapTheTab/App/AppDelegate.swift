@@ -14,12 +14,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var signalSources: [DispatchSourceSignal] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Per-element AX timeouts only cover the element they are set on; this caps every
+        // AX call (window elements included) so a hung app can't stall us for 6 s.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.5)
         configuration = ConfigurationController(store: ConfigStore(directory: ConfigStore.defaultDirectory()))
         coordinator = SwitcherCoordinator(configuration: configuration.configuration, permissions: permissions)
         configuration.onExternalChange = { [weak self] newValue in
             self?.configurationChangedOnDisk(newValue)
         }
         configuration.startWatching()
+        coordinator.onMonitorFailure = { [weak self] in
+            Log.app.notice("Keyboard capture stopped; waiting for Accessibility permission")
+            self?.waitForAccessibility()
+        }
+        // Fires when any app's Accessibility permission changes; check ours.
+        DistributedNotificationCenter.default().addObserver(
+            self, selector: #selector(accessibilityPermissionsChanged(_:)),
+            name: Notification.Name("com.apple.accessibility.api"), object: nil)
 
         statusItem = StatusItemController(actions: StatusItemController.Actions(
             showSwitcher: { [weak self] in self?.coordinator.openFromMenu() },
@@ -98,6 +109,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func accessibilityPermissionsChanged(_ note: Notification) {
+        // The new state is only readable a moment after the notification.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self, self.coordinator.isStarted else { return }
+            if !self.permissions.accessibilityGranted {
+                self.coordinator.hotkeyMonitorDidFailFromPermissionChange()
+            }
+        }
+    }
+
     // MARK: - Windows
 
     private func showOnboarding() {
@@ -122,6 +143,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.settingsChanged(newValue)
             }
             settings?.diagnosticsProvider = { [unowned self] in self.makeDiagnostics() }
+            settings?.onShortcutRecordingChanged = { [weak self] recording in
+                self?.coordinator.setShortcutRecording(recording)
+            }
         }
         settings?.show()
     }
