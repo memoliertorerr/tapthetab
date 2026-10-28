@@ -83,6 +83,28 @@ struct AboutSettingsView: View {
             Section {
                 Link(L10n.tr("Source code on GitHub"), destination: AppInfo.repositoryURL)
                 Link(L10n.tr("Report an issue or request a feature"), destination: AppInfo.issuesURL)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Button(L10n.tr("Copy Diagnostics")) {
+                            model.copyDiagnostics()
+                        }
+                        .disabled(!model.canCopyDiagnostics)
+                        if model.diagnosticsCopied {
+                            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Color.green)
+                                    .accessibilityHidden(true)
+                                Text(L10n.tr("Copied — paste it into a GitHub issue."))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .font(.caption)
+                        }
+                    }
+                    Text(L10n.tr("Versions, permissions, counts and settings. No window titles or app names."))
+                        .font(.caption)
+                        .foregroundColor(Color.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Section {

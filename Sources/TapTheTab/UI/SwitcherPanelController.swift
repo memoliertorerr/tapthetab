@@ -101,7 +101,12 @@ final class SwitcherPanelController {
         self.screen = screen
         panel.appearance = Self.nsAppearance(for: appearance.theme)
 
-        let layout = Self.layout(for: session, appearance: appearance, screenSize: screen.visibleFrame.size)
+        let layout = Self.layout(
+            for: session,
+            appearance: appearance,
+            showsPreview: previewAvailable(for: session, appearance: appearance),
+            screenSize: screen.visibleFrame.size
+        )
         model.present(session: session, appearance: appearance, behavior: behavior, layout: layout)
         let frame = Self.centredFrame(size: layout.panelSize, in: screen.visibleFrame)
         anchor = (top: frame.maxY, midX: frame.midX)
@@ -115,37 +120,51 @@ final class SwitcherPanelController {
     /// keeping the top edge and horizontal centre from `show`. Returns columns.
     @discardableResult
     func update(session: SwitcherSession) -> Int {
-        let screenSize: CGSize = (screen ?? NSScreen.main)?.visibleFrame.size ?? SwitcherLayout.fallbackScreenSize
-        let layout = Self.layout(for: session, appearance: model.appearance, screenSize: screenSize)
+        let layout = currentLayout(for: session)
         model.update(session: session, layout: layout)
-
-        if panel.isVisible, let screen {
-            let current = panel.frame.size
-            if current.width != layout.panelSize.width || current.height != layout.panelSize.height {
-                let visible = screen.visibleFrame
-                let frame: NSRect
-                if let anchor {
-                    frame = Self.anchoredFrame(size: layout.panelSize, top: anchor.top, midX: anchor.midX, in: visible)
-                } else {
-                    frame = Self.centredFrame(size: layout.panelSize, in: visible)
-                }
-                applyFrame(frame)
-                renderNow()
-                // Cards moved under a resting pointer must not count as hover.
-                model.resetHoverBaseline()
-            }
-        }
+        resizeIfNeeded(to: layout)
         return layout.columns
     }
 
     /// Window preview arrived (or nil to clear). Ignored when previews are off.
+    /// When it is the selected item's, the large preview appears (or goes) at once.
     func setThumbnail(_ image: CGImage?, for id: ItemID) {
         model.setThumbnail(image, for: id)
+        if id == model.session.selectedItem?.id { relayoutForPreview() }
     }
 
     /// Drop all cached thumbnails (e.g. when previews get turned off).
     func clearThumbnails() {
         model.clearThumbnails()
+        relayoutForPreview()
+    }
+
+    /// Size in pixels of the box the large preview of the selected window gets in the
+    /// current session (points × the screen's backing scale factor), or nil when previews
+    /// are off or no preview fits. Available before the selected window's thumbnail
+    /// exists, so its capture can be sized for the box. The image is aspect-fit inside,
+    /// so a capture whose long edge is `max(width, height)` is always sharp enough.
+    var largePreviewPixelSize: CGSize? {
+        guard model.appearance.showPreviews, model.session.selectedItem != nil else { return nil }
+        let target: NSScreen? = screen ?? NSScreen.main
+        let screenSize: CGSize = target?.visibleFrame.size ?? SwitcherLayout.fallbackScreenSize
+        let layout = Self.layout(for: model.session, appearance: model.appearance, showsPreview: true, screenSize: screenSize)
+        guard layout.showsPreview else { return nil }
+        let scale: CGFloat = target?.backingScaleFactor ?? 2
+        return CGSize(
+            width: (layout.previewSize.width * scale).rounded(.up),
+            height: (layout.previewSize.height * scale).rounded(.up)
+        )
+    }
+
+    /// A capture long edge (pixels) that is sharp in the large preview for any portrait
+    /// window and any landscape window up to 16:9 (wider ones are only slightly soft), or
+    /// nil when no preview fits. Usually far below the box width, which is wide when the
+    /// grid is.
+    var largePreviewMaxPixelSize: Int? {
+        guard let box = largePreviewPixelSize else { return nil }
+        let longEdge = max(box.height, min(box.width, box.height * 16 / 9))
+        return Int(longEdge.rounded(.up))
     }
 
     func hide() {
@@ -155,15 +174,66 @@ final class SwitcherPanelController {
 
     // MARK: - Private
 
-    private static func layout(for session: SwitcherSession, appearance: Appearance, screenSize: CGSize) -> SwitcherLayout {
+    private static func layout(
+        for session: SwitcherSession,
+        appearance: Appearance,
+        showsPreview: Bool,
+        screenSize: CGSize
+    ) -> SwitcherLayout {
         let showsSearch = appearance.style == .list || session.isSearching || session.isLocked
         return SwitcherLayout.compute(
             style: appearance.style,
             size: appearance.size,
             itemCount: session.visible.count,
             showsSearchBar: showsSearch,
+            screenSize: screenSize,
+            showsPreview: showsPreview
+        )
+    }
+
+    /// Layout for `session` with the current appearance on the current screen.
+    private func currentLayout(for session: SwitcherSession) -> SwitcherLayout {
+        let screenSize: CGSize = (screen ?? NSScreen.main)?.visibleFrame.size ?? SwitcherLayout.fallbackScreenSize
+        return Self.layout(
+            for: session,
+            appearance: model.appearance,
+            showsPreview: previewAvailable(for: session, appearance: model.appearance),
             screenSize: screenSize
         )
+    }
+
+    /// The large preview is shown only in previews mode and once the selected item has a thumbnail.
+    private func previewAvailable(for session: SwitcherSession, appearance: Appearance) -> Bool {
+        guard appearance.showPreviews, let id = session.selectedItem?.id else { return false }
+        return model.hasThumbnail(for: id)
+    }
+
+    /// Re-lays out the shown session after the selected item's thumbnail came or went.
+    private func relayoutForPreview() {
+        guard panel.isVisible else { return }
+        let session = model.session
+        let layout = currentLayout(for: session)
+        guard layout != model.layout else { return }
+        model.update(session: session, layout: layout)
+        resizeIfNeeded(to: layout)
+    }
+
+    /// Resizes a visible panel to `layout`, keeping the top edge and horizontal centre from `show`.
+    private func resizeIfNeeded(to layout: SwitcherLayout) {
+        guard panel.isVisible, let screen else { return }
+        let current = panel.frame.size
+        guard current.width != layout.panelSize.width || current.height != layout.panelSize.height else { return }
+        let visible = screen.visibleFrame
+        let frame: NSRect
+        if let anchor {
+            frame = Self.anchoredFrame(size: layout.panelSize, top: anchor.top, midX: anchor.midX, in: visible)
+        } else {
+            frame = Self.centredFrame(size: layout.panelSize, in: visible)
+        }
+        applyFrame(frame)
+        renderNow()
+        // Cards moved under a resting pointer must not count as hover.
+        model.resetHoverBaseline()
     }
 
     /// Centred in `visible`, at most as large as it.

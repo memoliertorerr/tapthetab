@@ -17,6 +17,11 @@ struct SwitcherRootView: View {
                 )
                 Divider()
             }
+            if let preview = model.selectedPreview {
+                SwitcherLargePreview(image: preview, boxSize: model.layout.previewSize)
+                    .padding(.top, SwitcherLayout.previewInset)
+                    .padding(.bottom, SwitcherLayout.previewBottomGap)
+            }
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -96,6 +101,25 @@ struct SwitcherSearchBar: View {
                 .foregroundColor(Color.secondary)
                 .lineLimit(1)
         }
+    }
+}
+
+/// Larger preview of the selected window above the grid or list (previews mode only).
+/// Aspect-fit and centred in the box `SwitcherLayout` reserved; no title, since the
+/// selected card or row right below already shows it.
+struct SwitcherLargePreview: View {
+    let image: CGImage
+    let boxSize: CGSize
+
+    var body: some View {
+        Image(decorative: image, scale: 1)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .shadow(color: Color.black.opacity(0.22), radius: 6, x: 0, y: 2)
+            .frame(width: boxSize.width, height: boxSize.height)
+            .accessibilityHidden(true)
     }
 }
 

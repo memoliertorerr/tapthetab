@@ -77,6 +77,18 @@ final class SwitcherViewModel: ObservableObject {
         return thumbnails[id]
     }
 
+    /// Whether a thumbnail is stored for `id`, whatever the current appearance says
+    /// (the panel controller checks `showPreviews` against the appearance being shown).
+    func hasThumbnail(for id: ItemID) -> Bool {
+        thumbnails[id] != nil
+    }
+
+    /// The large preview's image: the selected item's thumbnail, when the layout has room for it.
+    var selectedPreview: CGImage? {
+        guard layout.showsPreview, let id = session.selectedItem?.id else { return nil }
+        return thumbnail(for: id)
+    }
+
     /// Cached per process; not published, so filling the cache during rendering is fine.
     func icon(for pid: Int32) -> NSImage {
         if let cached = iconCache[pid] { return cached }

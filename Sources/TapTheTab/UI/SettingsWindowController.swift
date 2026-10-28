@@ -9,6 +9,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var statusTimer: Timer?
     private var hasBeenCentered = false
 
+    /// Builds the report behind Settings → About → Copy Diagnostics. The button is
+    /// disabled while this is nil.
+    var diagnosticsProvider: (() -> DiagnosticsReport)? {
+        get { model.diagnosticsProvider }
+        set { model.diagnosticsProvider = newValue }
+    }
+
     init(
         configuration: Configuration,
         permissions: PermissionsProviding,

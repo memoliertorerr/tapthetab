@@ -5,9 +5,11 @@
   Check with: python3 -I scripts/check-strings.py
 */
 
+"%@ can't be used while %@ is a shortcut: ⇧ already reverses it." = "%2$@ bir kısayol olduğu sürece %1$@ kullanılamaz: ⇧ onu zaten tersine çevirir.";
 "%@ closes windows." = "%@ pencereleri kapatır.";
 "%@ hides the frontmost app." = "%@ öndeki uygulamayı gizler.";
 "%@ is Spotlight's shortcut." = "%@, Spotlight'ın kısayoludur.";
+"%@ is already a macOS shortcut." = "%@ zaten bir macOS kısayolu.";
 "%@ minimizes windows." = "%@ pencereleri Dock'a küçültür.";
 "%@ needs ⌘, ⌥ or ⌃ — for example %@." = "%@ için ⌘, ⌥ veya ⌃ gerekir; örneğin %@.";
 "%@ normally cycles an app's windows; TapTheTab takes it over while running." = "%@ normalde bir uygulamanın pencereleri arasında geçiş yapar; TapTheTab çalışırken bu kısayolu devralır.";
@@ -35,6 +37,8 @@
 "Check for Updates…" = "Güncellemeleri Denetle…";
 "Click a shortcut, then press the new one; ⎋ cancels. ⌘⇥ replaces the system app switcher while TapTheTab is running." = "Bir kısayolu tıklayın, ardından yenisine basın; ⎋ iptal eder. TapTheTab çalışırken ⌘⇥, sistemin uygulama değiştiricisinin yerini alır.";
 "Click to record a new shortcut" = "Yeni bir kısayol kaydetmek için tıklayın";
+"Copied — paste it into a GitHub issue." = "Kopyalandı; GitHub'da bir sorun kaydına yapıştırın.";
+"Copy Diagnostics" = "Tanılama Bilgilerini Kopyala";
 "Current app's windows" = "Etkin uygulamanın pencereleri";
 "Dark" = "Koyu";
 "Display with the active window" = "Etkin pencerenin bulunduğu ekran";
@@ -126,6 +130,7 @@
 "Type to search" = "Yazarak ara";
 "Type to search windows" = "Pencerelerde aramak için yazın";
 "Version %@ (build %@)" = "Sürüm %@ (yapı %@)";
+"Versions, permissions, counts and settings. No window titles or app names." = "Sürümler, izinler, sayılar ve ayarlar. Pencere başlıkları veya uygulama adları yok.";
 "Waiting for Accessibility permission…" = "Erişilebilirlik izni bekleniyor…";
 "Welcome to TapTheTab" = "TapTheTab'a Hoş Geldiniz";
 "Windows of excluded apps never appear in the switcher." = "Hariç tutulan uygulamaların pencereleri değiştiricide hiç görünmez.";

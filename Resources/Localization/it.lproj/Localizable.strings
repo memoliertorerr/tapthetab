@@ -5,9 +5,11 @@
   Check with: python3 -I scripts/check-strings.py
 */
 
+"%@ can't be used while %@ is a shortcut: ⇧ already reverses it." = "%@ non può essere usata mentre %@ è un'abbreviazione: ⇧ la inverte già.";
 "%@ closes windows." = "%@ chiude le finestre.";
 "%@ hides the frontmost app." = "%@ nasconde l'app in primo piano.";
 "%@ is Spotlight's shortcut." = "%@ è l'abbreviazione di Spotlight.";
+"%@ is already a macOS shortcut." = "%@ è già un'abbreviazione di macOS.";
 "%@ minimizes windows." = "%@ contrae le finestre nel Dock.";
 "%@ needs ⌘, ⌥ or ⌃ — for example %@." = "%@ richiede ⌘, ⌥ o ⌃, ad esempio %@.";
 "%@ normally cycles an app's windows; TapTheTab takes it over while running." = "%@ di solito passa tra le finestre di un'app; mentre è in esecuzione, TapTheTab la usa al suo posto.";
@@ -35,6 +37,8 @@
 "Check for Updates…" = "Verifica aggiornamenti…";
 "Click a shortcut, then press the new one; ⎋ cancels. ⌘⇥ replaces the system app switcher while TapTheTab is running." = "Fai clic su un'abbreviazione, poi premi quella nuova; ⎋ annulla. Mentre TapTheTab è in esecuzione, ⌘⇥ sostituisce il selettore di app del sistema.";
 "Click to record a new shortcut" = "Fai clic per registrare una nuova abbreviazione";
+"Copied — paste it into a GitHub issue." = "Copiato: incollalo in una segnalazione su GitHub.";
+"Copy Diagnostics" = "Copia diagnostica";
 "Current app's windows" = "Finestre dell'app attiva";
 "Dark" = "Scuro";
 "Display with the active window" = "Monitor con la finestra attiva";
@@ -126,6 +130,7 @@
 "Type to search" = "Digita per cercare";
 "Type to search windows" = "Digita per cercare tra le finestre";
 "Version %@ (build %@)" = "Versione %@ (build %@)";
+"Versions, permissions, counts and settings. No window titles or app names." = "Versioni, autorizzazioni, conteggi e impostazioni. Nessun titolo di finestra o nome di app.";
 "Waiting for Accessibility permission…" = "In attesa dell'autorizzazione Accessibilità…";
 "Welcome to TapTheTab" = "Benvenuto in TapTheTab";
 "Windows of excluded apps never appear in the switcher." = "Le finestre delle app escluse non compaiono mai nel selettore.";

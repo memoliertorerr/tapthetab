@@ -5,9 +5,11 @@
   Check with: python3 -I scripts/check-strings.py
 */
 
+"%@ can't be used while %@ is a shortcut: ⇧ already reverses it." = "%@ can't be used while %@ is a shortcut: ⇧ already reverses it.";
 "%@ closes windows." = "%@ closes windows.";
 "%@ hides the frontmost app." = "%@ hides the frontmost app.";
 "%@ is Spotlight's shortcut." = "%@ is Spotlight's shortcut.";
+"%@ is already a macOS shortcut." = "%@ is already a macOS shortcut.";
 "%@ minimizes windows." = "%@ minimizes windows.";
 "%@ needs ⌘, ⌥ or ⌃ — for example %@." = "%@ needs ⌘, ⌥ or ⌃ — for example %@.";
 "%@ normally cycles an app's windows; TapTheTab takes it over while running." = "%@ normally cycles an app's windows; TapTheTab takes it over while running.";
@@ -35,6 +37,8 @@
 "Check for Updates…" = "Check for Updates…";
 "Click a shortcut, then press the new one; ⎋ cancels. ⌘⇥ replaces the system app switcher while TapTheTab is running." = "Click a shortcut, then press the new one; ⎋ cancels. ⌘⇥ replaces the system app switcher while TapTheTab is running.";
 "Click to record a new shortcut" = "Click to record a new shortcut";
+"Copied — paste it into a GitHub issue." = "Copied — paste it into a GitHub issue.";
+"Copy Diagnostics" = "Copy Diagnostics";
 "Current app's windows" = "Current app's windows";
 "Dark" = "Dark";
 "Display with the active window" = "Display with the active window";
@@ -126,6 +130,7 @@
 "Type to search" = "Type to search";
 "Type to search windows" = "Type to search windows";
 "Version %@ (build %@)" = "Version %@ (build %@)";
+"Versions, permissions, counts and settings. No window titles or app names." = "Versions, permissions, counts and settings. No window titles or app names.";
 "Waiting for Accessibility permission…" = "Waiting for Accessibility permission…";
 "Welcome to TapTheTab" = "Welcome to TapTheTab";
 "Windows of excluded apps never appear in the switcher." = "Windows of excluded apps never appear in the switcher.";
