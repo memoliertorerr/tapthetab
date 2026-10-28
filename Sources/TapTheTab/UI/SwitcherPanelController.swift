@@ -174,7 +174,8 @@ final class SwitcherPanelController {
 
     // MARK: - Private
 
-    private static func layout(
+    /// Also used by `ScreenshotRenderer`, so the screenshots are sized like the real panel.
+    static func layout(
         for session: SwitcherSession,
         appearance: Appearance,
         showsPreview: Bool,

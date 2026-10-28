@@ -74,6 +74,22 @@ jobs:
       - name: Build universal app (ad-hoc signed)
         run: scripts/build-app.sh --universal
 
+      # The app draws its own UI from sample data (no real windows or titles) for the README.
+      - name: Render screenshots
+        id: screenshots
+        timeout-minutes: 3
+        run: dist/TapTheTab.app/Contents/MacOS/TapTheTab --render-screenshots dist/screenshots
+
+      - name: Upload screenshots
+        # Also after a failed render, so the shots that did work can be inspected.
+        if: ${{ !cancelled() && steps.screenshots.outcome != 'skipped' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenshots-${{ github.sha }}
+          path: dist/screenshots/*.png
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Package
         run: scripts/package.sh
 
