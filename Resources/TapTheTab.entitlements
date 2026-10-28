@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for TapTheTab.
+
+  Intentionally empty. The app is NOT sandboxed: an Accessibility-based window
+  switcher has to read and control other apps' windows, which the App Sandbox
+  forbids. Accessibility and Screen Recording are granted by the user through
+  TCC (System Settings > Privacy & Security), not through entitlements.
+
+  Do not add exceptions such as com.apple.security.cs.disable-library-validation,
+  allow-jit or allow-unsigned-executable-memory: the app needs none of them.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

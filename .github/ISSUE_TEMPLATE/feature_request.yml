@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an idea or improvement for TapTheTab
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the idea! Please check [existing issues](https://github.com/memoliertorerr/tapthetab/issues) to avoid duplicates.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation where TapTheTab falls short today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+      description: How should it work? Shortcuts, settings, what you would see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or how other switchers (AltTab, Witch, …) handle it.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: This idea works without network access or telemetry (TapTheTab never uses either).
+          required: true
