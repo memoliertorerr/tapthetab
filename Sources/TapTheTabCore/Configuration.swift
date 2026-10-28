@@ -35,6 +35,14 @@ public enum Theme: String, Codable, Sendable, CaseIterable {
     case system, light, dark
 }
 
+/// The two Liquid Glass variations macOS and iOS offer in their Appearance settings.
+public enum GlassStyle: String, Codable, Sendable, CaseIterable {
+    /// More see-through: the desktop shows through the panel.
+    case clear
+    /// Frosted and more opaque, for higher contrast.
+    case tinted
+}
+
 /// Which display the switcher appears on.
 public enum DisplayPlacement: String, Codable, Sendable, CaseIterable {
     /// The display with the mouse pointer.
@@ -50,6 +58,9 @@ public struct Appearance: Codable, Equatable, Sendable {
     public var size: ItemSize = .medium
     /// Live window previews. Needs the Screen Recording permission on macOS.
     public var showPreviews: Bool = false
+    /// Size of the large preview of the selected window, in percent of the full-size
+    /// box (previews mode). Clamped to 25...100.
+    public var largePreviewPercent: Int = Appearance.defaultLargePreviewPercent
     public var showAppName: Bool = true
     /// Keep each app's windows together: apps in the order of their most recent window,
     /// each app's windows in recency order. The list style adds an app-name heading per
@@ -59,10 +70,25 @@ public struct Appearance: Codable, Equatable, Sendable {
     /// shows Settings.
     public var showMenuBarIcon: Bool = true
     public var theme: Theme = .system
+    /// Draw the switcher panel and the preview card in Liquid Glass (macOS 26 and later;
+    /// earlier versions get a translucent look close to it). Off: the classic dark panel.
+    public var liquidGlass: Bool = true
+    /// Which Liquid Glass variation to use when `liquidGlass` is on.
+    public var glassStyle: GlassStyle = .clear
     public var placement: DisplayPlacement = .mouse
     /// Delay before the panel appears. A quick tap within this time switches without
     /// flashing the panel. Clamped to 0...1000.
     public var showDelayMilliseconds: Int = 90
+
+    public static let defaultLargePreviewPercent = 66
+    public static let largePreviewPercentRange: ClosedRange<Int> = 25...100
+
+    /// `largePreviewPercent` as a fraction for `PanelLayout` (clamped, so a value that
+    /// slipped past validation still lays out sensibly).
+    public var largePreviewScale: Double {
+        let range = Appearance.largePreviewPercentRange
+        return Double(min(max(largePreviewPercent, range.lowerBound), range.upperBound)) / 100
+    }
 
     public init() {}
 
@@ -72,10 +98,13 @@ public struct Appearance: Codable, Equatable, Sendable {
         style = c.lenient(LayoutStyle.self, .style) ?? d.style
         size = c.lenient(ItemSize.self, .size) ?? d.size
         showPreviews = c.lenient(Bool.self, .showPreviews) ?? d.showPreviews
+        largePreviewPercent = c.lenient(Int.self, .largePreviewPercent) ?? d.largePreviewPercent
         showAppName = c.lenient(Bool.self, .showAppName) ?? d.showAppName
         groupByApp = c.lenient(Bool.self, .groupByApp) ?? d.groupByApp
         showMenuBarIcon = c.lenient(Bool.self, .showMenuBarIcon) ?? d.showMenuBarIcon
         theme = c.lenient(Theme.self, .theme) ?? d.theme
+        liquidGlass = c.lenient(Bool.self, .liquidGlass) ?? d.liquidGlass
+        glassStyle = c.lenient(GlassStyle.self, .glassStyle) ?? d.glassStyle
         placement = c.lenient(DisplayPlacement.self, .placement) ?? d.placement
         showDelayMilliseconds = c.lenient(Int.self, .showDelayMilliseconds) ?? d.showDelayMilliseconds
     }
@@ -167,6 +196,13 @@ public struct Configuration: Codable, Equatable, Sendable {
         if !(0...1000).contains(delay) {
             copy.appearance.showDelayMilliseconds = min(max(delay, 0), 1000)
             notes.append("showDelayMilliseconds must be between 0 and 1000; it was set to \(copy.appearance.showDelayMilliseconds).")
+        }
+
+        let percent = copy.appearance.largePreviewPercent
+        let percentRange = Appearance.largePreviewPercentRange
+        if !percentRange.contains(percent) {
+            copy.appearance.largePreviewPercent = min(max(percent, percentRange.lowerBound), percentRange.upperBound)
+            notes.append("largePreviewPercent must be between \(percentRange.lowerBound) and \(percentRange.upperBound); it was set to \(copy.appearance.largePreviewPercent).")
         }
 
         let cleaned = copy.filters.excludedBundleIDs
