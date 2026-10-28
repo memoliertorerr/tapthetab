@@ -38,7 +38,7 @@ final class HotkeyMonitor {
     /// its autorepeat and key-up don't leak into the window that gets activated.
     private var heldSessionKey: UInt16?
 
-    private static let disabledHotkeysDefaultsKey = "disabledSymbolicHotkeys"
+    static let disabledHotkeysDefaultsKey = "disabledSymbolicHotkeys"
 
     /// System shortcuts we switched off. Persisted, because the Window Server keeps them off
     /// after a crash; the next launch turns back on any that are no longer wanted.
@@ -225,7 +225,7 @@ final class HotkeyMonitor {
 }
 
 /// The system's own shortcuts, switched off while TapTheTab owns them and restored on quit.
-enum SymbolicHotkey: Int32, Hashable {
+enum SymbolicHotkey: Int32, Hashable, CaseIterable {
     case commandTab = 1
     case commandShiftTab = 2
     case commandKeyAboveTab = 6

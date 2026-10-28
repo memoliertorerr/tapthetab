@@ -8,6 +8,9 @@ enum TapTheTabMain {
         if let flagIndex = arguments.firstIndex(of: "--render-screenshots") {
             renderScreenshots(arguments: arguments, flagIndex: flagIndex)
         }
+        if let code = RescueCommands.run(arguments) {
+            exit(code)
+        }
 
         let app = NSApplication.shared
         let delegate = AppDelegate()
