@@ -45,7 +45,11 @@ built around three goals:
   back without the panel ever flashing.
 - **Grid or list layout**, three sizes, light/dark/system theme, shows on the display with
   your mouse (or the active window, or the main display).
-- **Optional live previews** (macOS 14+, needs Screen Recording).
+- **Optional live previews** (macOS 14+, needs Screen Recording), with a large preview of
+  the selected window.
+- **Speaks your language** — English, Italian and Turkish, with VoiceOver support.
+- **Scriptable** — `tapthetab://` links open the switcher pre-filtered from launchers,
+  Shortcuts or the terminal (see [Automation](#automation)).
 - **Use ⌘⇥ if you like** — TapTheTab can take over the system shortcut while it runs and
   hands it back when it quits.
 - **Any shortcut you like** — record one in Settings, or edit the config.

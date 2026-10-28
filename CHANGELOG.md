@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-28
+
 ### Added
 
+- Large preview of the selected window when previews are on.
+- Settings → About → **Copy Diagnostics**: versions, permissions, counts and settings for bug reports — no window titles or app names.
 - Italian and Turkish translations, and VoiceOver labels throughout.
 - `tapthetab://` links: `tapthetab://switch?query=…&scope=…` opens the switcher already searching, `tapthetab://settings` opens Settings. Handy from Raycast, Alfred, Shortcuts or `open` in a terminal.
 - Settings warns when a shortcut clashes with a macOS shortcut or with another trigger plus ⇧.
@@ -52,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/memoliertorerr/tapthetab/releases/tag/v0.1.0
