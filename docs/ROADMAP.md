@@ -42,9 +42,13 @@
 | TT21 | Release v0.4.0 | checkpoint | ✅ done |
 | TT22 | Screenshot renderer: the app draws the switcher and Settings from sample data (`--render-screenshots`), CI produces the PNGs, README shows them | auto | ✅ done |
 | TT23 | Menu bar icon can be hidden (reopen the app to get Settings) | auto | ✅ done |
-| TT24 | Release v0.5.0 | checkpoint | ⬜ todo |
+| TT24 | Release v0.5.0 | checkpoint | ✅ done |
+| TT25 | Panel layout math (`SwitcherLayout`) moves into the core with tests | auto | ⬜ todo |
+| TT26 | Rescue: `TapTheTab --restore-system-shortcuts` and `--reset-settings`; README Troubleshooting + Uninstall | auto | ⬜ todo |
+| TT27 | Optional grouping of windows by app (`appearance.groupByApp`), apps ordered by recency | auto | ⬜ todo |
+| TT28 | Release v0.6.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.4.0 released; phase 5 complete, releasing v0.5.0 (TT24). Next: act on real-Mac feedback.
+**Overall status:** v0.1.0–v0.5.0 released. Phase 6 (v0.6.0) in progress: testability, self-rescue, grouping.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -53,6 +57,7 @@
 3. **TT13 → TT17** — v0.3.0, reach, accessibility and automation.
 4. **TT18 → TT21** — v0.4.0, hardening and other Spaces.
 5. **TT22 → TT24** — v0.5.0, screenshots and conveniences.
+6. **TT25 → TT28** — v0.6.0, testable layout, self-rescue, grouping by app.
 
 ---
 
