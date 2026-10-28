@@ -7,6 +7,7 @@ import TapTheTabCore
 final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private let monitor = HotkeyMonitor()
     private let catalog = WindowCatalog()
+    private let watcher = WindowWatcher()
     private let focus = FocusTracker()
     private let panel = SwitcherPanelController()
     private let thumbnails = ThumbnailService.make()
@@ -41,6 +42,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         if !isStarted {
             focus.start()
             observeWorkspace()
+            watcher.onChange = { [weak self] in self?.windowsChanged() }
+            watcher.start()
             catalog.refresh()
         }
         isStarted = true
@@ -52,6 +55,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         close()
         monitor.stop()
         focus.stop()
+        watcher.stop()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         isStarted = false
     }
@@ -337,7 +341,15 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     @objc private func workspaceChanged(_ note: Notification) {
-        guard session == nil else { return }
-        catalog.refresh()
+        windowsChanged()
+    }
+
+    /// Something about the set of windows changed: refresh the cache, and the open
+    /// switcher too (a window closed elsewhere disappears from the panel).
+    private func windowsChanged() {
+        let token = sessionToken
+        catalog.refresh { [weak self] snapshot in
+            self?.catalogDidRefresh(snapshot, token: token)
+        }
     }
 }
