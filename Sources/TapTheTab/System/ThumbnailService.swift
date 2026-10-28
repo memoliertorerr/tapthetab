@@ -23,6 +23,7 @@ final class ThumbnailService {
 
     func clear() {
         cache.removeAll()
+        shareableContent = nil
         generation += 1
     }
 
@@ -34,15 +35,22 @@ final class ThumbnailService {
     /// Cancels delivery of in-flight captures (e.g. when the switcher closes).
     func cancelPending() { generation += 1 }
 
+    /// The window list ScreenCaptureKit gave us last; asking for it costs tens of
+    /// milliseconds, and the switcher asks several times while it's open.
+    private var shareableContent: SCShareableContent?
+    private var shareableContentDate = Date.distantPast
+    private static let shareableContentLifetime: TimeInterval = 1.5
+
     /// Captures each window at most `maxPixelSize` on its long edge. `deliver` runs on
-    /// the main thread once per window that could be captured.
-    func capture(windowIDs: [UInt32], maxPixelSize: Int, deliver: @escaping (UInt32, CGImage) -> Void) {
+    /// the main thread once per window that could be captured. With `storeInCache` false
+    /// the image is only delivered (used for the large preview, so big images of every
+    /// window ever selected don't pile up in memory).
+    func capture(windowIDs: [UInt32], maxPixelSize: Int, storeInCache: Bool = true, deliver: @escaping (UInt32, CGImage) -> Void) {
         guard #available(macOS 14.0, *), !windowIDs.isEmpty else { return }
         // Overlapping requests all deliver; only cancelPending()/clear() drop them.
         let token = generation
         let wanted = Set(windowIDs)
-        SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { [weak self] content, error in
-            guard let content, error == nil else { return }
+        withShareableContent(covering: wanted) { [weak self] content in
             let windows = content.windows.filter { wanted.contains($0.windowID) }
             for window in windows {
                 let filter = SCContentFilter(desktopIndependentWindow: window)
@@ -59,10 +67,30 @@ final class ThumbnailService {
                     guard let image else { return }
                     DispatchQueue.main.async {
                         guard let self, self.generation == token else { return }
-                        self.cache[windowID] = Cached(image: image, date: Date())
+                        if storeInCache { self.cache[windowID] = Cached(image: image, date: Date()) }
                         deliver(windowID, image)
                     }
                 }
+            }
+        }
+    }
+
+    /// Calls `body` on the main thread with a recent window list that includes all of
+    /// `windowIDs`, fetching a new one only when the cached one is old or incomplete.
+    @available(macOS 14.0, *)
+    private func withShareableContent(covering windowIDs: Set<UInt32>, _ body: @escaping (SCShareableContent) -> Void) {
+        if let content = shareableContent,
+           Date().timeIntervalSince(shareableContentDate) < Self.shareableContentLifetime,
+           windowIDs.isSubset(of: Set(content.windows.map(\.windowID))) {
+            body(content)
+            return
+        }
+        SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { [weak self] content, error in
+            guard let content, error == nil else { return }
+            DispatchQueue.main.async {
+                self?.shareableContent = content
+                self?.shareableContentDate = Date()
+                body(content)
             }
         }
     }

@@ -16,6 +16,10 @@ final class WindowCatalog {
         var items: [SwitcherItem] = []
         var elements: [ItemID: AXUIElement] = [:]
         var date = Date.distantPast
+        /// How long building this snapshot took, for diagnostics.
+        var duration: TimeInterval = 0
+        /// Apps whose windows were asked again (nil: all of them).
+        var refreshedPIDs: Set<pid_t>?
     }
 
     private struct AppInfo {
@@ -76,6 +80,8 @@ final class WindowCatalog {
     private var pendingCompletions: [(Snapshot) -> Void] = []
     private var isRefreshing = false
     private var refreshAgain = false
+    /// Apps to re-ask on the next refresh; nil means all of them.
+    private var pendingScope: Set<pid_t>? = []
 
     /// Main-thread only.
     private(set) var latest = Snapshot()
@@ -87,15 +93,26 @@ final class WindowCatalog {
     /// Main-thread only.
     func element(for id: ItemID) -> AXUIElement? { latest.elements[id] }
 
-    /// Re-enumerate. Overlapping calls are coalesced; every completion gets called once
-    /// with a snapshot taken after it was requested. Main-thread only.
-    func refresh(completion: ((Snapshot) -> Void)? = nil) {
+    /// Re-enumerate. With `onlyPIDs`, only those apps are asked for their windows again;
+    /// everyone else's windows are reused and just re-checked against the window server
+    /// (position, Space, display), which is far cheaper than asking every app. Overlapping
+    /// calls are coalesced (scopes merge); every completion gets called once with a
+    /// snapshot taken after it was requested. Main-thread only.
+    func refresh(onlyPIDs: Set<pid_t>? = nil, completion: ((Snapshot) -> Void)? = nil) {
         if let completion { pendingCompletions.append(completion) }
+        if let onlyPIDs, let scope = pendingScope {
+            pendingScope = scope.union(onlyPIDs)
+        } else {
+            pendingScope = nil
+        }
         if isRefreshing {
             refreshAgain = true
             return
         }
         isRefreshing = true
+        // The first refresh, or one after a failure to build anything, must be complete.
+        let scope: Set<pid_t>? = latest.items.isEmpty ? nil : pendingScope
+        pendingScope = []
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let apps = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular && $0.processIdentifier != ownPID && !$0.isTerminated }
@@ -111,7 +128,10 @@ final class WindowCatalog {
 
         let previous = latest
         queue.async { [weak self] in
-            let snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous, otherSpacesConnection: connection)
+            let started = DispatchTime.now().uptimeNanoseconds
+            var snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous, scope: scope, otherSpacesConnection: connection)
+            snapshot.duration = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
+            snapshot.refreshedPIDs = scope
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.latest = snapshot
@@ -119,7 +139,8 @@ final class WindowCatalog {
                 completions.forEach { $0(snapshot) }
                 if self.refreshAgain {
                     self.refreshAgain = false
-                    self.refresh()
+                    // Re-run with whatever scope was requested meanwhile.
+                    self.refresh(onlyPIDs: self.pendingScope)
                 }
             }
         }
@@ -127,15 +148,26 @@ final class WindowCatalog {
 
     // MARK: - Enumeration (background queue)
 
-    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot, otherSpacesConnection: Int32?) -> Snapshot {
-        // Front-to-back order of on-screen windows on the current Space(s).
+    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot, scope: Set<pid_t>?, otherSpacesConnection: Int32?) -> Snapshot {
+        // Front-to-back order and bounds of on-screen windows on the current Space(s).
         var zOrder: [CGWindowID: Int] = [:]
+        var bounds: [CGWindowID: CGRect] = [:]
         if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
             for (index, info) in list.enumerated() {
                 guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
                       let number = info[kCGWindowNumber as String] as? Int else { continue }
-                zOrder[CGWindowID(number)] = index
+                let id = CGWindowID(number)
+                zOrder[id] = index
+                if let dict = info[kCGWindowBounds as String] as? NSDictionary,
+                   let rect = CGRect(dictionaryRepresentation: dict as CFDictionary) {
+                    bounds[id] = rect
+                }
             }
+        }
+        // Everything the last snapshot knew per app, for apps we don't need to ask again.
+        var previousAllByPID: [pid_t: [SwitcherItem]] = [:]
+        for item in previous.items {
+            previousAllByPID[item.pid, default: []].append(item)
         }
 
         let results = Results(count: apps.count)
@@ -148,6 +180,26 @@ final class WindowCatalog {
         let collectsIgnoredWindows = otherSpacesConnection != nil
         DispatchQueue.concurrentPerform(iterations: apps.count) { index in
             let app = apps[index]
+            if let scope, !scope.contains(app.pid), let known = previousAllByPID[app.pid] {
+                // Nothing changed in this app: reuse its windows, refreshing only what the
+                // window server tells us for free (z-order, Space, display, hidden state).
+                var found: [Found] = []
+                for (offset, original) in known.enumerated() {
+                    var item = original
+                    item.isAppHidden = app.isHidden
+                    var order = 200_000 + index
+                    if case .window(let number) = item.id {
+                        item.isOnActiveSpace = zOrder[number] != nil
+                        if let rect = bounds[number], let display = display(for: rect, screens: screens) {
+                            item.displayID = display
+                        }
+                        order = zOrder[number] ?? (100_000 + index * 100 + offset)
+                    }
+                    found.append(Found(item: item, element: previous.elements[item.id], order: order))
+                }
+                results.set(AppResult(found: found), at: index)
+                return
+            }
             let appElement = AX.application(app.pid)
             var found: [Found] = []
             var ignored: [CGWindowID] = []
