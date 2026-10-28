@@ -52,8 +52,9 @@
 | TT29 | Liquid Glass look for the switcher (setting; Clear or Tinted like the system's; a similar translucent look before macOS 26); CI and releases build with Xcode 26 *(maintainer approved 2026-10-28)* | auto | ✅ done |
 | TT30 | Large preview on its own card floating above the grid or list, smaller by default, with a size setting | auto | ✅ done |
 | TT31 | Release v0.7.0 | checkpoint | ✅ done |
+| TT31.1 | Fix: switching brought all of the app's windows forward; focus only the chosen window through the window server. Release v0.7.1 *(added 2026-10-28)* | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.7.0 released. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
+**Overall status:** v0.1.0–v0.7.1 released. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -208,6 +209,14 @@ See `AGENTS.md`. In addition, for this plan:
   and the window shadow is refreshed when the card changes shape.
 - The preview's padding and gap add the same 20 pt as the old inset, so 100 % layouts are
   unchanged; the default is now 66 %.
+
+### TT31.1 (2026-10-28)
+- Found on a real Mac (macOS 26): picking one of three Terminal windows brought all three
+  in front of the app that was active. Cause: making the app frontmost through its
+  Accessibility attribute (and `NSRunningApplication.activate`) raises every window of the
+  app. Every switch now uses the window-server path that was only used for other Spaces
+  (front process with the window, without the all-windows flag, plus the make-key record),
+  as other switchers do; the old public path is the fallback if the functions disappear.
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
