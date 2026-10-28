@@ -121,6 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ) { [weak self] newValue in
                 self?.settingsChanged(newValue)
             }
+            settings?.diagnosticsProvider = { [unowned self] in self.makeDiagnostics() }
         }
         settings?.show()
     }

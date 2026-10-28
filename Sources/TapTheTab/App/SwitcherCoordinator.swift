@@ -25,6 +25,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private var screen: NSScreen?
     private var sessionToken = 0
     private var showTask: Task<Void, Never>?
+    private var previewTask: Task<Void, Never>?
     private var outsideClickMonitor: Any?
 
     init(configuration: Configuration, permissions: PermissionsProviding) {
@@ -175,6 +176,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private func close() {
         showTask?.cancel()
         showTask = nil
+        previewTask?.cancel()
+        previewTask = nil
         sessionToken += 1
         session = nil
         activeTrigger = nil
@@ -196,6 +199,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         case .refresh:
             if panel.isVisible {
                 updatePanel()
+                requestSelectedPreview()
             } else {
                 // The user is interacting before the show delay ran out: show now.
                 showTask?.cancel()
@@ -316,6 +320,27 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let longEdge = Int(configuration.appearance.size.cardSize.width * 2)
         thumbnails.capture(windowIDs: ids, maxPixelSize: longEdge) { [weak self] number, image in
             self?.panel.setThumbnail(image, for: .window(number))
+        }
+        requestSelectedPreview(after: 0)
+    }
+
+    /// The large preview needs a sharper image of the selected window than the cards do.
+    /// Debounced so holding ⇥ doesn't start a capture per step.
+    private func requestSelectedPreview(after delay: UInt64 = 80_000_000) {
+        previewTask?.cancel()
+        guard configuration.appearance.showPreviews, let thumbnails, permissions.screenRecordingGranted,
+              let selected = session?.selectedItem, case .window(let number) = selected.id,
+              !selected.isMinimized, !selected.isAppHidden,
+              let size = panel.largePreviewMaxPixelSize,
+              size > Int(configuration.appearance.size.cardSize.width * 2) else { return }
+        let token = sessionToken
+        previewTask = Task { @MainActor [weak self] in
+            if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
+            guard !Task.isCancelled, let self, self.sessionToken == token,
+                  self.session?.selectedItem?.id == selected.id else { return }
+            thumbnails.capture(windowIDs: [number], maxPixelSize: size) { [weak self] number, image in
+                self?.panel.setThumbnail(image, for: .window(number))
+            }
         }
     }
 
