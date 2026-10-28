@@ -39,9 +39,12 @@
 | TT18 | Hardening audit of the macOS layer (stuck keys, focus, threading, leaks, ⌘⇥ restore) and fixes | auto | ✅ done |
 | TT19 | Windows on other Spaces: research, then the most robust no-SIP approach behind a setting (off by default) | checkpoint | ✅ done |
 | TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ✅ done |
-| TT21 | Release v0.4.0 | checkpoint | ⬜ todo |
+| TT21 | Release v0.4.0 | checkpoint | ✅ done |
+| TT22 | Screenshot renderer: the app draws the switcher and Settings from sample data (`--render-screenshots`), CI produces the PNGs, README shows them | auto | ⬜ todo |
+| TT23 | Menu bar icon can be hidden (reopen the app to get Settings); option to start on the first item | auto | ⬜ todo |
+| TT24 | Release v0.5.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.3.0 released; phase 4 complete, releasing v0.4.0 (TT21). Next: real-Mac feedback.
+**Overall status:** v0.1.0–v0.4.0 released. Phase 5 (v0.5.0) in progress: visuals for the README and small conveniences, while waiting for real-Mac feedback.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -49,6 +52,7 @@
 2. **TT8 → TT12** — v0.2.0, speed and customisation.
 3. **TT13 → TT17** — v0.3.0, reach, accessibility and automation.
 4. **TT18 → TT21** — v0.4.0, hardening and other Spaces.
+5. **TT22 → TT24** — v0.5.0, screenshots and conveniences.
 
 ---
 
