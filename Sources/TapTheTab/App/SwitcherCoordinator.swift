@@ -89,7 +89,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let listedOtherSpaces = catalog.includesOtherSpaces
         configureCatalog()
         // Add or drop other Spaces' windows now, not at the next window change.
-        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces { windowsChanged() }
+        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces { windowsChanged(in: nil) }
     }
 
     /// Windows on other Spaces are listed only when shown and not filtered out anyway.
