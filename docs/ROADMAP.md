@@ -24,7 +24,7 @@
 | TT3 | macOS system layer: event tap, window catalog, focus tracking, actions, thumbnails, permissions, coordinator, menu bar | auto | ✅ done |
 | TT4 | macOS UI layer: switcher panel, grid + list, settings, onboarding | auto | ✅ done |
 | TT5 | CI (Linux core + macOS build), app bundle + icon, packaging, tag-driven release workflow, security docs | auto | ✅ done |
-| TT6 | First green macOS CI build; fix compile errors surfaced there | checkpoint | ⬜ todo |
+| TT6 | First green macOS CI build; fix compile errors surfaced there | checkpoint | ✅ done |
 | TT7 | Release v0.1.0 | checkpoint | ⬜ todo |
 | TT8 | Live window cache: per-app `AXObserver`s for window created / destroyed / title / minimized, so the list is correct the instant the panel opens | auto | ⬜ todo |
 | TT9 | Shortcut recorder in Settings (any key + modifiers), conflict warnings | auto | ⬜ todo |
@@ -36,7 +36,7 @@
 | TT15 | VoiceOver pass and localization scaffolding (English + Italian + Turkish) | checkpoint | ⬜ todo |
 | TT16 | Release v0.3.0 | checkpoint | ⬜ todo |
 
-**Overall status:** phase 1 code complete; waiting on the first macOS CI run (TT6).
+**Overall status:** phase 1 complete and green on CI (Linux core + macOS universal build); releasing v0.1.0 (TT7).
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -107,6 +107,11 @@ See `AGENTS.md`. In addition, for this plan:
 - Config decoding became lenient per key (a single bad value no longer resets the whole
   file), saves became temp-file + rename with 0600 from the start, and the key router
   now ignores the trigger's own modifiers so search works with ⌘⇥ and ⌃⇥ triggers.
+
+### TT6 (2026-10-28)
+- The first macOS CI run compiled the whole app (Xcode 16.4, macOS 15.5 SDK, deployment
+  target 13.0) for arm64 + x86_64 with no fixes needed, produced the icon, signed ad-hoc,
+  and packaged the dmg and zip (~1.3 MB each).
 
 ## Deferred follow-ups
 - Grid ↓ from a column that has no cell in a partial last row wraps to the top instead of
