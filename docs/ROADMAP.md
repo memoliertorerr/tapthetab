@@ -38,7 +38,7 @@
 | TT17 | Release v0.3.0 | checkpoint | ✅ done |
 | TT18 | Hardening audit of the macOS layer (stuck keys, focus, threading, leaks, ⌘⇥ restore) and fixes | auto | ✅ done |
 | TT19 | Windows on other Spaces: research, then the most robust no-SIP approach behind a setting (off by default) | checkpoint | ⬜ todo |
-| TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ⬜ todo |
+| TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ✅ done |
 | TT21 | Release v0.4.0 | checkpoint | ⬜ todo |
 
 **Overall status:** v0.1.0, v0.2.0 and v0.3.0 released. Phase 4 (v0.4.0) in progress: hardening before the first real-Mac feedback, then other Spaces.
@@ -164,8 +164,8 @@ See `AGENTS.md`. In addition, for this plan:
 - ~~`ShortcutAdvisor` lives in the UI layer~~ — replaced by core `ShortcutConflicts` (phase 3).
 - ~~Warn about ⇧-reverse clashes~~ — done in phase 3.
 - `GridLayout` can still exceed a screen narrower than one card at minimum scale (rare).
-- The large preview hides for items without a thumbnail, so the panel height changes while
-  arrowing past minimized/hidden items; consider reserving the box and showing the icon.
+- ~~The large preview hides for items without a thumbnail~~ — the box is reserved and shows
+  the app icon since TT20.
 
 ## Landmines
 - ⌘⇥ never reaches an event tap; it is a Window Server symbolic hotkey (see ARCHITECTURE).

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tapthetab://switch?scope=activeApp` shows the app you came from, and dismissing returns focus to it.
 - Recording a shortcut that TapTheTab already uses works instead of opening the switcher.
 - A shortcut needs ⌘, ⌥ or ⌃; an fn-only shortcut in `config.json` used to capture every ⇥ press.
+- The large preview keeps its place (showing the app icon) for windows without a preview, so the panel no longer jumps.
 - Much less background work: window changes are coalesced and app-wide title noise is ignored.
 - Private macOS functions are looked up at runtime, so a future macOS removing one can't stop TapTheTab from launching.
 
