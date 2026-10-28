@@ -114,6 +114,7 @@
 "Show live window previews" = "Mostra le anteprime dal vivo delle finestre";
 "Show minimized windows" = "Mostra le finestre contratte nel Dock";
 "Show on" = "Mostra su";
+"Show windows on other Spaces" = "Mostra le finestre negli altri spazi";
 "Shows" = "Mostra";
 "Size" = "Dimensioni";
 "Small" = "Piccolo";
@@ -129,6 +130,7 @@
 "Type shortcut…" = "Digita l'abbreviazione…";
 "Type to search" = "Digita per cercare";
 "Type to search windows" = "Digita per cercare tra le finestre";
+"Uses private macOS interfaces; may change with macOS updates." = "Usa interfacce private di macOS; potrebbe cambiare con gli aggiornamenti di macOS.";
 "Version %@ (build %@)" = "Versione %@ (build %@)";
 "Versions, permissions, counts and settings. No window titles or app names." = "Versioni, autorizzazioni, conteggi e impostazioni. Nessun titolo di finestra o nome di app.";
 "Waiting for Accessibility permission…" = "In attesa dell'autorizzazione Accessibilità…";

@@ -15,6 +15,14 @@ public struct DiagnosticsReport: Equatable, Sendable {
     public var windowCount: Int
     public var appCount: Int
     public var watchedAppCount: Int
+    /// Whether the private window-server functions for listing other Spaces resolved;
+    /// nil when the caller did not say.
+    public var otherSpacesListingAvailable: Bool?
+    /// Whether the private functions for focusing a window on another Space resolved.
+    public var focusAcrossSpacesAvailable: Bool?
+    /// Names of private functions that could not be found (Apple's symbol names, never
+    /// user data); nil when the caller did not say.
+    public var missingPrivateSymbols: [String]?
     public var configuration: Configuration
 
     public init(
@@ -27,7 +35,10 @@ public struct DiagnosticsReport: Equatable, Sendable {
         windowCount: Int,
         appCount: Int,
         watchedAppCount: Int,
-        configuration: Configuration
+        configuration: Configuration,
+        otherSpacesListingAvailable: Bool? = nil,
+        focusAcrossSpacesAvailable: Bool? = nil,
+        missingPrivateSymbols: [String]? = nil
     ) {
         self.appVersion = appVersion
         self.build = build
@@ -39,6 +50,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
         self.appCount = appCount
         self.watchedAppCount = watchedAppCount
         self.configuration = configuration
+        self.otherSpacesListingAvailable = otherSpacesListingAvailable
+        self.focusAcrossSpacesAvailable = focusAcrossSpacesAvailable
+        self.missingPrivateSymbols = missingPrivateSymbols
     }
 
     /// Longest free-text value (versions, architecture) kept in the report.
@@ -64,6 +78,11 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  Windows: \(windowCount)")
         lines.append("  Apps: \(appCount)")
         lines.append("  Watched apps: \(watchedAppCount)")
+        lines.append("")
+        lines.append("Private APIs")
+        lines.append("  List other Spaces: \(Self.available(otherSpacesListingAvailable))")
+        lines.append("  Focus across Spaces: \(Self.available(focusAcrossSpacesAvailable))")
+        lines.append("  Missing symbols: \(Self.symbols(missingPrivateSymbols))")
         lines.append("")
         lines.append("Triggers (\(c.triggers.count))")
         for trigger in c.triggers {
@@ -92,6 +111,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  showWindowlessApps: \(c.filters.showWindowlessApps)")
         lines.append("  currentSpaceOnly: \(c.filters.currentSpaceOnly)")
         lines.append("  currentDisplayOnly: \(c.filters.currentDisplayOnly)")
+        lines.append("  showOtherSpaces: \(c.filters.showOtherSpaces)")
         lines.append("  excludedApps: \(c.filters.excludedBundleIDs.count)")
         lines.append("")
         lines.append("Config version: \(c.version)")
@@ -101,6 +121,17 @@ public struct DiagnosticsReport: Equatable, Sendable {
 
     private static func granted(_ value: Bool) -> String {
         value ? "granted" : "not granted"
+    }
+
+    private static func available(_ value: Bool?) -> String {
+        guard let value else { return "unknown" }
+        return value ? "available" : "unavailable"
+    }
+
+    /// "none", or the names separated by commas, each cleaned like any other free text.
+    private static func symbols(_ names: [String]?) -> String {
+        guard let names else { return "unknown" }
+        return names.isEmpty ? "none" : names.map(clean).joined(separator: ", ")
     }
 
     /// One line of plain text: control characters and backticks removed (so a value can

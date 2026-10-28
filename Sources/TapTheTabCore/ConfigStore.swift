@@ -26,6 +26,16 @@ public final class ConfigStore {
         return base.appendingPathComponent("TapTheTab", isDirectory: true)
     }
 
+    /// Reads and validates the file without side effects: nil when it is missing or cannot
+    /// be decoded. Used for live reloads, where a half-saved file from an editor must not
+    /// replace the settings in use or be moved aside.
+    public func readIfValid() -> (configuration: Configuration, notes: [String])? {
+        guard let data = try? Data(contentsOf: fileURL),
+              let decoded = try? JSONDecoder().decode(Configuration.self, from: data) else { return nil }
+        let (valid, notes) = decoded.validated()
+        return (valid, notes)
+    }
+
     public func load() -> LoadResult {
         guard fileManager.fileExists(atPath: fileURL.path) else {
             let config = Configuration()

@@ -5,21 +5,23 @@ import ApplicationServices
 /// current when the switcher opens. One AXObserver per regular app; events are
 /// coalesced into a single `onChange` call. Main-thread only.
 final class WindowWatcher {
-    /// Called on the main thread, at most once per `debounceInterval`.
+    /// Called on the main thread once events have been quiet for `debounceInterval`.
     var onChange: (() -> Void)?
 
-    private let debounceInterval: TimeInterval = 0.12
+    private let debounceInterval: TimeInterval = 0.25
+    /// Upper bound on how long a steady stream of events can postpone a refresh.
+    private let maximumDelay: TimeInterval = 1.0
+    private var firstPendingEvent: Date?
     private var observers: [pid_t: AXObserver] = [:]
     private var tokens: [NSObjectProtocol] = []
     private var pending: DispatchWorkItem?
     private var retries: [pid_t: Int] = [:]
 
-    /// Notifications registered on each app element. Most apps deliver them for every
-    /// window of the app when registered on the application element.
+    /// Notifications registered on each app element. Title and destroyed events are not
+    /// here: on the app element they fire for every tab, cell and tooltip in the app, which
+    /// would re-enumerate all windows constantly. They are registered per window instead.
     private static let appNotifications: [String] = [
         kAXWindowCreatedNotification,
-        kAXUIElementDestroyedNotification,
-        kAXTitleChangedNotification,
         kAXWindowMiniaturizedNotification,
         kAXWindowDeminiaturizedNotification,
         kAXApplicationHiddenNotification,
@@ -59,6 +61,7 @@ final class WindowWatcher {
         for pid in Array(observers.keys) { unwatch(pid) }
         pending?.cancel()
         pending = nil
+        firstPendingEvent = nil
     }
 
     var watchedCount: Int { observers.count }
@@ -119,14 +122,21 @@ final class WindowWatcher {
         }
     }
 
+    /// Trailing debounce: refresh once things go quiet, but never later than `maximumDelay`
+    /// after the first event, so a constantly retitling window still gets picked up.
     fileprivate func scheduleChange() {
-        guard pending == nil else { return }
+        let now = Date()
+        let first = firstPendingEvent ?? now
+        firstPendingEvent = first
+        pending?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pending = nil
+            self.firstPendingEvent = nil
             self.onChange?()
         }
         pending = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + debounceInterval, execute: work)
+        let delay = min(debounceInterval, max(0, maximumDelay - now.timeIntervalSince(first)))
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
 }

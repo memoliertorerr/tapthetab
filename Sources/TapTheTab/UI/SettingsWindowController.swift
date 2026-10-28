@@ -16,6 +16,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         set { model.diagnosticsProvider = newValue }
     }
 
+    /// Told when the shortcut recorder starts (true) and stops (false).
+    var onShortcutRecordingChanged: ((Bool) -> Void)? {
+        get { model.recorder.onRecordingChanged }
+        set { model.recorder.onRecordingChanged = newValue }
+    }
+
     init(
         configuration: Configuration,
         permissions: PermissionsProviding,

@@ -136,8 +136,10 @@ public struct Configuration: Codable, Equatable, Sendable {
         var seen = Set<Shortcut>()
         var kept: [Trigger] = []
         for trigger in copy.triggers {
-            if trigger.shortcut.modifiers.subtracting(.shift).isEmpty {
-                notes.append("Shortcut \(trigger.shortcut.displayString) needs ⌘, ⌥, ⌃ or fn; it was ignored.")
+            // ⇧ reverses and fn is set by the keyboard on its own (arrows, F-keys), so
+            // neither can hold a switcher open: a trigger needs ⌘, ⌥ or ⌃.
+            if trigger.shortcut.modifiers.intersection([.command, .option, .control]).isEmpty {
+                notes.append("Shortcut \(trigger.shortcut.displayString) needs ⌘, ⌥ or ⌃; it was ignored.")
                 continue
             }
             if !seen.insert(trigger.shortcut).inserted {

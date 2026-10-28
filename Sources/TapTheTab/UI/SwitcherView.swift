@@ -17,10 +17,16 @@ struct SwitcherRootView: View {
                 )
                 Divider()
             }
-            if let preview = model.selectedPreview {
-                SwitcherLargePreview(image: preview, boxSize: model.layout.previewSize)
-                    .padding(.top, SwitcherLayout.previewInset)
-                    .padding(.bottom, SwitcherLayout.previewBottomGap)
+            if model.layout.showsPreview {
+                Group {
+                    if let preview = model.selectedPreview {
+                        SwitcherLargePreview(image: preview, boxSize: model.layout.previewSize)
+                    } else if let item = model.session.selectedItem {
+                        SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: model.layout.previewSize)
+                    }
+                }
+                .padding(.top, SwitcherLayout.previewInset)
+                .padding(.bottom, SwitcherLayout.previewBottomGap)
             }
             content
         }
@@ -120,6 +126,26 @@ struct SwitcherLargePreview: View {
             .shadow(color: Color.black.opacity(0.22), radius: 6, x: 0, y: 2)
             .frame(width: boxSize.width, height: boxSize.height)
             .accessibilityHidden(true)
+    }
+}
+
+/// Fills the reserved preview box when the selected item has no thumbnail.
+struct SwitcherPreviewPlaceholder: View {
+    let icon: NSImage
+    let boxSize: CGSize
+
+    var body: some View {
+        let side: CGFloat = max(32, min(128, min(boxSize.width, boxSize.height) * 0.45))
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
+            Image(nsImage: icon)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: side, height: side)
+        }
+        .frame(width: boxSize.width, height: boxSize.height)
+        .accessibilityHidden(true)
     }
 }
 

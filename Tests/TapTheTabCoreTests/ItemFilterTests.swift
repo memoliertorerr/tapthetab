@@ -20,6 +20,7 @@ final class ItemFilterTests: XCTestCase {
         XCTAssertFalse(o.showWindowlessApps)
         XCTAssertFalse(o.currentSpaceOnly)
         XCTAssertFalse(o.currentDisplayOnly)
+        XCTAssertFalse(o.showOtherSpaces)
         XCTAssertEqual(o.excludedBundleIDs, [])
     }
 
@@ -78,6 +79,19 @@ final class ItemFilterTests: XCTestCase {
         ]
         let options = FilterOptions(showWindowlessApps: true, currentSpaceOnly: true)
         XCTAssertEqual(apply(items, options: options), [.window(1), .window(2), .app(pid: 4)])
+    }
+
+    func testCurrentSpaceOnlyHidesWindowsListedFromOtherSpaces() {
+        // What the catalog adds with showOtherSpaces: not on the active Space, not
+        // minimized, app not hidden; windows of fullscreen Spaces are marked fullscreen.
+        let items = [
+            window(1),
+            window(2, onActiveSpace: false),
+            window(3, fullscreen: true, onActiveSpace: false),
+        ]
+        let both = FilterOptions(currentSpaceOnly: true, showOtherSpaces: true)
+        XCTAssertEqual(apply(items, options: both), [.window(1)])
+        XCTAssertEqual(apply(items, options: FilterOptions(showOtherSpaces: true)), [.window(1), .window(2), .window(3)])
     }
 
     func testCurrentDisplayOnly() {
@@ -216,5 +230,30 @@ final class ItemFilterTests: XCTestCase {
         let json = #"{"showMinimized": false, "excludedBundleIDs": ["a.b"]}"#
         let decoded = try JSONDecoder().decode(FilterOptions.self, from: Data(json.utf8))
         XCTAssertEqual(decoded, FilterOptions(showMinimized: false, excludedBundleIDs: ["a.b"]))
+    }
+
+    func testDecodingShowOtherSpaces() throws {
+        let on = try JSONDecoder().decode(FilterOptions.self, from: Data(#"{"showOtherSpaces": true}"#.utf8))
+        XCTAssertTrue(on.showOtherSpaces)
+        XCTAssertEqual(on, FilterOptions(showOtherSpaces: true))
+        let off = try JSONDecoder().decode(FilterOptions.self, from: Data(#"{"showOtherSpaces": false, "currentSpaceOnly": true}"#.utf8))
+        XCTAssertEqual(off, FilterOptions(currentSpaceOnly: true))
+    }
+
+    func testDecodingBadShowOtherSpacesFallsBackToOff() throws {
+        for value in [#""yes""#, "1", "null", "[]", "{}"] {
+            let json = #"{"showOtherSpaces": "# + value + #", "showMinimized": false}"#
+            let decoded = try JSONDecoder().decode(FilterOptions.self, from: Data(json.utf8))
+            XCTAssertFalse(decoded.showOtherSpaces, value)
+            XCTAssertFalse(decoded.showMinimized, value)
+        }
+    }
+
+    func testShowOtherSpacesEncodesAndRoundTrips() throws {
+        let options = FilterOptions(showOtherSpaces: true)
+        let data = try JSONEncoder().encode(options)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["showOtherSpaces"] as? Bool, true)
+        XCTAssertEqual(try JSONDecoder().decode(FilterOptions.self, from: data), options)
     }
 }

@@ -35,17 +35,20 @@
 | TT14 | `tapthetab://` URL scheme: open the switcher (optionally pre-filtered or scoped), open Settings — for Raycast/Alfred/Shortcuts | auto | ✅ done |
 | TT15 | Large preview of the selected window (previews mode) | auto | ✅ done |
 | TT16 | Core hygiene: shortcut-conflict advisor in the core (+ ⇧-reverse conflict), grid shrinks to fit width, diagnostics report | auto | ✅ done |
-| TT17 | Release v0.3.0 | checkpoint | ⬜ todo |
-| TT18 | Windows on other Spaces (research spike; private APIs, behind a setting, off by default) | checkpoint | ⬜ todo |
+| TT17 | Release v0.3.0 | checkpoint | ✅ done |
+| TT18 | Hardening audit of the macOS layer (stuck keys, focus, threading, leaks, ⌘⇥ restore) and fixes | auto | ✅ done |
+| TT19 | Windows on other Spaces: research, then the most robust no-SIP approach behind a setting (off by default) | checkpoint | ✅ done |
+| TT20 | Large-preview box stays reserved (icon placeholder) so the panel doesn't jump | auto | ✅ done |
+| TT21 | Release v0.4.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0 and v0.2.0 released; phase 3 complete, releasing v0.3.0 (TT17). Next: phase 4.
+**Overall status:** v0.1.0–v0.3.0 released; phase 4 complete, releasing v0.4.0 (TT21). Next: real-Mac feedback.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
    never get stuck), window activation correctness, permissions onboarding.
 2. **TT8 → TT12** — v0.2.0, speed and customisation.
 3. **TT13 → TT17** — v0.3.0, reach, accessibility and automation.
-4. **TT18 →** — v0.4.0, other Spaces and whatever real-Mac feedback asks for first.
+4. **TT18 → TT21** — v0.4.0, hardening and other Spaces.
 
 ---
 
@@ -140,6 +143,26 @@ See `AGENTS.md`. In addition, for this plan:
 - Diagnostics: Settings → About → Copy Diagnostics (versions, permissions, counts,
   settings; no titles, names or bundle IDs).
 
+### TT18 (2026-10-28)
+- An independent read-through of the macOS layer found 13 issues (4 high); all fixed:
+  missed modifier release after a tap timeout, fn-only triggers, AX calls without a
+  timeout on window elements, permission revocation keeping a dead tap and ⌘⇥ disabled,
+  ⌘⇥ left off after a crash, refresh storms from app-wide AX notifications, busy apps'
+  windows vanishing and losing recency, live config reload resetting on a typo, links
+  using TapTheTab as the "active app", stale triggers after pause, autorepeat leaking
+  into the target window, recording an existing trigger, focus observers on apps not yet
+  ready. Verified-correct areas are listed in the PR.
+- Private functions moved to runtime lookup (`PrivateAPI.swift`).
+
+### TT19 (2026-10-28)
+- Implemented the research recommendation behind `filters.showOtherSpaces` (off by
+  default): Space layout + per-Space window IDs from the window server, filtered with the
+  public `CGWindowListCreateDescriptionFromArray`, 150 ms budget; focus via the
+  front-process path with a 0x100-byte event record. Accessibility elements seen earlier
+  are carried over between refreshes.
+- Skipped the remote-token element scan: costly, unreliable, untestable here. Without an
+  element, close/minimize/fullscreen on an other-Space window beep instead of acting.
+
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
 - `GridLayout` shrinks to fit height only; very large card sizes on tiny screens can
@@ -150,8 +173,10 @@ See `AGENTS.md`. In addition, for this plan:
 - ~~`ShortcutAdvisor` lives in the UI layer~~ — replaced by core `ShortcutConflicts` (phase 3).
 - ~~Warn about ⇧-reverse clashes~~ — done in phase 3.
 - `GridLayout` can still exceed a screen narrower than one card at minimum scale (rare).
-- The large preview hides for items without a thumbnail, so the panel height changes while
-  arrowing past minimized/hidden items; consider reserving the box and showing the icon.
+- Other Spaces: verify window-list option `0x2` excludes minimized windows; consider the
+  remote-token scan only if real-Mac feedback shows actions on other-Space windows matter.
+- ~~The large preview hides for items without a thumbnail~~ — the box is reserved and shows
+  the app icon since TT20.
 
 ## Landmines
 - ⌘⇥ never reaches an event tap; it is a Window Server symbolic hotkey (see ARCHITECTURE).

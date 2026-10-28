@@ -203,9 +203,11 @@ final class SwitcherPanelController {
     }
 
     /// The large preview is shown only in previews mode and once the selected item has a thumbnail.
+    /// The preview box is reserved whenever previews are on and something is selected,
+    /// even before (or without) a thumbnail, so the cards don't jump while arrowing past
+    /// minimized or hidden windows; those show their app icon in the box instead.
     private func previewAvailable(for session: SwitcherSession, appearance: Appearance) -> Bool {
-        guard appearance.showPreviews, let id = session.selectedItem?.id else { return false }
-        return model.hasThumbnail(for: id)
+        appearance.showPreviews && session.selectedItem != nil
     }
 
     /// Re-lays out the shown session after the selected item's thumbnail came or went.

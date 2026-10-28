@@ -114,6 +114,7 @@
 "Show live window previews" = "Canlı pencere önizlemelerini göster";
 "Show minimized windows" = "Küçültülmüş pencereleri göster";
 "Show on" = "Gösterileceği yer";
+"Show windows on other Spaces" = "Diğer alanlardaki pencereleri göster";
 "Shows" = "Gösterilen";
 "Size" = "Boyut";
 "Small" = "Küçük";
@@ -129,6 +130,7 @@
 "Type shortcut…" = "Kısayolu girin…";
 "Type to search" = "Yazarak ara";
 "Type to search windows" = "Pencerelerde aramak için yazın";
+"Uses private macOS interfaces; may change with macOS updates." = "macOS'in özel arayüzlerini kullanır; macOS güncellemeleriyle değişebilir.";
 "Version %@ (build %@)" = "Sürüm %@ (yapı %@)";
 "Versions, permissions, counts and settings. No window titles or app names." = "Sürümler, izinler, sayılar ve ayarlar. Pencere başlıkları veya uygulama adları yok.";
 "Waiting for Accessibility permission…" = "Erişilebilirlik izni bekleniyor…";

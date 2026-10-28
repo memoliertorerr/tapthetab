@@ -114,6 +114,7 @@
 "Show live window previews" = "Show live window previews";
 "Show minimized windows" = "Show minimized windows";
 "Show on" = "Show on";
+"Show windows on other Spaces" = "Show windows on other Spaces";
 "Shows" = "Shows";
 "Size" = "Size";
 "Small" = "Small";
@@ -129,6 +130,7 @@
 "Type shortcut…" = "Type shortcut…";
 "Type to search" = "Type to search";
 "Type to search windows" = "Type to search windows";
+"Uses private macOS interfaces; may change with macOS updates." = "Uses private macOS interfaces; may change with macOS updates.";
 "Version %@ (build %@)" = "Version %@ (build %@)";
 "Versions, permissions, counts and settings. No window titles or app names." = "Versions, permissions, counts and settings. No window titles or app names.";
 "Waiting for Accessibility permission…" = "Waiting for Accessibility permission…";

@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-28
+
+### Added
+
+- **Windows on other Spaces** (opt-in): Settings → Filters → *Show windows on other Spaces*. Windows on other Spaces and fullscreen Spaces are listed after the current ones, and picking one switches to its Space. Uses private macOS interfaces and switches itself off if they are unavailable.
+- Copy Diagnostics now reports whether those interfaces are available.
+
+### Fixed
+
+- The keyboard can no longer stay captured after a missed modifier release (for example while macOS briefly paused TapTheTab), on sleep, screen lock or user switch.
+- If the Accessibility permission is removed, TapTheTab stops capturing keys, gives ⌘⇥ back to macOS and resumes once the permission returns.
+- ⌘⇥ is turned back on at the next launch if TapTheTab crashed while owning it.
+- Holding ⇥ after releasing ⌥ no longer types tabs into the window you switched to.
+- A busy or beachballing app no longer stalls TapTheTab (every Accessibility call is capped) or disappears from the switcher.
+- A half-saved or mistyped `config.json` no longer resets your settings while TapTheTab runs.
+- `tapthetab://switch?scope=activeApp` shows the app you came from, and dismissing returns focus to it.
+- Recording a shortcut that TapTheTab already uses works instead of opening the switcher.
+- A shortcut needs ⌘, ⌥ or ⌃; an fn-only shortcut in `config.json` used to capture every ⇥ press.
+- The large preview keeps its place (showing the app icon) for windows without a preview, so the panel no longer jumps.
+- Much less background work: window changes are coalesced and app-wide title noise is ignored.
+- Private macOS functions are looked up at runtime, so a future macOS removing one can't stop TapTheTab from launching.
+
 ## [0.3.0] - 2026-10-28
 
 ### Added
@@ -56,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/memoliertorerr/tapthetab/releases/tag/v0.1.0
