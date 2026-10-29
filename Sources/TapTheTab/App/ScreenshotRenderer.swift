@@ -214,7 +214,9 @@ enum ScreenshotRenderer {
         case .themed:
             // The list with window thumbnails on a theme (Dusk), no large preview.
             let theme = ThemePreset.named("dusk").map { ColorTheme.none.applying($0) } ?? ColorTheme.none
-            return try switcherShot(style: .list, query: "", previews: true, largePreview: false, theme: theme, mode: mode, icons: icons)
+            // Eight windows: a scrolling list does not render offscreen.
+            return try switcherShot(style: .list, query: "", previews: true, largePreview: false, theme: theme,
+                                    sampleLimit: 8, mode: mode, icons: icons)
         case .settings:
             return try settingsShot(mode: mode)
         }
@@ -227,6 +229,7 @@ enum ScreenshotRenderer {
         previews: Bool,
         largePreview: Bool = true,
         theme: ColorTheme = .none,
+        sampleLimit: Int? = nil,
         mode: ScreenshotMode,
         icons: [Int32: NSImage]
     ) throws -> CGImage {
@@ -240,8 +243,9 @@ enum ScreenshotRenderer {
         appearance.theme = mode.theme
         let behavior = Behavior()
 
+        let shown = sampleLimit.map { Array(samples.prefix($0)) } ?? samples
         var session = SwitcherSession(
-            items: samples.map { $0.item },
+            items: shown.map { $0.item },
             startsOnPrevious: behavior.startOnPrevious,
             wrapsAround: behavior.wrapAround
         )
@@ -261,7 +265,7 @@ enum ScreenshotRenderer {
         model.present(session: session, appearance: appearance, behavior: behavior, layout: layout)
         if previews {
             // Like the real app, minimized windows and hidden apps have no preview.
-            for sample in samples where !sample.isMinimized && !sample.isAppHidden {
+            for sample in shown where !sample.isMinimized && !sample.isAppHidden {
                 guard let image = WindowArt.image(for: sample, mode: mode, scale: scale) else {
                     throw Failure("could not draw the preview for \(sample.appName)")
                 }
