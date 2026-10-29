@@ -22,6 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configuration.onExternalChange = { [weak self] newValue in
             self?.configurationChangedOnDisk(newValue)
         }
+        coordinator.onPositionsChanged = { [weak self] main, preview in
+            self?.blocksMoved(main: main, preview: preview)
+        }
         configuration.startWatching()
         coordinator.onMonitorFailure = { [weak self] in
             Log.app.notice("Keyboard capture stopped; waiting for Accessibility permission")
@@ -175,7 +178,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             missingPrivateSymbols: PrivateAPI.missingSymbols,
             lastFullRefreshMilliseconds: counts.fullRefreshMilliseconds,
             lastPartialRefreshMilliseconds: counts.partialRefreshMilliseconds,
-            skippedWindowsBySubrole: counts.skippedBySubrole
+            skippedWindowsBySubrole: counts.skippedBySubrole,
+            lastSwitchMethod: coordinator.lastSwitchMethod
         )
     }
 
@@ -196,6 +200,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Validation changed something; show the user what is actually in effect.
             settings?.update(configuration: applied)
         }
+    }
+
+    /// The user dragged a block of the switcher; remember where (Settings can reset it).
+    private func blocksMoved(main: BlockPosition?, preview: BlockPosition?) {
+        var newValue = configuration.configuration
+        newValue.appearance.panelPosition = main
+        newValue.appearance.previewPosition = preview
+        settingsChanged(newValue)
+        settings?.update(configuration: configuration.configuration)
     }
 
     private func configurationChangedOnDisk(_ newValue: Configuration) {

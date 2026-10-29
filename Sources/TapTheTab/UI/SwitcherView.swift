@@ -2,36 +2,71 @@ import AppKit
 import SwiftUI
 import TapTheTabCore
 
-/// Root of the switcher panel's SwiftUI content: the preview card floating above the
-/// main block (search bar plus grid or list), each on its own backdrop. The window around
-/// them is transparent.
-struct SwitcherRootView: View {
+/// The main block in its own window: search bar plus grid or list, on its backdrop.
+/// Dragging it (anywhere a click would not switch) moves the block.
+struct SwitcherMainView: View {
     @ObservedObject var model: SwitcherViewModel
-
-    private var backdrop: PanelBackdropStyle { PanelBackdropStyle(model.appearance) }
 
     var body: some View {
         let layout = model.layout
+        let backdrop = PanelBackdropStyle(model.appearance)
         SwitcherGlassGroup(style: backdrop) {
-            VStack(spacing: 0) {
-                if layout.showsPreview {
-                    previewCard(layout: layout)
-                        .frame(width: layout.panelSize.width, height: layout.previewCardSize.height, alignment: .bottom)
-                    Color.clear
-                        .frame(height: SwitcherLayout.previewGap)
-                        .accessibilityHidden(true)
-                }
-                mainBlock
-                    .frame(width: layout.mainSize.width, height: layout.mainSize.height, alignment: .top)
-                    // Scrolled rows and cards stop at the rounded corners, as before.
-                    .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius, style: .continuous))
-                    .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.panelCornerRadius)
-            }
+            SwitcherMainBlock(model: model)
+                .frame(width: layout.mainSize.width, height: layout.mainSize.height, alignment: .top)
+                // Scrolled rows and cards stop at the rounded corners.
+                .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius, style: .continuous))
+                .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.panelCornerRadius)
+                .switcherDraggable(.main, model: model)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
+}
 
-    private var mainBlock: some View {
+/// The large preview's card in its own window: it hugs the selected window's image, at
+/// the bottom centre of the window (the edge next to the main block by default).
+struct SwitcherPreviewView: View {
+    @ObservedObject var model: SwitcherViewModel
+
+    var body: some View {
+        let backdrop = PanelBackdropStyle(model.appearance)
+        SwitcherGlassGroup(style: backdrop) {
+            SwitcherPreviewCard(model: model, backdrop: backdrop)
+                .switcherDraggable(.preview, model: model)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+}
+
+/// Both blocks the way they sit by default, the card above the main block. Only
+/// `ScreenshotRenderer` draws them together; the app shows each in its own window.
+struct SwitcherRootView: View {
+    @ObservedObject var model: SwitcherViewModel
+
+    var body: some View {
+        let layout = model.layout
+        let backdrop = PanelBackdropStyle(model.appearance)
+        VStack(spacing: 0) {
+            if layout.showsPreview {
+                SwitcherPreviewCard(model: model, backdrop: backdrop)
+                    .frame(width: layout.panelSize.width, height: layout.previewCardSize.height, alignment: .bottom)
+                Color.clear
+                    .frame(height: SwitcherLayout.previewGap)
+                    .accessibilityHidden(true)
+            }
+            SwitcherMainBlock(model: model)
+                .frame(width: layout.mainSize.width, height: layout.mainSize.height, alignment: .top)
+                .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius, style: .continuous))
+                .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.panelCornerRadius)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+/// Search bar plus grid or list (no backdrop).
+struct SwitcherMainBlock: View {
+    @ObservedObject var model: SwitcherViewModel
+
+    var body: some View {
         VStack(spacing: 0) {
             if model.layout.showsSearchBar {
                 SwitcherSearchBar(
@@ -46,25 +81,6 @@ struct SwitcherRootView: View {
         }
     }
 
-    /// The selected window's preview on a card that hugs the image, or the app icon on a
-    /// card the size of the whole box when there is no image (yet).
-    @ViewBuilder
-    private func previewCard(layout: SwitcherLayout) -> some View {
-        if let preview = model.selectedPreview {
-            let card = layout.previewCardSize(fitting: CGSize(width: preview.width, height: preview.height))
-            SwitcherLargePreview(image: preview)
-                .padding(SwitcherLayout.previewCardPadding)
-                .frame(width: card.width, height: card.height)
-                .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
-        } else if let item = model.session.selectedItem {
-            let card = layout.previewCardSize
-            SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: layout.previewSize)
-                .padding(SwitcherLayout.previewCardPadding)
-                .frame(width: card.width, height: card.height)
-                .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
-        }
-    }
-
     @ViewBuilder
     private var content: some View {
         if model.session.visible.isEmpty {
@@ -74,6 +90,44 @@ struct SwitcherRootView: View {
         } else {
             SwitcherGridView(model: model)
         }
+    }
+}
+
+/// The selected window's preview on a card that hugs the image, or the app icon on a
+/// card the size of the whole box when there is no image (yet). Nothing without a preview.
+struct SwitcherPreviewCard: View {
+    @ObservedObject var model: SwitcherViewModel
+    let backdrop: PanelBackdropStyle
+
+    var body: some View {
+        let layout = model.layout
+        if layout.showsPreview {
+            if let preview = model.selectedPreview {
+                let card = layout.previewCardSize(fitting: CGSize(width: preview.width, height: preview.height))
+                SwitcherLargePreview(image: preview)
+                    .padding(SwitcherLayout.previewCardPadding)
+                    .frame(width: card.width, height: card.height)
+                    .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
+            } else if let item = model.session.selectedItem {
+                let card = layout.previewCardSize
+                SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: layout.previewSize)
+                    .padding(SwitcherLayout.previewCardPadding)
+                    .frame(width: card.width, height: card.height)
+                    .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
+            }
+        }
+    }
+}
+
+extension View {
+    /// Dragging this view moves its block's window (see `SwitcherPanelController`). The
+    /// pointer has to move a few points first, so a click still switches.
+    func switcherDraggable(_ block: SwitcherBlock, model: SwitcherViewModel) -> some View {
+        gesture(
+            DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                .onChanged { _ in model.drag(block, .changed) }
+                .onEnded { _ in model.drag(block, .ended) }
+        )
     }
 }
 
@@ -257,7 +311,7 @@ struct SwitcherGridView: View {
             isSelected: index == model.session.selectedIndex,
             size: layout.itemSize,
             icon: model.icon(for: cell.ranked.item.pid),
-            thumbnail: model.thumbnail(for: cell.id),
+            thumbnail: model.itemThumbnail(for: cell.id),
             showAppName: model.appearance.showAppName,
             onHover: { inside in viewModel.hover(index: index, inside: inside) },
             onTap: { viewModel.click(index: index) }
@@ -333,6 +387,9 @@ struct SwitcherListView: View {
             cell: cell,
             isSelected: index == model.session.selectedIndex,
             icon: model.icon(for: cell.ranked.item.pid),
+            thumbnail: model.itemThumbnail(for: cell.id),
+            showsThumbnail: model.listShowsThumbnails,
+            rowHeight: model.layout.itemSize.height,
             showAppName: model.appearance.showAppName,
             onHover: { inside in viewModel.hover(index: index, inside: inside) },
             onTap: { viewModel.click(index: index) }

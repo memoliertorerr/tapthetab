@@ -76,10 +76,14 @@ built around three goals:
 - **Group by app** if you like — apps in recency order, each app's windows together.
 - **Liquid Glass** — the panel is see-through glass on macOS 26 (Clear or Tinted, like the
   system setting), a similar translucent look on earlier versions, or the classic dark panel.
+- **Themes** — Arc-style gradients with grain: eleven presets or your own colors.
+- **Move it** — drag the list or the large preview anywhere while the switcher is open;
+  it remembers where.
 - **Grid or list layout**, three sizes, light/dark/system theme, shows on the display with
   your mouse (or the active window, or the main display).
-- **Optional live previews** (macOS 14+, needs Screen Recording), with a large preview of
-  the selected window on its own card floating above the switcher (50–100 % size).
+- **Optional live previews** (macOS 14+, needs Screen Recording): window thumbnails in the
+  grid and the list, and a large preview of the selected window on its own floating card
+  (50–100 % size).
 - **Speaks your language** — English, Italian and Turkish, with VoiceOver support.
 - **Scriptable** — `tapthetab://` links open the switcher pre-filtered from launchers,
   Shortcuts or the terminal (see [Automation](#automation)).
@@ -174,6 +178,8 @@ fall back to defaults, and a file that can't be read is set aside as
     "style": "grid",
     "size": "medium",
     "showPreviews": false,
+    "windowThumbnails": true,
+    "showLargePreview": true,
     "largePreviewPercent": 66,
     "showAppName": true,
     "showMenuBarIcon": true,
@@ -181,6 +187,7 @@ fall back to defaults, and a file that can't be read is set aside as
     "theme": "system",
     "liquidGlass": true,
     "glassStyle": "clear",
+    "colorTheme": { "preset": "dusk", "colors": ["#9d8fd0", "#e0a2a0"], "intensity": 0.6, "grain": 0.3, "opacity": 0.55 },
     "placement": "mouse",
     "showDelayMilliseconds": 90
   },
@@ -205,6 +212,11 @@ fall back to defaults, and a file that can't be read is set aside as
 - **Look:** `liquidGlass` `true` (glass) or `false` (classic dark panel); `glassStyle`
   `clear` (more see-through) or `tinted` (frosted, more contrast).
   `largePreviewPercent` (25–100) sizes the large preview.
+- **Theme:** `colorTheme.preset` is `none`, a preset (`mist`, `sand`, `sage`, `lagoon`,
+  `dusk`, `ember`, `orchid`, `glacier`, `meadow`, `berry`, `graphite`) or `custom` (1–3
+  `colors`); `intensity`, `grain` and `opacity` go from 0 to 1.
+- **Position:** `panelPosition` and `previewPosition` are set when you drag the switcher
+  (fractions of the screen); remove them, or use Reset Position, to centre it again.
 
 ## Automation
 

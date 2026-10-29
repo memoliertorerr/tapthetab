@@ -53,8 +53,13 @@
 | TT30 | Large preview on its own card floating above the grid or list, smaller by default, with a size setting | auto | ✅ done |
 | TT31 | Release v0.7.0 | checkpoint | ✅ done |
 | TT31.1 | Fix: switching brought all of the app's windows forward; focus only the chosen window through the window server. Release v0.7.1 *(added 2026-10-28)* | checkpoint | ✅ done |
+| TT32 | Fix for real: switching still raised every window of the app (v0.7.1 fell back after the window-server call); report the switch method in diagnostics | auto | ✅ done |
+| TT33 | The two blocks (list, large preview) are separate windows that can be dragged while the switcher is open, stay on screen, remember their place; reset in Settings | auto | ✅ done |
+| TT34 | Arc-style themes from Little Joan's theme engine: presets, custom colors, grain, strength; clearer Clear glass | auto | ✅ done |
+| TT35 | Window thumbnails in list rows (taller rows), thumbnails and large preview as separate switches | auto | ✅ done |
+| TT36 | Release v0.8.0 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.7.1 released. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
+**Overall status:** v0.1.0–v0.7.1 released; phase 8 (v0.8.0) in progress. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -65,6 +70,7 @@
 5. **TT22 → TT24** — v0.5.0, screenshots and conveniences.
 6. **TT25 → TT28** — v0.6.0, testable layout, self-rescue, grouping by app.
 7. **TT29 → TT31** — v0.7.0, Liquid Glass and a floating preview.
+8. **TT32 → TT36** — v0.8.0, movable blocks, themes, list thumbnails, the real focus fix.
 
 ---
 
@@ -217,6 +223,19 @@ See `AGENTS.md`. In addition, for this plan:
   app. Every switch now uses the window-server path that was only used for other Spaces
   (front process with the window, without the all-windows flag, plus the make-key record),
   as other switchers do; the old public path is the fallback if the functions disappear.
+
+### TT32–TT35 (2026-10-29)
+- v0.7.1 still raised all of an app's windows on a real Mac. Most likely cause: the code
+  checked `_SLPSSetFrontProcessWithOptions`'s return value and fell back to the public
+  path (which raises everything) when it was not zero; AltTab and yabai ignore that value.
+  Now it is only reported (Copy Diagnostics → Private APIs → Last switch), and the public
+  fallback runs only when the functions are missing. Unconfirmed until tried on a Mac.
+- The main block and the preview card are two `NSPanel`s; `PanelPlacement` (core) places
+  them (default: together in the middle, the card following the main block, below it if
+  there is no room above) and clamps drags to the screen. Positions are stored as
+  fractions of the visible frame (`appearance.panelPosition` / `previewPosition`).
+- Themes are Little Joan's engine ported to Swift (`ColorMath`, `ColorTheme`,
+  `GrainTexture`), checked against its TypeScript output for every preset.
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.
