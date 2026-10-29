@@ -1,9 +1,10 @@
 import AppKit
 
 /// "Peek" (⇧Space in the switcher): the selected window shown full size where it is,
-/// over a dimmed screen, while the switcher steps aside. It is a still image from
+/// over a dimmed screen. It is a still image from
 /// ScreenCaptureKit (the window itself is not touched or raised), so it needs the
-/// Screen Recording permission. Clicks go through; ⇧Space or any other key ends it.
+/// Screen Recording permission. It covers the switcher; clicks go through; ⇧Space or
+/// any other key ends it.
 @MainActor
 final class PeekController {
     private var panel: NSPanel?
@@ -42,7 +43,8 @@ final class PeekController {
             backing: .buffered,
             defer: true
         )
-        panel.level = .popUpMenu
+        // Above the switcher's panels, which stay where they are underneath.
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.popUpMenu.rawValue + 1)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
         panel.isOpaque = false
         panel.backgroundColor = NSColor.black.withAlphaComponent(0.35)

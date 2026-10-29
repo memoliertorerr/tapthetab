@@ -25,6 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.onPositionsChanged = { [weak self] main, preview in
             self?.blocksMoved(main: main, preview: preview)
         }
+        coordinator.onPinnedAppsChanged = { [weak self] pinned in
+            self?.pinnedAppsChanged(pinned)
+        }
         configuration.startWatching()
         coordinator.onMonitorFailure = { [weak self] in
             Log.app.notice("Keyboard capture stopped; waiting for Accessibility permission")
@@ -207,6 +210,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var newValue = configuration.configuration
         newValue.appearance.panelPosition = main
         newValue.appearance.previewPosition = preview
+        settingsChanged(newValue)
+        settings?.update(configuration: configuration.configuration)
+    }
+
+    /// ⇧P in the switcher pinned or unpinned an app.
+    private func pinnedAppsChanged(_ pinned: [String]) {
+        var newValue = configuration.configuration
+        newValue.filters.pinnedBundleIDs = pinned
         settingsChanged(newValue)
         settings?.update(configuration: configuration.configuration)
     }
