@@ -13,21 +13,25 @@ enum WindowActions {
     /// `acrossSpaces` is true while "Show windows on other Spaces" is on: a window on
     /// another Space (or without an Accessibility element) is then focused through the
     /// window server too, which also switches to its Space.
-    static func activate(_ item: SwitcherItem, window: AXUIElement?, acrossSpaces: Bool = false) {
-        guard let app = NSRunningApplication(processIdentifier: item.pid) else { return }
+    ///
+    /// Returns how the window was brought forward, for Copy Diagnostics (fixed wording,
+    /// never window or app names).
+    @discardableResult
+    static func activate(_ item: SwitcherItem, window: AXUIElement?, acrossSpaces: Bool = false) -> String {
+        guard let app = NSRunningApplication(processIdentifier: item.pid) else { return "app not running" }
 
         if acrossSpaces, case .window(let number) = item.id,
            !item.isOnActiveSpace || window == nil,
            // Minimized windows and hidden apps' windows are off-screen on every Space;
            // the path below restores those first.
            !item.isMinimized, !item.isAppHidden,
-           focusWindow(pid: item.pid, windowID: number) {
+           let method = focusWindow(pid: item.pid, windowID: number) {
             if let window {
-                AX.set(window, kAXMainAttribute, true)
                 AX.perform(window, kAXRaiseAction)
+                AX.set(window, kAXMainAttribute, true)
                 raiseAgainSoon(window)
             }
-            return
+            return method + ", other Space"
         }
 
         if item.isWindowless || window == nil {
@@ -37,32 +41,42 @@ enum WindowActions {
                 let configuration = NSWorkspace.OpenConfiguration()
                 configuration.activates = true
                 NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, _ in }
-            } else {
-                activateApp(app)
+                return "reopened app"
             }
-            return
+            activateApp(app)
+            return "activated app"
         }
 
         if app.isHidden { app.unhide() }
-        guard let window else { return }
+        guard let window else { return "no window" }
         if AX.bool(window, kAXMinimizedAttribute) == true {
             AX.set(window, kAXMinimizedAttribute, false)
         }
-        // The chosen window first becomes the app's front window…
+        // The window server makes the app frontmost with just this window, as a click on
+        // it would, then the window is raised within its app. Making the app frontmost
+        // any other way (its Accessibility "frontmost" attribute, or activating it)
+        // brings all of its windows forward.
+        if case .window(let number) = item.id, let method = focusWindow(pid: item.pid, windowID: number) {
+            AX.perform(window, kAXRaiseAction)
+            AX.set(window, kAXMainAttribute, true)
+            raiseAgainSoon(window)
+            return method
+        }
+        // Fallback when the window-server functions are missing: activate the app (its key
+        // window only), and only if that is refused, its "frontmost" attribute, which can
+        // bring all of its windows forward.
         AX.set(window, kAXMainAttribute, true)
         AX.perform(window, kAXRaiseAction)
-        // …then the window server makes the app frontmost with just that window, the way
-        // a click on it would. Making the app frontmost any other way (its Accessibility
-        // "frontmost" attribute, or activating it) brings all its windows forward.
-        if case .window(let number) = item.id, focusWindow(pid: item.pid, windowID: number) {
-            raiseAgainSoon(window)
-            return
-        }
-        // Fallback when the window-server functions are missing: public calls only,
-        // which may bring the app's other windows forward too.
-        AX.set(AX.application(item.pid), kAXFrontmostAttribute, true)
         activateApp(app)
-        raiseAgainSoon(window)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            if !app.isActive {
+                Log.windows.notice("Activation refused; using the frontmost attribute")
+                AX.set(AX.application(item.pid), kAXFrontmostAttribute, true)
+            }
+            AX.perform(window, kAXRaiseAction)
+            AX.set(window, kAXMainAttribute, true)
+        }
+        return PrivateAPI.canFocusAcrossSpaces ? "public fallback, window server refused" : "public fallback, window server unavailable"
     }
 
     /// Activation can reorder the app's windows (and Space switches are animated);
@@ -111,17 +125,21 @@ enum WindowActions {
     /// Makes process `pid` frontmost with `windowID` as its key window, bringing only that
     /// window forward and switching to its Space if needed. Returns false (having changed
     /// nothing that matters) when a private function is missing or the window server
-    /// refuses, so the caller can use the public path. Main thread.
-    private static func focusWindow(pid: pid_t, windowID: CGWindowID) -> Bool {
+    /// refuses, so the caller can use the public path. Otherwise returns a description of
+    /// what was done, for Copy Diagnostics. Main thread.
+    private static func focusWindow(pid: pid_t, windowID: CGWindowID) -> String? {
         guard let getProcess = PrivateAPI.getProcessForPID,
               let setFront = PrivateAPI.slpsSetFrontProcessWithOptions,
               let post = PrivateAPI.slpsPostEventRecordTo,
-              windowID != 0 else { return false }
+              windowID != 0 else { return nil }
         // `psn` and `record` are locals passed by pointer for the duration of each
         // synchronous call only; nothing keeps the pointers afterwards.
         var psn = ProcessSerialNumber()
-        guard getProcess(pid, &psn) == 0 else { return false }  // 0 is noErr
-        guard setFront(&psn, windowID, userGeneratedFrontProcess) == .success else { return false }
+        guard getProcess(pid, &psn) == 0 else { return nil }  // 0 is noErr
+        // The status is only reported: the call can do its job and still return non-zero,
+        // and falling back afterwards would bring every window of the app forward again
+        // (other window managers ignore it too).
+        let status = setFront(&psn, windowID, userGeneratedFrontProcess)
         var record = keyWindowEventRecord(windowID: windowID)
         record.withUnsafeMutableBufferPointer { buffer in
             guard let base = buffer.baseAddress else { return }
@@ -131,7 +149,7 @@ enum WindowActions {
             base[0x08] = 0x02
             _ = post(&psn, base)
         }
-        return true
+        return "window server, status \(status.rawValue)"
     }
 
     /// The raw event record that tells a process which of its windows becomes key.
