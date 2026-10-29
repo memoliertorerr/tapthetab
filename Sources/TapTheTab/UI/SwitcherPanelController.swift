@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 import TapTheTabCore
 
@@ -38,6 +39,8 @@ final class SwitcherPanelController {
     private let previewHost: SwitcherHostingView<SwitcherPreviewView>
     /// A shadow refresh of the preview window is queued for after SwiftUI drew the change.
     private var shadowRefreshPending = false
+    /// Bumped by every delayed shadow refresh, so only the latest one runs.
+    private var delayedShadowToken = 0
     private var screen: NSScreen?
     /// Where the blocks are for the current showing: the remembered positions, or the
     /// main block's default place fixed when the panel opened, so resizes keep its top
@@ -112,9 +115,20 @@ final class SwitcherPanelController {
     }
 
     /// Shows (or re-shows) the blocks on `screen`: where the user last dragged them, or
-    /// centred. Returns the column count used.
+    /// centred. Returns the column count used. `triggerModifiers` are the modifiers of the
+    /// shortcut that opened the switcher (for the quick-select labels); `pinnedBundleIDs`
+    /// get a pin badge. With animations on (and Reduce Motion off) the blocks fade and
+    /// scale in when they were not visible yet; hiding is always instant.
     @discardableResult
-    func show(session: SwitcherSession, appearance: Appearance, behavior: Behavior, on screen: NSScreen) -> Int {
+    func show(
+        session: SwitcherSession,
+        appearance: Appearance,
+        behavior: Behavior,
+        on screen: NSScreen,
+        triggerModifiers: ModifierFlags = [],
+        pinnedBundleIDs: Set<String> = []
+    ) -> Int {
+        let wasVisible = isVisible
         self.screen = screen
         drag = nil
         let nsAppearance = Self.nsAppearance(for: appearance.theme)
@@ -127,7 +141,16 @@ final class SwitcherPanelController {
             showsPreview: previewAvailable(for: session, appearance: appearance),
             screenSize: screen.visibleFrame.size
         )
-        model.present(session: session, appearance: appearance, behavior: behavior, layout: layout)
+        model.present(
+            session: session,
+            appearance: appearance,
+            behavior: behavior,
+            layout: layout,
+            triggerModifiers: triggerModifiers,
+            pinnedBundleIDs: pinnedBundleIDs
+        )
+        let animatesIn = !wasVisible && model.animates
+        if !wasVisible { model.prepareEntrance(animated: animatesIn) }
         mainPosition = appearance.panelPosition
         previewPosition = appearance.previewPosition
         mainWasMoved = appearance.panelPosition != nil
@@ -138,8 +161,10 @@ final class SwitcherPanelController {
         }
         apply(frames)
         renderNow()
+        if !wasVisible { setAlpha(animatesIn ? 0 : 1) }
         if frames.preview != nil { previewPanel.orderFrontRegardless() }
         mainPanel.orderFrontRegardless()
+        if animatesIn { playEntrance() }
         return layout.columns
     }
 
@@ -151,8 +176,14 @@ final class SwitcherPanelController {
         let previewCardBefore = model.previewCardSize
         model.update(session: session, layout: layout)
         relayout()
-        if model.previewCardSize != previewCardBefore { refreshShadowSoon() }
+        if model.previewCardSize != previewCardBefore { refreshPreviewShadow() }
         return layout.columns
+    }
+
+    /// The pinned apps changed while the switcher is open (⇧P): updates the pin badges.
+    /// Call before `update(session:)` when the order changed too.
+    func setPinnedBundleIDs(_ bundleIDs: Set<String>) {
+        model.setPinnedBundleIDs(bundleIDs)
     }
 
     /// Window preview arrived (or nil to clear). Ignored when previews are off.
@@ -265,7 +296,7 @@ final class SwitcherPanelController {
             model.update(session: session, layout: layout)
             relayout()
         }
-        if model.previewCardSize != previewCardBefore { refreshShadowSoon() }
+        if model.previewCardSize != previewCardBefore { refreshPreviewShadow() }
     }
 
     /// Frames for `layout` at the current positions on `screen`.
@@ -361,7 +392,54 @@ final class SwitcherPanelController {
         }
     }
 
+    // MARK: - Appearing
+
+    /// Both windows' opacity at once, stopping a fade in progress.
+    private func setAlpha(_ alpha: CGFloat) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            mainPanel.animator().alphaValue = alpha
+            previewPanel.animator().alphaValue = alpha
+        }
+        if mainPanel.alphaValue != alpha { mainPanel.alphaValue = alpha }
+        if previewPanel.alphaValue != alpha { previewPanel.alphaValue = alpha }
+    }
+
+    /// Fades both windows in while the content grows from `entranceStartScale`, then fits
+    /// the shadows to the full-size content. The preview window fades too when it is not
+    /// shown yet, so it is opaque whenever it appears later in this showing.
+    private func playEntrance() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = SwitcherViewModel.entranceDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            mainPanel.animator().alphaValue = 1
+            previewPanel.animator().alphaValue = 1
+        }
+        model.playEntrance()
+        refreshShadows(after: SwitcherViewModel.entranceDuration + 0.03)
+    }
+
+    /// Recomputes the visible windows' shadows after an animation has finished.
+    private func refreshShadows(after delay: TimeInterval) {
+        delayedShadowToken += 1
+        let token = delayedShadowToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.delayedShadowToken == token else { return }
+            if self.mainPanel.isVisible { self.mainPanel.invalidateShadow() }
+            if self.previewPanel.isVisible { self.previewPanel.invalidateShadow() }
+        }
+    }
+
     // MARK: - Drawing
+
+    /// The preview card changed shape: refresh its window's shadow once drawn, and again
+    /// when the card's animation has settled.
+    private func refreshPreviewShadow() {
+        refreshShadowSoon()
+        if model.animates {
+            refreshShadows(after: SwitcherViewModel.selectionAnimationDuration)
+        }
+    }
 
     /// Recomputes the preview window's shadow from the drawn content once SwiftUI has
     /// rendered the current state (the shadow follows the card, which hugs the image).

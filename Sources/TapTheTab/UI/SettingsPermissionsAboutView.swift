@@ -34,7 +34,7 @@ struct PermissionsSettingsView: View {
                     .foregroundColor(Color.secondary)
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle(themed: model.isThemed)
         .onAppear {
             model.refreshStatus()
         }
@@ -127,6 +127,6 @@ struct AboutSettingsView: View {
                     .foregroundColor(Color.secondary)
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle(themed: model.isThemed)
     }
 }

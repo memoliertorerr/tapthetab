@@ -10,6 +10,11 @@ struct ItemCardView: View {
     let icon: NSImage
     let thumbnail: CGImage?
     let showAppName: Bool
+    let isPinned: Bool
+    /// "⌘1"… for the first nine items when quick select is on.
+    let quickSelectLabel: String?
+    /// Shared by the grid's cards so the selection highlight slides between them.
+    let selectionNamespace: Namespace.ID?
     let onHover: (Bool) -> Void
     let onTap: () -> Void
 
@@ -41,7 +46,12 @@ struct ItemCardView: View {
             preview
                 .frame(width: innerWidth, height: previewHeight)
                 .overlay(alignment: .topTrailing) {
-                    ItemBadges(item: item, size: 10)
+                    ItemBadges(item: item, size: 10, isPinned: isPinned)
+                }
+                .overlay(alignment: .topLeading) {
+                    if let quickSelectLabel {
+                        QuickSelectBadge(label: quickSelectLabel)
+                    }
                 }
             VStack(spacing: 2) {
                 HighlightedText.make(item.displayTitle, indices: match?.titleIndices ?? [])
@@ -61,13 +71,14 @@ struct ItemCardView: View {
         .padding(Self.innerPadding)
         .opacity(isDimmed ? 0.6 : 1)
         .frame(width: size.width, height: size.height, alignment: .top)
-        .background(SelectionBackground(isSelected: isSelected, cornerRadius: 10))
+        .background(SelectionHighlight(isSelected: isSelected, cornerRadius: 10, namespace: selectionNamespace))
         .contentShape(Rectangle())
         .onHover(perform: onHover)
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(item.displayTitle), \(item.appName)"))
-        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item)))
+        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item, isPinned: isPinned)))
+        .accessibilityHint(Text(verbatim: QuickSelectBadge.accessibilityHint(for: quickSelectLabel)))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 
@@ -101,11 +112,13 @@ struct ItemCardView: View {
     }
 }
 
-/// Small state symbols: minimized, hidden app, fullscreen, app without windows.
+/// Small state symbols: pinned app, minimized, hidden app, fullscreen, app without windows.
 struct ItemBadges: View {
     let item: SwitcherItem
     let size: CGFloat
+    var isPinned: Bool = false
 
+    private static var pinnedText: String { L10n.tr("Pinned") }
     private static var minimizedText: String { L10n.tr("Minimized") }
     private static var hiddenText: String { L10n.tr("App is hidden") }
     private static var fullscreenText: String { L10n.tr("Full screen") }
@@ -113,8 +126,9 @@ struct ItemBadges: View {
 
     /// The badges as words, e.g. "Minimized, App is hidden"; empty when there are none.
     /// Used as the accessibility value of a card or row, whose label is "<title>, <app>".
-    static func accessibilityDescription(for item: SwitcherItem) -> String {
+    static func accessibilityDescription(for item: SwitcherItem, isPinned: Bool = false) -> String {
         var parts: [String] = []
+        if isPinned { parts.append(pinnedText) }
         if item.isMinimized { parts.append(minimizedText) }
         if item.isAppHidden { parts.append(hiddenText) }
         if item.isFullscreen { parts.append(fullscreenText) }
@@ -124,6 +138,9 @@ struct ItemBadges: View {
 
     var body: some View {
         HStack(spacing: 3) {
+            if isPinned {
+                badge("pin.fill", Self.pinnedText)
+            }
             if item.isMinimized {
                 badge("minus.circle", Self.minimizedText)
             }
@@ -145,6 +162,52 @@ struct ItemBadges: View {
         Image(systemName: systemName)
             .help(text)
             .accessibilityLabel(Text(text))
+    }
+}
+
+/// The quick-select key of a card or row, e.g. "⌘1", in a small capsule.
+struct QuickSelectBadge: View {
+    let label: String
+
+    /// Spoken after the item, e.g. "Press ⌘1 to switch to it"; empty without a label.
+    static func accessibilityHint(for label: String?) -> String {
+        guard let label else { return "" }
+        return L10n.tr("Press %@ to switch to it", label)
+    }
+
+    var body: some View {
+        Text(verbatim: label)
+            .font(.system(size: 9, weight: .semibold, design: .rounded).monospacedDigit())
+            .foregroundColor(Color.secondary)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .background(Capsule(style: .continuous).fill(.thinMaterial))
+            .overlay(Capsule(style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The selected card's or row's highlight. With a namespace it is one shape shared by all
+/// cards (or rows), so an animated selection change slides it to the new one.
+struct SelectionHighlight: View {
+    let isSelected: Bool
+    let cornerRadius: CGFloat
+    let namespace: Namespace.ID?
+
+    /// One highlight per grid or list.
+    private static let matchID = "selection"
+
+    var body: some View {
+        if isSelected {
+            if let namespace {
+                SelectionBackground(isSelected: true, cornerRadius: cornerRadius)
+                    .matchedGeometryEffect(id: Self.matchID, in: namespace)
+            } else {
+                SelectionBackground(isSelected: true, cornerRadius: cornerRadius)
+            }
+        }
     }
 }
 

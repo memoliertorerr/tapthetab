@@ -21,6 +21,12 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var largePreview: (id: ItemID, image: CGImage)?
     /// Bumped on every show so scroll views start fresh.
     @Published private(set) var generation: Int = 0
+    /// Modifiers of the shortcut that opened the switcher; quick-select labels depend on them.
+    @Published private(set) var triggerModifiers: ModifierFlags = []
+    /// Lowercased bundle IDs of pinned apps, for the pin badge.
+    @Published private(set) var pinnedBundleIDs: Set<String> = []
+    /// Scale of both blocks while they appear (below 1 only during the entrance).
+    @Published private(set) var entranceScale: CGFloat = 1
 
     var inputHandler: ((SwitcherInput) -> Void)?
     /// A block is being dragged (see `SwitcherPanelController`).
@@ -52,7 +58,44 @@ final class SwitcherViewModel: ObservableObject {
 
     private lazy var genericAppIcon: NSImage = NSWorkspace.shared.icon(for: UTType.application)
 
-    func present(session: SwitcherSession, appearance: Appearance, behavior: Behavior, layout: SwitcherLayout) {
+    /// How the selection highlight and the preview card move between windows.
+    static let selectionAnimation: Animation = .spring(response: 0.24, dampingFraction: 0.86)
+    /// How long the selection animation takes to settle, for refreshing window shadows after it.
+    static let selectionAnimationDuration: TimeInterval = 0.3
+    /// The fade and scale of the blocks appearing.
+    static let entranceDuration: TimeInterval = 0.12
+    static let entranceStartScale: CGFloat = 0.97
+
+    /// Animations are on in the appearance and Reduce Motion is off.
+    var animates: Bool {
+        appearance.animations && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    func present(
+        session: SwitcherSession,
+        appearance: Appearance,
+        behavior: Behavior,
+        layout: SwitcherLayout,
+        triggerModifiers: ModifierFlags = [],
+        pinnedBundleIDs: Set<String> = []
+    ) {
+        // A new showing never animates from the previous one's state.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            apply(session: session, appearance: appearance, behavior: behavior, layout: layout,
+                  triggerModifiers: triggerModifiers, pinnedBundleIDs: pinnedBundleIDs)
+        }
+    }
+
+    private func apply(
+        session: SwitcherSession,
+        appearance: Appearance,
+        behavior: Behavior,
+        layout: SwitcherLayout,
+        triggerModifiers: ModifierFlags,
+        pinnedBundleIDs: Set<String>
+    ) {
         let ids = Set(session.items.map { $0.id })
         let pids = Set(session.items.map { $0.pid })
         iconCache = iconCache.filter { pids.contains($0.key) }
@@ -66,25 +109,61 @@ final class SwitcherViewModel: ObservableObject {
         if self.appearance != appearance { self.appearance = appearance }
         if self.behavior != behavior { self.behavior = behavior }
         if self.layout != layout { self.layout = layout }
+        if self.triggerModifiers != triggerModifiers { self.triggerModifiers = triggerModifiers }
+        setPinnedBundleIDs(pinnedBundleIDs)
         self.session = session
         generation += 1
         resetHoverBaseline()
     }
 
+    /// Only the selection moved (same items, query and layout): that change slides the
+    /// highlight and reshapes the preview card when animations are on. Anything else is
+    /// applied at once.
     func update(session: SwitcherSession, layout: SwitcherLayout) {
-        if !isForwardingPointerInput, Self.selectionChanged(from: self.session, to: session) {
+        let selectionMoved = Self.selectionChanged(from: self.session, to: session)
+        if !isForwardingPointerInput, selectionMoved {
             lastKeyboardSelectionChange = ProcessInfo.processInfo.systemUptime
+        }
+        if selectionMoved, animates, self.layout == layout, Self.sameContent(self.session, session) {
+            withAnimation(Self.selectionAnimation) {
+                self.session = session
+            }
+            return
         }
         if self.layout != layout { self.layout = layout }
         if self.session != session { self.session = session }
     }
 
+    /// Prepares the blocks for appearing: slightly smaller when they will animate in,
+    /// full size otherwise. Applied without animation, before the first frame is drawn.
+    func prepareEntrance(animated: Bool) {
+        let scale: CGFloat = animated ? Self.entranceStartScale : 1
+        guard entranceScale != scale else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            entranceScale = scale
+        }
+    }
+
+    /// Grows the blocks to full size (after `prepareEntrance(animated: true)`).
+    func playEntrance() {
+        guard entranceScale != 1 else { return }
+        withAnimation(.easeOut(duration: Self.entranceDuration)) {
+            entranceScale = 1
+        }
+    }
+
+    /// The selected window's image changing reshapes the preview card, so it animates
+    /// like a selection change; other windows' images just appear.
     func setThumbnail(_ image: CGImage?, for id: ItemID) {
         guard appearance.showPreviews else { return }
-        if let image {
-            thumbnails[id] = image
-        } else if thumbnails[id] != nil {
-            thumbnails.removeValue(forKey: id)
+        animatingIfSelected(id) {
+            if let image {
+                thumbnails[id] = image
+            } else if thumbnails[id] != nil {
+                thumbnails.removeValue(forKey: id)
+            }
         }
     }
 
@@ -95,11 +174,40 @@ final class SwitcherViewModel: ObservableObject {
 
     func setLargePreview(_ image: CGImage?, for id: ItemID) {
         guard appearance.showPreviews else { return }
-        if let image {
-            largePreview = (id, image)
-        } else if largePreview?.id == id {
-            largePreview = nil
+        animatingIfSelected(id) {
+            if let image {
+                largePreview = (id, image)
+            } else if largePreview?.id == id {
+                largePreview = nil
+            }
         }
+    }
+
+    private func animatingIfSelected(_ id: ItemID, _ change: () -> Void) {
+        if animates, layout.showsPreview, session.selectedItem?.id == id {
+            withAnimation(Self.selectionAnimation, change)
+        } else {
+            change()
+        }
+    }
+
+    /// The label for picking the item at `index` (in `session.visible`) directly, e.g. "⌘1";
+    /// nil when quick select is off or for items past the ninth.
+    func quickSelectLabel(forIndex index: Int) -> String? {
+        guard behavior.quickSelect else { return nil }
+        return QuickSelect.label(forIndex: index, triggerModifiers: triggerModifiers)
+    }
+
+    /// Stored lowercased; compared with the items' bundle IDs ignoring case.
+    func setPinnedBundleIDs(_ bundleIDs: Set<String>) {
+        let pinned = Set(bundleIDs.map { $0.lowercased() })
+        if pinnedBundleIDs != pinned { pinnedBundleIDs = pinned }
+    }
+
+    /// The item's app is pinned (its windows come first).
+    func isPinned(_ item: SwitcherItem) -> Bool {
+        guard !pinnedBundleIDs.isEmpty, let bundleID = item.bundleID else { return false }
+        return pinnedBundleIDs.contains(bundleID.lowercased())
     }
 
     func thumbnail(for id: ItemID) -> CGImage? {
@@ -195,6 +303,12 @@ final class SwitcherViewModel: ObservableObject {
         isForwardingPointerInput = true
         defer { isForwardingPointerInput = false }
         inputHandler?(input)
+    }
+
+    /// Same visible items in the same order and the same query.
+    private static func sameContent(_ old: SwitcherSession, _ new: SwitcherSession) -> Bool {
+        guard old.query == new.query, old.visible.count == new.visible.count else { return false }
+        return old.visible.map(\.id) == new.visible.map(\.id)
     }
 
     /// The selected position or the selected item changed.
