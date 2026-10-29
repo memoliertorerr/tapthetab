@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-29
+
 ### Added
 
 - Quick select: ⌘1–9 switches straight to the first nine windows (⌃ instead of ⌘ when your shortcut uses ⌘). Small number badges show which is which; can be turned off.
@@ -154,7 +156,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...v0.7.0

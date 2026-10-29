@@ -63,9 +63,9 @@
 | TT39 | Quick select (modifier + 1–9) with badges | auto | ✅ done |
 | TT40 | Window actions: next display, close app windows, pin apps first | auto | ✅ done |
 | TT41 | Layout per shortcut; peek (⇧Space); Settings themed; menu bar icon styles; main block draggable anywhere | auto | ✅ done |
-| TT42 | Release v0.9.0 | checkpoint | ⬜ todo |
+| TT42 | Release v0.9.0 | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.8.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. Phase 9 (v0.9.0) in progress. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
+**Overall status:** v0.1.0–v0.9.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. v0.9.0 released; Developer ID signing waits on the maintainer's secrets (TT37). The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
