@@ -243,7 +243,7 @@ struct ThemeBackground: View {
     /// A soft elliptical blob of `color` centred on a corner, fading out along
     /// `ThemeGradient.blobFalloff` (radii are fractions of the view's size).
     private func blob(
-        _ color: RGBColor,
+        _ color: SRGBColor,
         strength: Double,
         center: (x: Double, y: Double),
         radii: (width: Double, height: Double),
@@ -260,7 +260,7 @@ struct ThemeBackground: View {
 }
 
 extension Color {
-    init(_ color: RGBColor) {
+    init(_ color: SRGBColor) {
         self.init(.sRGB, red: color.red, green: color.green, blue: color.blue, opacity: 1)
     }
 }

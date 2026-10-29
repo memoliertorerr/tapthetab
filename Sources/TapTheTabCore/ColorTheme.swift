@@ -107,7 +107,7 @@ public struct ColorTheme: Codable, Equatable, Sendable {
         let fallback = ColorTheme.none
         let id = preset.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let knownID = id == Self.noneID || id == Self.customID || ThemePreset.named(id) != nil
-        let hexes = colors.compactMap(RGBColor.normalizedHex).prefix(Self.maxColors)
+        let hexes = colors.compactMap(SRGBColor.normalizedHex).prefix(Self.maxColors)
         func unit(_ value: Double, _ fallback: Double) -> Double {
             value.isFinite ? clampToUnit(value) : fallback
         }
@@ -156,10 +156,10 @@ private struct LossyString: Decodable {
 
 /// One stop of a gradient: a color at a location 0...1.
 public struct ThemeGradientStop: Equatable, Sendable {
-    public var color: RGBColor
+    public var color: SRGBColor
     public var location: Double
 
-    public init(color: RGBColor, location: Double) {
+    public init(color: SRGBColor, location: Double) {
         self.color = color
         self.location = location
     }
@@ -172,16 +172,16 @@ public struct ThemeGradientStop: Equatable, Sendable {
 /// exactly as Little Joan writes them (so `hex` matches its CSS).
 public struct ThemeGradient: Equatable, Sendable {
     /// The three backgrounds (Little Joan's --lj-bg-0..2).
-    public var backgrounds: [RGBColor]
+    public var backgrounds: [SRGBColor]
     /// The base linear gradient's stops: from backgrounds[0] toward backgrounds[1], mixed in OKLab.
     public var baseStops: [ThemeGradientStop]
     /// The base gradient's angle in degrees, CSS convention (0 = up, 90 = right).
     public var angleDegrees: Double
     /// Soft radial blob at the top right: backgrounds[1].
-    public var topRightBlob: RGBColor
+    public var topRightBlob: SRGBColor
     public var topRightStrength: Double
     /// Soft radial blob at the bottom left: backgrounds[2].
-    public var bottomLeftBlob: RGBColor
+    public var bottomLeftBlob: SRGBColor
     public var bottomLeftStrength: Double
     /// Grain overlay opacity (grain × 0.14, rounded to 3 decimals).
     public var grainOpacity: Double
@@ -258,7 +258,7 @@ public struct ThemeGradient: Equatable, Sendable {
     /// A pick as a background: its hue kept, its lightness mapped into the scheme's band
     /// (lighter picks stay lighter), its chroma at most maxChroma × intensity, fitted into sRGB.
     static func mute(_ color: String, scheme: ThemeScheme, intensity: Double) -> OKLCH {
-        let rgb = RGBColor(hex: color) ?? RGBColor(hex: ThemePreset.mist.colors[0])!
+        let rgb = SRGBColor(hex: color) ?? SRGBColor(hex: ThemePreset.mist.colors[0])!
         let pick = OKLCH(rgb)
         let band = scheme.lightnessBand
         return OKLCH(

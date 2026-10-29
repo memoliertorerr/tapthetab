@@ -6,7 +6,7 @@ final class ColorThemeTests: XCTestCase {
     private let epsilon = 1e-9
 
     private func randomHex(_ generator: inout SplitMix64) -> String {
-        RGBColor(
+        SRGBColor(
             red: Double.random(in: 0...1, using: &generator),
             green: Double.random(in: 0...1, using: &generator),
             blue: Double.random(in: 0...1, using: &generator)
@@ -38,7 +38,7 @@ final class ColorThemeTests: XCTestCase {
         for preset in ThemePreset.all {
             XCTAssertTrue((1...ColorTheme.maxColors).contains(preset.colors.count), preset.id)
             for color in preset.colors {
-                XCTAssertEqual(RGBColor.normalizedHex(color), color, preset.id)
+                XCTAssertEqual(SRGBColor.normalizedHex(color), color, preset.id)
             }
             XCTAssertTrue((0...1).contains(preset.intensity), preset.id)
             XCTAssertTrue((0...1).contains(preset.grain), preset.id)
@@ -193,7 +193,7 @@ final class ColorThemeTests: XCTestCase {
 
     func testMuteKeepsHueAndOrdersLighterPicksLighter() {
         let teal = ThemeGradient.mute("#2a9d8f", scheme: .light, intensity: 1)
-        XCTAssertEqual(teal.h, OKLCH(RGBColor(hex: "#2a9d8f")!).h, accuracy: 1e-6)
+        XCTAssertEqual(teal.h, OKLCH(SRGBColor(hex: "#2a9d8f")!).h, accuracy: 1e-6)
         // Little Joan's values for the same pick.
         XCTAssertEqual(teal.l, 0.9041290650662406, accuracy: 1e-9)
         XCTAssertEqual(teal.c, 0.1013056949106884, accuracy: 1e-6)

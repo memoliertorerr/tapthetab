@@ -87,7 +87,7 @@ struct ThemeSettingsSection: View {
     }
 
     private static func swatchFill(_ colors: [String]) -> LinearGradient {
-        let swiftUIColors = colors.compactMap { RGBColor(hex: $0).map { Color($0) } }
+        let swiftUIColors = colors.compactMap { SRGBColor(hex: $0).map { Color($0) } }
         return LinearGradient(colors: swiftUIColors.count == 1 ? swiftUIColors + swiftUIColors : swiftUIColors,
                               startPoint: .topLeading, endPoint: .bottomTrailing)
     }
@@ -133,12 +133,12 @@ struct ThemeSettingsSection: View {
 
     private func colorBinding(_ index: Int) -> Binding<Color> {
         Binding {
-            guard theme.colors.indices.contains(index), let rgb = RGBColor(hex: theme.colors[index]) else { return Color.gray }
+            guard theme.colors.indices.contains(index), let rgb = SRGBColor(hex: theme.colors[index]) else { return Color.gray }
             return Color(rgb)
         } set: { newValue in
             guard theme.colors.indices.contains(index),
                   let ns = NSColor(newValue).usingColorSpace(.sRGB) else { return }
-            let hex = RGBColor(red: Double(ns.redComponent), green: Double(ns.greenComponent), blue: Double(ns.blueComponent)).hex
+            let hex = SRGBColor(red: Double(ns.redComponent), green: Double(ns.greenComponent), blue: Double(ns.blueComponent)).hex
             guard hex != theme.colors[index] else { return }
             theme.colors[index] = hex
             theme.preset = ColorTheme.customID

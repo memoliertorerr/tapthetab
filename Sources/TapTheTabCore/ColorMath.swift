@@ -5,7 +5,7 @@ import Foundation
 // Björn Ottosson, "A perceptual color space for image processing" (2020).
 
 /// sRGB color, components 0...1.
-public struct RGBColor: Equatable, Hashable, Sendable {
+public struct SRGBColor: Equatable, Hashable, Sendable {
     public var red: Double
     public var green: Double
     public var blue: Double
@@ -18,7 +18,7 @@ public struct RGBColor: Equatable, Hashable, Sendable {
 
     /// "#rrggbb" or "rrggbb" or "#rgb", case-insensitive, whitespace trimmed; nil otherwise.
     public init?(hex: String) {
-        guard let digits = RGBColor.hexDigits(hex) else { return nil }
+        guard let digits = SRGBColor.hexDigits(hex) else { return nil }
         func channel(_ index: Int) -> Double { Double(digits[index] * 16 + digits[index + 1]) / 255 }
         self.init(red: channel(0), green: channel(2), blue: channel(4))
     }
@@ -37,7 +37,7 @@ public struct RGBColor: Equatable, Hashable, Sendable {
 
     /// `hex` normalized to lowercase "#rrggbb", or nil when it is not a color.
     static func normalizedHex(_ hex: String) -> String? {
-        RGBColor(hex: hex)?.hex
+        SRGBColor(hex: hex)?.hex
     }
 
     /// Six hex digit values for `text` (a 3-digit form expanded), or nil.
@@ -66,14 +66,14 @@ public struct RGBColor: Equatable, Hashable, Sendable {
     }
 
     /// Components clamped into 0...1.
-    var clamped: RGBColor {
-        RGBColor(red: clampToUnit(red), green: clampToUnit(green), blue: clampToUnit(blue))
+    var clamped: SRGBColor {
+        SRGBColor(red: clampToUnit(red), green: clampToUnit(green), blue: clampToUnit(blue))
     }
 
     /// Rounded to the nearest 8-bit-per-channel color (what `hex` writes).
-    var quantized: RGBColor {
+    var quantized: SRGBColor {
         func step(_ x: Double) -> Double { (clampToUnit(x) * 255).rounded() / 255 }
-        return RGBColor(red: step(red), green: step(green), blue: step(blue))
+        return SRGBColor(red: step(red), green: step(green), blue: step(blue))
     }
 }
 
@@ -89,7 +89,7 @@ struct OKLab: Equatable, Sendable {
         self.b = b
     }
 
-    init(_ rgb: RGBColor) {
+    init(_ rgb: SRGBColor) {
         let r = srgbToLinear(rgb.red)
         let g = srgbToLinear(rgb.green)
         let b = srgbToLinear(rgb.blue)
@@ -109,11 +109,11 @@ struct OKLab: Equatable, Sendable {
     }
 
     /// The sRGB color; components fall outside 0...1 when sRGB can't show it.
-    var rgb: RGBColor {
+    var rgb: SRGBColor {
         let l = pow(self.l + 0.3963377774 * a + 0.2158037573 * b, 3)
         let m = pow(self.l - 0.1055613458 * a - 0.0638541728 * b, 3)
         let s = pow(self.l - 0.0894841775 * a - 1.291485548 * b, 3)
-        return RGBColor(
+        return SRGBColor(
             red: linearToSrgb(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s),
             green: linearToSrgb(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s),
             blue: linearToSrgb(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s)
@@ -146,7 +146,7 @@ struct OKLCH: Equatable, Sendable {
         self.init(l: lab.l, c: c, h: h)
     }
 
-    init(_ rgb: RGBColor) {
+    init(_ rgb: SRGBColor) {
         self.init(OKLab(rgb))
     }
 
@@ -167,7 +167,7 @@ struct OKLCH: Equatable, Sendable {
     }
 
     /// The sRGB color, fitted into the gamut first (so components are within 0...1).
-    var rgb: RGBColor {
+    var rgb: SRGBColor {
         OKLab(fittedToGamut).rgb.clamped
     }
 }

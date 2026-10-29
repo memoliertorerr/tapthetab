@@ -5,12 +5,12 @@ final class ColorMathTests: XCTestCase {
     // MARK: Hex
 
     func testHexParsesSixAndThreeDigitFormsInAnyCase() {
-        XCTAssertEqual(RGBColor(hex: "#ABC")?.hex, "#aabbcc")
-        XCTAssertEqual(RGBColor(hex: " #A1b2C3 ")?.hex, "#a1b2c3")
-        XCTAssertEqual(RGBColor(hex: "a1b2c3")?.hex, "#a1b2c3")
-        XCTAssertEqual(RGBColor(hex: "\n#ffffff\t"), RGBColor(red: 1, green: 1, blue: 1))
-        XCTAssertEqual(RGBColor(hex: "#000"), RGBColor(red: 0, green: 0, blue: 0))
-        let color = RGBColor(hex: "#ff8000")
+        XCTAssertEqual(SRGBColor(hex: "#ABC")?.hex, "#aabbcc")
+        XCTAssertEqual(SRGBColor(hex: " #A1b2C3 ")?.hex, "#a1b2c3")
+        XCTAssertEqual(SRGBColor(hex: "a1b2c3")?.hex, "#a1b2c3")
+        XCTAssertEqual(SRGBColor(hex: "\n#ffffff\t"), SRGBColor(red: 1, green: 1, blue: 1))
+        XCTAssertEqual(SRGBColor(hex: "#000"), SRGBColor(red: 0, green: 0, blue: 0))
+        let color = SRGBColor(hex: "#ff8000")
         XCTAssertEqual(color?.red, 1)
         XCTAssertEqual(color?.green ?? 0, 128 / 255, accuracy: 1e-12)
         XCTAssertEqual(color?.blue, 0)
@@ -18,7 +18,7 @@ final class ColorMathTests: XCTestCase {
 
     func testHexRejectsAnythingElse() {
         for bad in ["abc", "#abcd", "#12345g", "", "#", "red", "#1234567", "##abcdef", "# abcdef", "#ab cdef", "0xabcdef", "#ａｂｃ", "+12345"] {
-            XCTAssertNil(RGBColor(hex: bad), bad)
+            XCTAssertNil(SRGBColor(hex: bad), bad)
         }
     }
 
@@ -28,17 +28,17 @@ final class ColorMathTests: XCTestCase {
             for g in digits {
                 for b in digits {
                     let hex = "#\(r)\(r)\(g)\(g)\(b)\(b)"
-                    XCTAssertEqual(RGBColor(hex: hex)?.hex, hex)
+                    XCTAssertEqual(SRGBColor(hex: hex)?.hex, hex)
                 }
             }
         }
     }
 
     func testHexClampsAndRoundsComponents() {
-        XCTAssertEqual(RGBColor(red: 1.2, green: -0.1, blue: 0.5).hex, "#ff0080")
-        XCTAssertEqual(RGBColor(red: 0.5, green: 0.5, blue: 0.5).quantized.hex, "#808080")
-        XCTAssertEqual(RGBColor.normalizedHex(" #ABC"), "#aabbcc")
-        XCTAssertNil(RGBColor.normalizedHex("nope"))
+        XCTAssertEqual(SRGBColor(red: 1.2, green: -0.1, blue: 0.5).hex, "#ff0080")
+        XCTAssertEqual(SRGBColor(red: 0.5, green: 0.5, blue: 0.5).quantized.hex, "#808080")
+        XCTAssertEqual(SRGBColor.normalizedHex(" #ABC"), "#aabbcc")
+        XCTAssertNil(SRGBColor.normalizedHex("nope"))
     }
 
     // MARK: OKLab / OKLCH
@@ -53,26 +53,26 @@ final class ColorMathTests: XCTestCase {
             ("#000000", 0, 0, 0),
         ]
         for (hex, l, a, b) in known {
-            let lab = OKLab(RGBColor(hex: hex)!)
+            let lab = OKLab(SRGBColor(hex: hex)!)
             XCTAssertEqual(lab.l, l, accuracy: 5e-5, hex)
             XCTAssertEqual(lab.a, a, accuracy: 5e-5, hex)
             XCTAssertEqual(lab.b, b, accuracy: 5e-5, hex)
         }
-        let red = OKLCH(RGBColor(hex: "#ff0000")!)
+        let red = OKLCH(SRGBColor(hex: "#ff0000")!)
         XCTAssertEqual(red.c, 0.257683, accuracy: 5e-5)
         XCTAssertEqual(red.h, 29.2339, accuracy: 5e-4)
         // A grey has no hue: 0, not NaN.
-        let grey = OKLCH(RGBColor(hex: "#808080")!)
+        let grey = OKLCH(SRGBColor(hex: "#808080")!)
         XCTAssertEqual(grey.h, 0)
         XCTAssertEqual(grey.c, 0, accuracy: 1e-6)
     }
 
     func testHueIsInZeroToThreeSixty() {
         // Blue sits at a negative atan2 angle; the hue must wrap into 0..<360.
-        let blue = OKLCH(RGBColor(hex: "#0000ff")!)
+        let blue = OKLCH(SRGBColor(hex: "#0000ff")!)
         XCTAssertEqual(blue.h, 264.052, accuracy: 1e-3)
         for hex in ["#ff0000", "#00ff00", "#0000ff", "#ff00ff", "#00ffff", "#ffff00", "#123456"] {
-            let h = OKLCH(RGBColor(hex: hex)!).h
+            let h = OKLCH(SRGBColor(hex: hex)!).h
             XCTAssertTrue((0..<360).contains(h), hex)
         }
     }
@@ -83,7 +83,7 @@ final class ColorMathTests: XCTestCase {
             for g in digits {
                 for b in digits {
                     let hex = "#\(r)\(r)\(g)\(g)\(b)\(b)"
-                    let lab = OKLab(RGBColor(hex: hex)!)
+                    let lab = OKLab(SRGBColor(hex: hex)!)
                     XCTAssertEqual(lab.rgb.hex, hex)
                     XCTAssertEqual(OKLCH(lab).rgb.hex, hex)
                 }
@@ -97,7 +97,7 @@ final class ColorMathTests: XCTestCase {
         XCTAssertEqual(back.l, lab.l, accuracy: 1e-9)
         XCTAssertEqual(back.a, lab.a, accuracy: 1e-9)
         XCTAssertEqual(back.b, lab.b, accuracy: 1e-9)
-        let rgb = RGBColor(red: 0.2, green: 0.4, blue: 0.6)
+        let rgb = SRGBColor(red: 0.2, green: 0.4, blue: 0.6)
         let again = OKLab(rgb).rgb
         XCTAssertEqual(again.red, rgb.red, accuracy: 1e-6)
         XCTAssertEqual(again.green, rgb.green, accuracy: 1e-6)
