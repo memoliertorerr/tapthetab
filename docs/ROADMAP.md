@@ -57,9 +57,9 @@
 | TT33 | The two blocks (list, large preview) are separate windows that can be dragged while the switcher is open, stay on screen, remember their place; reset in Settings | auto | ✅ done |
 | TT34 | Arc-style themes from Little Joan's theme engine: presets, custom colors, grain, strength; clearer Clear glass | auto | ✅ done |
 | TT35 | Window thumbnails in list rows (taller rows), thumbnails and large preview as separate switches | auto | ✅ done |
-| TT36 | Release v0.8.0 | checkpoint | ⬜ todo |
+| TT36 | Release v0.8.0 | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.7.1 released; phase 8 (v0.8.0) in progress. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
+**Overall status:** v0.1.0–v0.8.0 released. Next: the maintainer's check of the focus fix ("Last switch" in Copy Diagnostics), dragging, themes and list thumbnails on macOS 26. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must

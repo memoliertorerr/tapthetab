@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-29
+
 ### Added
 
 - Move the switcher: while it is open, drag the window list or the large preview anywhere on the screen. TapTheTab remembers where; Settings → Appearance → Reset Position puts them back.
@@ -138,7 +140,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...v0.6.0
