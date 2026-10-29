@@ -20,7 +20,11 @@ public struct KeyPress: Equatable, Sendable {
 /// - the trigger key cycles forward, with ⇧ it cycles backward;
 /// - arrows move, ↩ activates, ⎋ clears the search or closes;
 /// - Space with an empty search keeps the switcher open after release;
-/// - ⇧W/⇧M/⇧F/⇧H/⇧Q close, minimize, fullscreen, hide, quit;
+/// - ⇧Space peeks at the selected window, also while searching;
+/// - ⇧W/⇧M/⇧F/⇧H/⇧Q close, minimize, fullscreen, hide, quit; ⇧D moves the window to the
+///   next display, ⇧X closes all of the app's windows, ⇧P pins or unpins the app;
+/// - the quick-select modifier (`QuickSelect.modifier`) with 1–9 (top row or keypad)
+///   switches to that item at once;
 /// - any other printable character goes into the search field.
 public struct KeyRouter: Sendable {
     public var triggerKeyCode: UInt16
@@ -31,12 +35,22 @@ public struct KeyRouter: Sendable {
 
     public static let actionKeys: [Character: WindowAction] = [
         "w": .close, "m": .minimize, "f": .toggleFullscreen, "h": .hideApp, "q": .quitApp,
+        "d": .moveToNextDisplay, "x": .closeAppWindows, "p": .togglePin,
     ]
 
-    public init(triggerKeyCode: UInt16, searchEnabled: Bool = true, triggerModifiers: ModifierFlags = []) {
+    /// Whether the quick-select modifier with 1–9 picks an item (`Behavior.quickSelect`).
+    public var quickSelectEnabled: Bool
+
+    public init(
+        triggerKeyCode: UInt16,
+        searchEnabled: Bool = true,
+        triggerModifiers: ModifierFlags = [],
+        quickSelectEnabled: Bool = true
+    ) {
         self.triggerKeyCode = triggerKeyCode
         self.searchEnabled = searchEnabled
         self.triggerModifiers = triggerModifiers.subtracting(.shift)
+        self.quickSelectEnabled = quickSelectEnabled
     }
 
     public func route(_ press: KeyPress, isSearching: Bool) -> SwitcherInput? {
@@ -54,8 +68,17 @@ public struct KeyRouter: Sendable {
         case KeyCode.escape: return .cancel
         case KeyCode.delete, KeyCode.forwardDelete: return searchEnabled ? .deleteBackward : nil
         case KeyCode.tab: return shift ? .previous : .next
+        case KeyCode.space where shift: return .peek
         case KeyCode.space where !isSearching: return .lockOpen
         default: break
+        }
+
+        if quickSelectEnabled, let digit = KeyCode.digit(for: press.keyCode), (1...QuickSelect.maxCount).contains(digit) {
+            // fn is ignored like shift: some keyboards set it on their own.
+            let extra = press.modifiers.subtracting(triggerModifiers).subtracting([.shift, .function])
+            if !extra.isEmpty, extra == QuickSelect.modifier(forTriggerModifiers: triggerModifiers) {
+                return .quickSelect(index: digit - 1)
+            }
         }
 
         guard let chars = press.characters, let first = chars.first, chars.count == 1 else { return nil }

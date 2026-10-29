@@ -8,6 +8,12 @@ public enum WindowAction: String, Codable, Sendable, CaseIterable {
     case toggleFullscreen
     case hideApp
     case quitApp
+    /// Move the window to the next display (wrapping), keeping its relative position.
+    case moveToNextDisplay
+    /// Close every window of the item's app; the app keeps running.
+    case closeAppWindows
+    /// Pin or unpin the item's app (by bundle ID): pinned apps are listed first.
+    case togglePin
 }
 
 /// Input to a running switcher session, already decoded from raw key/mouse events.
@@ -23,6 +29,10 @@ public enum SwitcherInput: Equatable, Sendable {
     case type(String)
     case deleteBackward
     case select(index: Int)
+    /// Pick the item at this index of `visible` and switch to it at once (⌘1…⌘9).
+    case quickSelect(index: Int)
+    /// Show or hide a large peek at the selected window (⇧Space).
+    case peek
     /// Keep the switcher open after the trigger modifiers are released.
     case lockOpen
     case commit
@@ -42,6 +52,8 @@ public enum SwitcherEffect: Equatable, Sendable {
     case activate(SwitcherItem)
     /// Run an action on an item; the switcher stays open.
     case perform(WindowAction, SwitcherItem)
+    /// Toggle the peek overlay for this window; the switcher stays open.
+    case peek(SwitcherItem)
     /// Close the switcher without doing anything.
     case dismiss
 }
@@ -119,6 +131,15 @@ public struct SwitcherSession: Equatable, Sendable {
         case .last: return select(visible.count - 1)
         case .select(let index): return select(index)
 
+        case .quickSelect(let index):
+            guard visible.indices.contains(index) else { return .none }
+            selectedIndex = index
+            return .activate(visible[index].item)
+
+        case .peek:
+            guard let item = selectedItem, !item.isWindowless else { return .none }
+            return .peek(item)
+
         case .type(let text):
             let cleaned = text.filter { !$0.isNewline && $0 != "\t" }
             guard !cleaned.isEmpty else { return .none }
@@ -159,8 +180,13 @@ public struct SwitcherSession: Equatable, Sendable {
         case .action(let action):
             guard let item = selectedItem else { return .none }
             if action == .focus { return .activate(item) }
-            // Actions that need a window make no sense for a windowless app entry.
-            if item.isWindowless, [.close, .minimize, .toggleFullscreen].contains(action) { return .none }
+            // Actions that need a window make no sense for a windowless app entry, and an
+            // app with no windows has none to close.
+            if item.isWindowless, Self.windowOnlyActions.contains(action) { return .none }
+            // Pins are stored by bundle ID; an item without one cannot be pinned.
+            if action == .togglePin, (item.bundleID ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return .none
+            }
             return .perform(action, item)
         }
     }
@@ -180,6 +206,11 @@ public struct SwitcherSession: Equatable, Sendable {
             }
         }
     }
+
+    /// Actions ignored for windowless app entries.
+    static let windowOnlyActions: Set<WindowAction> = [
+        .close, .minimize, .toggleFullscreen, .moveToNextDisplay, .closeAppWindows,
+    ]
 
     // MARK: - Private
 

@@ -3,8 +3,8 @@ import Foundation
 /// Facts for a bug report, rendered as Markdown the user can paste into a GitHub issue.
 ///
 /// Holds no personal data by construction: no window titles, no app names, no bundle IDs
-/// (excluded apps are reported only as a count), no paths and no user names. The output is
-/// deterministic: fixed key order and fixed wording, never localized.
+/// (excluded and pinned apps are reported only as counts), no paths and no user names.
+/// The output is deterministic: fixed key order and fixed wording, never localized.
 public struct DiagnosticsReport: Equatable, Sendable {
     public var appVersion: String
     public var build: String
@@ -122,7 +122,8 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("")
         lines.append("Triggers (\(c.triggers.count))")
         for trigger in c.triggers {
-            lines.append("  \(trigger.shortcut.displayString)  \(trigger.shortcut.stringValue)  \(trigger.scope.rawValue)")
+            let style = trigger.style.map { "  \($0.rawValue)" } ?? ""
+            lines.append("  \(trigger.shortcut.displayString)  \(trigger.shortcut.stringValue)  \(trigger.scope.rawValue)\(style)")
         }
         lines.append("")
         lines.append("Appearance")
@@ -137,12 +138,14 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  showAppName: \(c.appearance.showAppName)")
         lines.append("  groupByApp: \(c.appearance.groupByApp)")
         lines.append("  showMenuBarIcon: \(c.appearance.showMenuBarIcon)")
+        lines.append("  menuBarIconStyle: \(c.appearance.menuBarIconStyle.rawValue)")
         lines.append("  theme: \(c.appearance.theme.rawValue)")
         lines.append("  liquidGlass: \(c.appearance.liquidGlass)")
         lines.append("  glassStyle: \(c.appearance.glassStyle.rawValue)")
         lines.append("  colorTheme: \(Self.clean(c.appearance.colorTheme.preset))")
         lines.append("  placement: \(c.appearance.placement.rawValue)")
         lines.append("  showDelayMilliseconds: \(c.appearance.showDelayMilliseconds)")
+        lines.append("  animations: \(c.appearance.animations)")
         lines.append("")
         lines.append("Behavior")
         lines.append("  releaseToSwitch: \(c.behavior.releaseToSwitch)")
@@ -150,6 +153,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  startOnPrevious: \(c.behavior.startOnPrevious)")
         lines.append("  mouseHoverSelects: \(c.behavior.mouseHoverSelects)")
         lines.append("  wrapAround: \(c.behavior.wrapAround)")
+        lines.append("  quickSelect: \(c.behavior.quickSelect)")
         lines.append("")
         lines.append("Filters")
         lines.append("  showMinimized: \(c.filters.showMinimized)")
@@ -159,6 +163,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  currentDisplayOnly: \(c.filters.currentDisplayOnly)")
         lines.append("  showOtherSpaces: \(c.filters.showOtherSpaces)")
         lines.append("  excludedApps: \(c.filters.excludedBundleIDs.count)")
+        lines.append("  pinnedApps: \(c.filters.pinnedBundleIDs.count)")
         lines.append("")
         lines.append("Config version: \(c.version)")
         lines.append("```")

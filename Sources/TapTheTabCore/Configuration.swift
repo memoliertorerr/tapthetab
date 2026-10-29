@@ -4,11 +4,46 @@ import Foundation
 public struct Trigger: Codable, Equatable, Hashable, Sendable {
     public var shortcut: Shortcut
     public var scope: SwitcherScope
+    /// The layout this shortcut opens; nil uses `Appearance.style`.
+    public var style: LayoutStyle?
 
-    public init(shortcut: Shortcut, scope: SwitcherScope) {
+    public init(shortcut: Shortcut, scope: SwitcherScope, style: LayoutStyle? = nil) {
         self.shortcut = shortcut
         self.scope = scope
+        self.style = style
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case shortcut, scope, style
+    }
+
+    /// `shortcut` and `scope` are required (a trigger without them is dropped); a missing
+    /// or unknown `style` is nil, so it never costs the trigger.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        shortcut = try c.decode(Shortcut.self, forKey: .shortcut)
+        scope = try c.decode(SwitcherScope.self, forKey: .scope)
+        style = c.lenient(LayoutStyle.self, .style)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(shortcut, forKey: .shortcut)
+        try c.encode(scope, forKey: .scope)
+        try c.encodeIfPresent(style, forKey: .style)
+    }
+}
+
+/// How the menu bar icon is drawn.
+public enum MenuBarIconStyle: String, Codable, Sendable, CaseIterable {
+    /// The original outline icon.
+    case classic
+    /// A solid version of the icon.
+    case filled
+    /// A reduced, lighter glyph.
+    case minimal
+    /// Tinted with the current colour theme.
+    case themed
 }
 
 public enum LayoutStyle: String, Codable, Sendable, CaseIterable {
@@ -78,6 +113,7 @@ public struct Appearance: Codable, Equatable, Sendable {
     /// The menu bar icon. When hidden, opening TapTheTab again (or tapthetab://settings)
     /// shows Settings.
     public var showMenuBarIcon: Bool = true
+    public var menuBarIconStyle: MenuBarIconStyle = .classic
     public var theme: Theme = .system
     /// Draw the switcher panel and the preview card in Liquid Glass (macOS 26 and later;
     /// earlier versions get a translucent look close to it). Off: the classic dark panel.
@@ -91,6 +127,9 @@ public struct Appearance: Codable, Equatable, Sendable {
     /// Delay before the panel appears. A quick tap within this time switches without
     /// flashing the panel. Clamped to 0...1000.
     public var showDelayMilliseconds: Int = 90
+    /// Animate the panel and its selection. Off: changes appear at once (the app also
+    /// skips animations when the system's Reduce Motion is on).
+    public var animations: Bool = true
 
     public static let defaultLargePreviewPercent = 66
     public static let largePreviewPercentRange: ClosedRange<Int> = 25...100
@@ -103,6 +142,14 @@ public struct Appearance: Codable, Equatable, Sendable {
     }
 
     public init() {}
+
+    /// This appearance as `trigger` shows it: its own `style` when it has one.
+    public func effective(for trigger: Trigger) -> Appearance {
+        guard let style = trigger.style else { return self }
+        var copy = self
+        copy.style = style
+        return copy
+    }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -118,12 +165,14 @@ public struct Appearance: Codable, Equatable, Sendable {
         showAppName = c.lenient(Bool.self, .showAppName) ?? d.showAppName
         groupByApp = c.lenient(Bool.self, .groupByApp) ?? d.groupByApp
         showMenuBarIcon = c.lenient(Bool.self, .showMenuBarIcon) ?? d.showMenuBarIcon
+        menuBarIconStyle = c.lenient(MenuBarIconStyle.self, .menuBarIconStyle) ?? d.menuBarIconStyle
         theme = c.lenient(Theme.self, .theme) ?? d.theme
         liquidGlass = c.lenient(Bool.self, .liquidGlass) ?? d.liquidGlass
         glassStyle = c.lenient(GlassStyle.self, .glassStyle) ?? d.glassStyle
         colorTheme = c.lenient(ColorTheme.self, .colorTheme) ?? d.colorTheme
         placement = c.lenient(DisplayPlacement.self, .placement) ?? d.placement
         showDelayMilliseconds = c.lenient(Int.self, .showDelayMilliseconds) ?? d.showDelayMilliseconds
+        animations = c.lenient(Bool.self, .animations) ?? d.animations
     }
 }
 
@@ -136,6 +185,9 @@ public struct Behavior: Codable, Equatable, Sendable {
     public var startOnPrevious: Bool = true
     public var mouseHoverSelects: Bool = true
     public var wrapAround: Bool = true
+    /// ⌘1…⌘9 (another modifier when the trigger uses ⌘, see `QuickSelect`) switch to the
+    /// first nine items at once.
+    public var quickSelect: Bool = true
 
     public init() {}
 
@@ -147,6 +199,7 @@ public struct Behavior: Codable, Equatable, Sendable {
         startOnPrevious = c.lenient(Bool.self, .startOnPrevious) ?? d.startOnPrevious
         mouseHoverSelects = c.lenient(Bool.self, .mouseHoverSelects) ?? d.mouseHoverSelects
         wrapAround = c.lenient(Bool.self, .wrapAround) ?? d.wrapAround
+        quickSelect = c.lenient(Bool.self, .quickSelect) ?? d.quickSelect
     }
 }
 
@@ -228,13 +281,18 @@ public struct Configuration: Codable, Equatable, Sendable {
         copy.appearance.panelPosition = copy.appearance.panelPosition.map(\.clamped)
         copy.appearance.previewPosition = copy.appearance.previewPosition.map(\.clamped)
 
-        let cleaned = copy.filters.excludedBundleIDs
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        var uniq = Set<String>()
-        copy.filters.excludedBundleIDs = cleaned.filter { uniq.insert($0.lowercased()).inserted }
+        copy.filters.excludedBundleIDs = Self.cleanedBundleIDs(copy.filters.excludedBundleIDs)
+        copy.filters.pinnedBundleIDs = Self.cleanedBundleIDs(copy.filters.pinnedBundleIDs)
 
         return (copy, notes)
+    }
+
+    /// Trimmed, without empty entries, without case-insensitive duplicates (first kept).
+    static func cleanedBundleIDs(_ ids: [String]) -> [String] {
+        var uniq = Set<String>()
+        return ids
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && uniq.insert($0.lowercased()).inserted }
     }
 
     /// The trigger whose shortcut exactly matches, if any.

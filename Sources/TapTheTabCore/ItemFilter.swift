@@ -21,6 +21,9 @@ public struct FilterOptions: Codable, Equatable, Sendable {
     /// relies on private macOS interfaces. `currentSpaceOnly` still hides those windows.
     public var showOtherSpaces: Bool = false
     public var excludedBundleIDs: [String] = []
+    /// Apps listed before all others (`ItemOrdering.pinnedFirst`), by bundle ID,
+    /// compared case-insensitively.
+    public var pinnedBundleIDs: [String] = []
 
     public init(
         showMinimized: Bool = true,
@@ -29,7 +32,8 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         currentSpaceOnly: Bool = false,
         currentDisplayOnly: Bool = false,
         showOtherSpaces: Bool = false,
-        excludedBundleIDs: [String] = []
+        excludedBundleIDs: [String] = [],
+        pinnedBundleIDs: [String] = []
     ) {
         self.showMinimized = showMinimized
         self.showHiddenApps = showHiddenApps
@@ -38,6 +42,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         self.currentDisplayOnly = currentDisplayOnly
         self.showOtherSpaces = showOtherSpaces
         self.excludedBundleIDs = excludedBundleIDs
+        self.pinnedBundleIDs = pinnedBundleIDs
     }
 
     public init(from decoder: Decoder) throws {
@@ -50,6 +55,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         currentDisplayOnly = c.lenient(Bool.self, .currentDisplayOnly) ?? d.currentDisplayOnly
         showOtherSpaces = c.lenient(Bool.self, .showOtherSpaces) ?? d.showOtherSpaces
         excludedBundleIDs = c.lenientArray(String.self, .excludedBundleIDs) ?? d.excludedBundleIDs
+        pinnedBundleIDs = c.lenientArray(String.self, .pinnedBundleIDs) ?? d.pinnedBundleIDs
     }
 }
 

@@ -118,6 +118,16 @@ public enum KeyCode {
     public static let pageUp: UInt16 = 0x74
     public static let pageDown: UInt16 = 0x79
 
+    /// Top-row digit keys 0…9 (`topRowDigits[n]` types n on ANSI layouts; positional on others).
+    public static let topRowDigits: [UInt16] = [0x1D, 0x12, 0x13, 0x14, 0x15, 0x17, 0x16, 0x1A, 0x1C, 0x19]
+    /// Numeric keypad digit keys 0…9 (`keypadDigits[n]` is keypad n).
+    public static let keypadDigits: [UInt16] = [0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5B, 0x5C]
+
+    /// The digit 0…9 a top-row or keypad digit key stands for, or nil for any other key.
+    public static func digit(for code: UInt16) -> Int? {
+        topRowDigits.firstIndex(of: code) ?? keypadDigits.firstIndex(of: code)
+    }
+
     static let table: [(name: String, code: UInt16, symbol: String)] = [
         ("a", 0x00, "A"), ("s", 0x01, "S"), ("d", 0x02, "D"), ("f", 0x03, "F"),
         ("h", 0x04, "H"), ("g", 0x05, "G"), ("z", 0x06, "Z"), ("x", 0x07, "X"),

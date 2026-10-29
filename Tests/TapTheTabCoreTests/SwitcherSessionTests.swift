@@ -501,9 +501,15 @@ final class SwitcherSessionTests: XCTestCase {
     }
 
     func testWindowActionsPerformOnWindows() {
-        var s = session()
+        // Bundle IDs because pinning needs one (see testTogglePinNeedsABundleID).
+        let withBundles = items.map { item -> SwitcherItem in
+            var item = item
+            item.bundleID = "com.example.\(item.appName)"
+            return item
+        }
+        var s = session(withBundles)
         for action in WindowAction.allCases where action != .focus {
-            XCTAssertEqual(s.handle(.action(action)), .perform(action, items[1]), "\(action)")
+            XCTAssertEqual(s.handle(.action(action)), .perform(action, withBundles[1]), "\(action)")
         }
     }
 
@@ -574,5 +580,132 @@ final class SwitcherSessionTests: XCTestCase {
         s.replaceItems(renamed)
         XCTAssertEqual(s.selectedItem?.title, "vim")
         XCTAssertEqual(s.items, renamed)
+    }
+
+    // MARK: - New actions
+
+    func testWindowlessAppsIgnoreWindowActionsButCanBePinned() {
+        let app = windowlessApp(pid: 9, app: "Calculator", bundle: "com.apple.calculator")
+        var s = session([app])
+        XCTAssertEqual(s.handle(.action(.moveToNextDisplay)), .none, "no window to move")
+        XCTAssertEqual(s.handle(.action(.closeAppWindows)), .none, "no windows to close")
+        XCTAssertEqual(s.handle(.action(.togglePin)), .perform(.togglePin, app))
+        XCTAssertEqual(s.selectedItem, app, "nothing changes")
+    }
+
+    func testTogglePinNeedsABundleID() {
+        var s = session() // the fixture's windows have no bundle IDs
+        XCTAssertEqual(s.handle(.action(.togglePin)), .none)
+        var blank = window(7, bundle: "  ")
+        s = session([blank])
+        XCTAssertEqual(s.handle(.action(.togglePin)), .none)
+        blank.bundleID = "com.example.App"
+        s = session([blank])
+        XCTAssertEqual(s.handle(.action(.togglePin)), .perform(.togglePin, blank))
+        var s2 = session([windowlessApp(pid: 3)])
+        XCTAssertEqual(s2.handle(.action(.togglePin)), .none)
+    }
+
+    func testMoveAndCloseAppWindowsPerformOnWindows() {
+        var s = session()
+        XCTAssertEqual(s.handle(.action(.moveToNextDisplay)), .perform(.moveToNextDisplay, items[1]))
+        XCTAssertEqual(s.handle(.action(.closeAppWindows)), .perform(.closeAppWindows, items[1]))
+        XCTAssertEqual(s.selectedIndex, 1, "actions keep the selection")
+    }
+
+    func testNewActionsWhileSearchingUseTheSelectedResult() {
+        var s = session()
+        s.handle(.type("mail"))
+        XCTAssertEqual(s.handle(.action(.moveToNextDisplay)), .perform(.moveToNextDisplay, items[2]))
+    }
+
+    func testNewActionsWithoutSelectionAreNoOps() {
+        var s = session([])
+        for action in [WindowAction.moveToNextDisplay, .closeAppWindows, .togglePin] {
+            XCTAssertEqual(s.handle(.action(action)), .none)
+        }
+    }
+
+    func testWindowActionRawValues() {
+        // Raw values are stable identifiers (Codable).
+        XCTAssertEqual(WindowAction.moveToNextDisplay.rawValue, "moveToNextDisplay")
+        XCTAssertEqual(WindowAction.closeAppWindows.rawValue, "closeAppWindows")
+        XCTAssertEqual(WindowAction.togglePin.rawValue, "togglePin")
+        XCTAssertEqual(WindowAction.allCases.count, 9)
+    }
+
+    // MARK: - Quick select
+
+    func testQuickSelectSelectsAndActivates() {
+        var s = session()
+        XCTAssertEqual(s.handle(.quickSelect(index: 3)), .activate(items[3]))
+        XCTAssertEqual(s.selectedIndex, 3)
+    }
+
+    func testQuickSelectOfTheSelectedItemActivates() {
+        var s = session()
+        XCTAssertEqual(s.handle(.quickSelect(index: 1)), .activate(items[1]))
+        XCTAssertEqual(s.handle(.quickSelect(index: 0)), .activate(items[0]))
+    }
+
+    func testQuickSelectOutOfRangeChangesNothing() {
+        var s = session()
+        let before = s
+        for index in [5, 6, 100, -1, Int.max, Int.min] {
+            XCTAssertEqual(s.handle(.quickSelect(index: index)), .none, "\(index)")
+            XCTAssertEqual(s, before)
+        }
+        var empty = session([])
+        XCTAssertEqual(empty.handle(.quickSelect(index: 0)), .none)
+        XCTAssertNil(empty.selectedIndex)
+    }
+
+    func testQuickSelectIndexesVisibleResultsWhileSearching() {
+        var s = session()
+        s.handle(.type("s")) // Safari, Notes ("Shopping list"), Terminal (zsh), ...
+        let second = s.visible[1].item
+        XCTAssertEqual(s.handle(.quickSelect(index: 1)), .activate(second))
+        XCTAssertEqual(s.selectedItem, second)
+        XCTAssertEqual(s.handle(.quickSelect(index: s.visible.count)), .none)
+    }
+
+    func testQuickSelectActivatesEvenWhenLocked() {
+        var s = session(locked: true)
+        XCTAssertEqual(s.handle(.quickSelect(index: 4)), .activate(items[4]))
+    }
+
+    func testQuickSelectWindowlessAppActivates() {
+        let app = windowlessApp(pid: 9)
+        var s = session([items[0], app])
+        XCTAssertEqual(s.handle(.quickSelect(index: 1)), .activate(app))
+    }
+
+    // MARK: - Peek
+
+    func testPeekEmitsTheSelectedWindow() {
+        var s = session()
+        let before = s
+        XCTAssertEqual(s.handle(.peek), .peek(items[1]))
+        XCTAssertEqual(s, before, "peeking changes no state")
+        XCTAssertEqual(s.handle(.peek), .peek(items[1]), "a toggle: the app hides it on the second press")
+        s.handle(.next)
+        XCTAssertEqual(s.handle(.peek), .peek(items[2]))
+    }
+
+    func testPeekWhileSearching() {
+        var s = session()
+        s.handle(.type("notes"))
+        XCTAssertEqual(s.handle(.peek), .peek(items[3]))
+    }
+
+    func testPeekNeedsAWindow() {
+        var empty = session([])
+        XCTAssertEqual(empty.handle(.peek), .none)
+        var app = session([windowlessApp(pid: 9)])
+        XCTAssertEqual(app.handle(.peek), .none)
+        var noMatch = session()
+        noMatch.handle(.type("zzzzqqq"))
+        XCTAssertNil(noMatch.selectedItem)
+        XCTAssertEqual(noMatch.handle(.peek), .none)
     }
 }

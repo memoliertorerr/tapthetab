@@ -191,4 +191,82 @@ final class ItemOrderingTests: XCTestCase {
                                          screenSize: Size(width: 1512, height: 945), sectionHeaderCount: starts.count)
         XCTAssertEqual(layout.panelSize.height, 396, "44 + 6 × 44 + 3 × 24 + 16")
     }
+
+    // MARK: - pinnedFirst
+
+    func testPinnedFirstIsAStablePartition() {
+        let items = [
+            window(1, pid: 10, bundle: "com.a"),
+            window(2, pid: 20, bundle: "com.pinned.x"),
+            window(3, pid: 30, bundle: "com.b"),
+            window(4, pid: 40, bundle: "com.pinned.y"),
+            window(5, pid: 20, bundle: "com.pinned.x"),
+            window(6, pid: 10, bundle: "com.a"),
+        ]
+        let result = ItemOrdering.pinnedFirst(items, pinnedBundleIDs: ["com.pinned.y", "com.pinned.x"])
+        XCTAssertEqual(ids(result), [.window(2), .window(4), .window(5), .window(1), .window(3), .window(6)],
+                       "pinned items keep recency order, not the pin list's order")
+    }
+
+    func testPinnedFirstIsCaseInsensitive() {
+        let items = [window(1, pid: 1, bundle: "com.a"), window(2, pid: 2, bundle: "COM.Apple.Safari")]
+        XCTAssertEqual(ids(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: ["com.apple.safari"])), [.window(2), .window(1)])
+        XCTAssertEqual(ids(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: ["COM.APPLE.SAFARI"])), [.window(2), .window(1)])
+    }
+
+    func testPinnedFirstWithoutPinsIsUnchanged() {
+        let items = [window(1, pid: 1, bundle: "com.a"), window(2, pid: 2, bundle: "com.b")]
+        XCTAssertEqual(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: []), items)
+        XCTAssertEqual(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: ["com.zzz"]), items)
+        XCTAssertEqual(ItemOrdering.pinnedFirst([], pinnedBundleIDs: ["com.a"]), [])
+    }
+
+    func testItemsWithoutBundleIDAreNeverPinned() {
+        let items = [window(1, pid: 1), window(2, pid: 2, bundle: "com.b"), window(3, pid: 3, bundle: "")]
+        XCTAssertEqual(ids(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: ["", "com.b"])), [.window(2), .window(1), .window(3)])
+        XCTAssertEqual(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: [""]), items, "an empty pin matches nothing")
+    }
+
+    func testPinnedWindowlessAppsMoveToo() {
+        let items = [window(1, pid: 1, bundle: "com.a"), windowlessApp(pid: 2, bundle: "com.pinned")]
+        XCTAssertEqual(ids(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: ["com.pinned"])), [.app(pid: 2), .window(1)])
+    }
+
+    func testPinnedFirstAddsAndDropsNothingAndIsIdempotent() {
+        let items = (0..<40).map { window(UInt32($0), pid: Int32($0 % 7), bundle: "com.app\($0 % 7)") }
+        let pins: Set<String> = ["com.app3", "com.APP5"]
+        let once = ItemOrdering.pinnedFirst(items, pinnedBundleIDs: pins)
+        XCTAssertEqual(once.count, items.count)
+        XCTAssertEqual(Set(ids(once)), Set(ids(items)))
+        XCTAssertEqual(ItemOrdering.pinnedFirst(once, pinnedBundleIDs: pins), once)
+        let firstUnpinned = once.firstIndex { !["com.app3", "com.app5"].contains($0.bundleID!) }!
+        XCTAssertTrue(once[firstUnpinned...].allSatisfy { !["com.app3", "com.app5"].contains($0.bundleID!) })
+    }
+
+    func testPinnedFirstAndGroupedByAppCommute() {
+        // Recency: Safari 1, Mail 2 (pinned), Safari 3, Notes 4 (pinned), Mail 5, Xcode 6.
+        let items = [
+            window(1, pid: 10, app: "Safari", bundle: "com.apple.Safari"),
+            window(2, pid: 20, app: "Mail", bundle: "com.apple.mail"),
+            window(3, pid: 10, app: "Safari", bundle: "com.apple.Safari"),
+            window(4, pid: 30, app: "Notes", bundle: "com.apple.Notes"),
+            window(5, pid: 20, app: "Mail", bundle: "com.apple.mail"),
+            window(6, pid: 40, app: "Xcode", bundle: "com.apple.dt.Xcode"),
+        ]
+        let pins: Set<String> = ["com.apple.notes", "com.apple.mail"]
+        let pinnedThenGrouped = ItemOrdering.groupedByApp(ItemOrdering.pinnedFirst(items, pinnedBundleIDs: pins))
+        let groupedThenPinned = ItemOrdering.pinnedFirst(ItemOrdering.groupedByApp(items), pinnedBundleIDs: pins)
+        XCTAssertEqual(pinnedThenGrouped, groupedThenPinned)
+        XCTAssertEqual(ids(pinnedThenGrouped), [.window(2), .window(5), .window(4), .window(1), .window(3), .window(6)],
+                       "pinned apps' groups first, each part by most recent window")
+        XCTAssertEqual(ItemOrdering.sectionHeaderIndices(for: pinnedThenGrouped, groupByApp: true, style: .list, isSearching: false),
+                       [0, 2, 3, 5])
+    }
+
+    func testIsPinned() {
+        XCTAssertTrue(ItemOrdering.isPinned(window(1, bundle: "com.A"), pinnedBundleIDs: ["x", "com.a"]))
+        XCTAssertFalse(ItemOrdering.isPinned(window(1, bundle: "com.b"), pinnedBundleIDs: ["com.a"]))
+        XCTAssertFalse(ItemOrdering.isPinned(window(1), pinnedBundleIDs: ["com.a"]))
+        XCTAssertFalse(ItemOrdering.isPinned(window(1, bundle: "com.a"), pinnedBundleIDs: []))
+    }
 }
