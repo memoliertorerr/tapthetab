@@ -112,7 +112,36 @@ enum WindowActions {
             return app.isHidden ? app.unhide() : app.hide()
         case .quitApp:
             return app?.terminate() ?? false
+        case .moveToNextDisplay:
+            guard let window else { return false }
+            return moveToNextDisplay(window)
+        case .closeAppWindows:
+            let windows = AX.elements(AX.application(item.pid), kAXWindowsAttribute)
+            var closed = false
+            for appWindow in windows {
+                if let button = AX.element(appWindow, kAXCloseButtonAttribute), AX.perform(button, kAXPressAction) {
+                    closed = true
+                }
+            }
+            return closed
+        case .togglePin:
+            // A setting, not a window action: the coordinator handles it.
+            return false
         }
+    }
+
+    /// Moves `window` to the next display (in `NSScreen.screens` order), keeping its place
+    /// relative to the screen and shrinking it if the other screen is smaller.
+    private static func moveToNextDisplay(_ window: AXUIElement) -> Bool {
+        let screens = NSScreen.screens
+        guard screens.count > 1, let frame = AX.frame(window) else { return false }
+        let displays = screens.map { ScreenRect($0.topLeftVisibleFrame) }
+        let current = ScreenRect(frame)
+        guard let index = DisplayMove.displayIndex(containing: current, displays: displays),
+              let next = DisplayMove.nextIndex(after: index, count: displays.count) else { return false }
+        let target = DisplayMove.frame(current, from: displays[index], to: displays[next])
+        if AX.bool(window, AX.fullScreenAttribute) == true { return false }
+        return AX.setFrame(window, NSRect(target))
     }
 
     // MARK: - Window-server focus (private calls)
