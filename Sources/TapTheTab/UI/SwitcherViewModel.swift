@@ -26,7 +26,12 @@ final class SwitcherViewModel: ObservableObject {
     /// A block is being dragged (see `SwitcherPanelController`).
     var dragHandler: ((SwitcherBlock, SwitcherDragPhase) -> Void)?
     /// True while a block is dragged: hover must not change the selection then.
-    var isDragging = false
+    var isDragging = false {
+        didSet { if oldValue && !isDragging { dragEndedAt = ProcessInfo.processInfo.systemUptime } }
+    }
+    /// When the last drag ended: the click that finishes a drag must not switch.
+    private var dragEndedAt: TimeInterval = 0
+    private static let clickAfterDragSuppression: TimeInterval = 0.3
     /// Icons to show instead of the running process's, by pid. Always empty in the app;
     /// `ScreenshotRenderer` sets it because its sample items have no real processes.
     var iconOverrides: [Int32: NSImage] = [:]
@@ -180,6 +185,8 @@ final class SwitcherViewModel: ObservableObject {
     }
 
     func click(index: Int) {
+        guard !isDragging,
+              ProcessInfo.processInfo.systemUptime - dragEndedAt > Self.clickAfterDragSuppression else { return }
         forwardPointerInput(.select(index: index))
         forwardPointerInput(.commit)
     }

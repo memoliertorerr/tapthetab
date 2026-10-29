@@ -120,10 +120,12 @@ struct SwitcherPreviewCard: View {
 }
 
 extension View {
-    /// Dragging this view moves its block's window (see `SwitcherPanelController`). The
-    /// pointer has to move a few points first, so a click still switches.
+    /// Dragging this view moves its block's window (see `SwitcherPanelController`), also
+    /// when the drag starts on a card or row: the gesture runs alongside theirs, and a
+    /// click that ends a drag does not switch (`SwitcherViewModel.click`). The pointer has
+    /// to move a few points first, so a plain click still switches.
     func switcherDraggable(_ block: SwitcherBlock, model: SwitcherViewModel) -> some View {
-        gesture(
+        simultaneousGesture(
             DragGesture(minimumDistance: 4, coordinateSpace: .global)
                 .onChanged { _ in model.drag(block, .changed) }
                 .onEnded { _ in model.drag(block, .ended) }
