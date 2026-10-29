@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Quick select: ⌘1–9 switches straight to the first nine windows (⌃ instead of ⌘ when your shortcut uses ⌘). Small number badges show which is which; can be turned off.
+- Peek: ⇧Space shows the selected window full size where it is, over a dimmed screen; press it again (or any key) to go back. Needs Screen Recording.
+- New actions in the switcher: ⇧D moves the window to the next display, ⇧X closes all of the app's windows, ⇧P pins or unpins the app.
+- Pinned apps (⇧P, or Settings → Filters): their windows always come first.
+- A layout per shortcut: each shortcut can use the grid or the list, or follow the default.
+- Animations: the switcher fades in, the selection slides, the large preview changes shape smoothly (follows Reduce Motion; can be turned off).
+- The Settings window takes the switcher's theme; four menu bar icon styles.
+
+### Fixed
+
+- The list block can be dragged from anywhere, not only its edges, and a click that ends a drag no longer switches.
+
 ## [0.8.0] - 2026-10-29
 
 ### Added

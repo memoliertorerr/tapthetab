@@ -46,7 +46,8 @@ previous window without the panel ever appearing.
 | `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, the large preview's box and the card it floats on (scaled by `largePreviewPercent`, hugging the window's proportions), minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
 | `PanelPlacement` | Where the main block and the preview card go on a screen (default, remembered `BlockPosition`s, clamped inside the visible frame). |
 | `ColorMath`, `ColorTheme`, `GrainTexture` | Arc-style themes (ported from Little Joan): presets, colors muted into a light or dark band in OKLCH, the gradient's stops and blobs, deterministic grain pixels. |
-| `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings. |
+| `QuickSelect`, `DisplayMove` | Which modifier + digit picks a window and its badge; moving a window frame to the next display. |
+| `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings; pinned apps' windows first (`pinnedFirst`). |
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
