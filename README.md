@@ -58,6 +58,15 @@ built around three goals:
       <p align="center"><sub>Optional live previews</sub></p>
     </td>
   </tr>
+  <tr>
+    <td colspan="2">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-themed-dark.png">
+        <img alt="List layout on the Dusk theme: each row shows a live thumbnail of its window with the app icon as a badge" src="docs/images/switcher-themed-light.png">
+      </picture>
+      <p align="center"><sub>Themes and window thumbnails in the list</sub></p>
+    </td>
+  </tr>
 </table>
 
 <sub>Screenshots are rendered by the app itself from fictional sample windows
