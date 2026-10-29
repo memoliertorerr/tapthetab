@@ -37,31 +37,6 @@ struct AppearanceSettingsView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Toggle(L10n.tr("Show live window previews"), isOn: $model.configuration.appearance.showPreviews)
-                if model.configuration.appearance.showPreviews {
-                    Picker(selection: $model.configuration.appearance.largePreviewPercent) {
-                        ForEach(previewPercentChoices, id: \.self) { percent in
-                            Text(L10n.tr("%lld%%", percent)).tag(percent)
-                        }
-                    } label: {
-                        Text(L10n.tr("Large preview size"))
-                        Text(L10n.tr("The selected window's preview, floating above the switcher."))
-                    }
-                }
-                if model.configuration.appearance.showPreviews && !model.screenRecordingGranted {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(Color.orange)
-                            .accessibilityHidden(true)
-                        Text(L10n.tr("Previews need the Screen Recording permission."))
-                            .font(.callout)
-                        Spacer(minLength: 8)
-                        Button(L10n.tr("Grant Screen Recording…")) {
-                            model.requestScreenRecording()
-                        }
-                    }
-                }
-
                 Toggle(L10n.tr("Show app names"), isOn: $model.configuration.appearance.showAppName)
 
                 Toggle(isOn: $model.configuration.appearance.groupByApp) {
@@ -71,6 +46,63 @@ struct AppearanceSettingsView: View {
                             .font(.caption)
                             .foregroundColor(Color.secondary)
                     }
+                }
+            }
+
+            Section {
+                Toggle(isOn: $model.configuration.appearance.showPreviews) {
+                    Text(L10n.tr("Show live window previews"))
+                    Text(L10n.tr("Needs the Screen Recording permission. Previews stay in memory and are never saved."))
+                }
+                if model.configuration.appearance.showPreviews {
+                    Toggle(isOn: $model.configuration.appearance.windowThumbnails) {
+                        Text(L10n.tr("Window thumbnails in the switcher"))
+                        Text(L10n.tr("Cards and list rows show each window instead of only its app icon; list rows get taller."))
+                    }
+                    Toggle(isOn: $model.configuration.appearance.showLargePreview) {
+                        Text(L10n.tr("Large preview of the selected window"))
+                        Text(L10n.tr("On its own card above the switcher. Drag it while the switcher is open to move it."))
+                    }
+                    if model.configuration.appearance.showLargePreview {
+                        Picker(L10n.tr("Large preview size"), selection: $model.configuration.appearance.largePreviewPercent) {
+                            ForEach(previewPercentChoices, id: \.self) { percent in
+                                Text(L10n.tr("%lld%%", percent)).tag(percent)
+                            }
+                        }
+                    }
+                    if !model.screenRecordingGranted {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(Color.orange)
+                                .accessibilityHidden(true)
+                            Text(L10n.tr("Previews need the Screen Recording permission."))
+                                .font(.callout)
+                            Spacer(minLength: 8)
+                            Button(L10n.tr("Grant Screen Recording…")) {
+                                model.requestScreenRecording()
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text(L10n.tr("Previews"))
+            }
+
+            Section {
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.tr("Switcher position"))
+                        Text(L10n.tr("While the switcher is open, drag the list or the large preview to move it. TapTheTab remembers where."))
+                            .font(.caption)
+                            .foregroundColor(Color.secondary)
+                    }
+                    Spacer(minLength: 8)
+                    Button(L10n.tr("Reset Position")) {
+                        model.configuration.appearance.panelPosition = nil
+                        model.configuration.appearance.previewPosition = nil
+                    }
+                    .disabled(model.configuration.appearance.panelPosition == nil
+                              && model.configuration.appearance.previewPosition == nil)
                 }
             }
 
@@ -100,6 +132,8 @@ struct AppearanceSettingsView: View {
                 .pickerStyle(.segmented)
                 .disabled(!model.configuration.appearance.liquidGlass)
             }
+
+            ThemeSettingsSection(theme: $model.configuration.appearance.colorTheme)
 
             Section {
                 Picker(L10n.tr("Theme"), selection: $model.configuration.appearance.theme) {

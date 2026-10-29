@@ -15,6 +15,9 @@ public struct PanelLayout: Equatable, Sendable {
     public static let searchBarHeight: Double = 44
     public static let listWidth: Double = 640
     public static let listRowHeight: Double = 44
+    /// List rows showing a window thumbnail instead of the app icon are taller, so the
+    /// thumbnail is big enough to recognise the window.
+    public static let listThumbnailRowHeight: Double = 60
     public static let listMaxRows: Int = 10
     public static let listPadding: Double = 8
     /// Height of the app-name heading above each app's first row when the list is
@@ -137,6 +140,7 @@ public struct PanelLayout: Equatable, Sendable {
     ///     would grow past the screen the preview is skipped (`previewSize == .zero`).
     ///   - previewScale: size of the preview box relative to the full-size box (1), clamped
     ///     to `previewScaleRange`; not a number counts as 1.
+    ///   - listThumbnails: list rows show window thumbnails (`listThumbnailRowHeight`).
     ///   - sectionHeaderCount: app-name headings shown between the rows of a list grouped
     ///     by app (ignored by the grid). Clamped to `0...itemCount`.
     public static func compute(
@@ -147,12 +151,14 @@ public struct PanelLayout: Equatable, Sendable {
         screenSize: Size,
         showsPreview: Bool = false,
         previewScale: Double = 1,
-        sectionHeaderCount: Int = 0
+        sectionHeaderCount: Int = 0,
+        listThumbnails: Bool = false
     ) -> PanelLayout {
         var layout: PanelLayout
         switch style {
         case .list:
-            layout = computeList(itemCount: itemCount, sectionHeaderCount: sectionHeaderCount, screenSize: screenSize)
+            layout = computeList(itemCount: itemCount, sectionHeaderCount: sectionHeaderCount, screenSize: screenSize,
+                                 rowHeight: listThumbnails ? listThumbnailRowHeight : listRowHeight)
         case .grid:
             layout = computeGrid(size: size, itemCount: itemCount, showsSearchBar: showsSearchBar, screenSize: screenSize)
         }
@@ -226,15 +232,15 @@ public struct PanelLayout: Equatable, Sendable {
 
     /// The list always shows its search bar. It shows up to `listMaxRows` rows (fewer on a
     /// short screen) and scrolls beyond that; section headings count towards the same height.
-    private static func computeList(itemCount: Int, sectionHeaderCount: Int, screenSize: Size) -> PanelLayout {
+    private static func computeList(itemCount: Int, sectionHeaderCount: Int, screenSize: Size, rowHeight: Double) -> PanelLayout {
         let usableHeight = screenSize.height * maxPanelScreenFraction - searchBarHeight - listPadding * 2
-        let rowsByScreen = max(1, Int(usableHeight / listRowHeight))
+        let rowsByScreen = max(1, Int(usableHeight / rowHeight))
         let rowLimit = min(listMaxRows, rowsByScreen)
         let count = max(itemCount, 0)
         let headers = min(max(sectionHeaderCount, 0), count)
 
-        let rowsHeight = Double(count) * listRowHeight + Double(headers) * listSectionHeaderHeight
-        let maxRowsHeight = Double(rowLimit) * listRowHeight
+        let rowsHeight = Double(count) * rowHeight + Double(headers) * listSectionHeaderHeight
+        let maxRowsHeight = Double(rowLimit) * rowHeight
         let contentHeight: Double
         if count == 0 {
             contentHeight = emptyContentHeight
@@ -249,7 +255,7 @@ public struct PanelLayout: Equatable, Sendable {
         return PanelLayout(
             style: .list,
             columns: 1,
-            itemSize: Size(width: width, height: listRowHeight),
+            itemSize: Size(width: width, height: rowHeight),
             showsSearchBar: true,
             needsScrolling: rowsHeight > maxRowsHeight,
             panelSize: Size(width: width.rounded(.up), height: height.rounded(.up))

@@ -58,9 +58,18 @@ public struct Appearance: Codable, Equatable, Sendable {
     public var size: ItemSize = .medium
     /// Live window previews. Needs the Screen Recording permission on macOS.
     public var showPreviews: Bool = false
+    /// With previews on: cards and list rows show a live thumbnail of their window (with
+    /// the app icon as a badge) instead of the app icon alone.
+    public var windowThumbnails: Bool = true
+    /// With previews on: the larger preview of the selected window on its own card.
+    public var showLargePreview: Bool = true
     /// Size of the large preview of the selected window, in percent of the full-size
     /// box (previews mode). Clamped to 25...100.
     public var largePreviewPercent: Int = Appearance.defaultLargePreviewPercent
+    /// Where the user dragged the main block (search plus grid or list); nil: centred.
+    public var panelPosition: BlockPosition?
+    /// Where the user dragged the large preview's card; nil: just above the main block.
+    public var previewPosition: BlockPosition?
     public var showAppName: Bool = true
     /// Keep each app's windows together: apps in the order of their most recent window,
     /// each app's windows in recency order. The list style adds an app-name heading per
@@ -75,6 +84,9 @@ public struct Appearance: Codable, Equatable, Sendable {
     public var liquidGlass: Bool = true
     /// Which Liquid Glass variation to use when `liquidGlass` is on.
     public var glassStyle: GlassStyle = .clear
+    /// A soft gradient with grain over the panel's glass or blur (Arc-style themes);
+    /// `ColorTheme.none` for the backdrop alone.
+    public var colorTheme: ColorTheme = .none
     public var placement: DisplayPlacement = .mouse
     /// Delay before the panel appears. A quick tap within this time switches without
     /// flashing the panel. Clamped to 0...1000.
@@ -98,13 +110,18 @@ public struct Appearance: Codable, Equatable, Sendable {
         style = c.lenient(LayoutStyle.self, .style) ?? d.style
         size = c.lenient(ItemSize.self, .size) ?? d.size
         showPreviews = c.lenient(Bool.self, .showPreviews) ?? d.showPreviews
+        windowThumbnails = c.lenient(Bool.self, .windowThumbnails) ?? d.windowThumbnails
+        showLargePreview = c.lenient(Bool.self, .showLargePreview) ?? d.showLargePreview
         largePreviewPercent = c.lenient(Int.self, .largePreviewPercent) ?? d.largePreviewPercent
+        panelPosition = c.lenient(BlockPosition.self, .panelPosition)
+        previewPosition = c.lenient(BlockPosition.self, .previewPosition)
         showAppName = c.lenient(Bool.self, .showAppName) ?? d.showAppName
         groupByApp = c.lenient(Bool.self, .groupByApp) ?? d.groupByApp
         showMenuBarIcon = c.lenient(Bool.self, .showMenuBarIcon) ?? d.showMenuBarIcon
         theme = c.lenient(Theme.self, .theme) ?? d.theme
         liquidGlass = c.lenient(Bool.self, .liquidGlass) ?? d.liquidGlass
         glassStyle = c.lenient(GlassStyle.self, .glassStyle) ?? d.glassStyle
+        colorTheme = c.lenient(ColorTheme.self, .colorTheme) ?? d.colorTheme
         placement = c.lenient(DisplayPlacement.self, .placement) ?? d.placement
         showDelayMilliseconds = c.lenient(Int.self, .showDelayMilliseconds) ?? d.showDelayMilliseconds
     }
@@ -204,6 +221,12 @@ public struct Configuration: Codable, Equatable, Sendable {
             copy.appearance.largePreviewPercent = min(max(percent, percentRange.lowerBound), percentRange.upperBound)
             notes.append("largePreviewPercent must be between \(percentRange.lowerBound) and \(percentRange.upperBound); it was set to \(copy.appearance.largePreviewPercent).")
         }
+
+        copy.appearance.colorTheme = copy.appearance.colorTheme.validated()
+
+        // Hand-edited positions outside the screen are pulled back onto it.
+        copy.appearance.panelPosition = copy.appearance.panelPosition.map(\.clamped)
+        copy.appearance.previewPosition = copy.appearance.previewPosition.map(\.clamped)
 
         let cleaned = copy.filters.excludedBundleIDs
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

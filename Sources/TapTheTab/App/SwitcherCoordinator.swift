@@ -15,6 +15,10 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
 
     private(set) var configuration: Configuration
     private(set) var isPaused = false
+    /// How the last switch brought its window forward, for Copy Diagnostics.
+    private(set) var lastSwitchMethod: String?
+    /// The user dragged a block of the switcher: positions to remember (nil: default place).
+    var onPositionsChanged: ((_ main: BlockPosition?, _ preview: BlockPosition?) -> Void)?
     private(set) var isStarted = false
 
     private var session: SwitcherSession?
@@ -34,6 +38,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         self.permissions = permissions
         super.init()
         panel.onInput = { [weak self] input in self?.handle(input) }
+        panel.onPositionsChanged = { [weak self] main, preview in self?.onPositionsChanged?(main, preview) }
         configureCatalog()
     }
 
@@ -269,7 +274,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             if current.isSearching { searchMemory.record(query: current.query, picked: item) }
             let window = catalog.element(for: item.id) ?? lookUpWindow(item)
             close()
-            WindowActions.activate(item, window: window, acrossSpaces: configuration.filters.showOtherSpaces)
+            lastSwitchMethod = WindowActions.activate(item, window: window, acrossSpaces: configuration.filters.showOtherSpaces)
             focus.touch(item.id)
         case .perform(let action, let item):
             perform(action, on: item)

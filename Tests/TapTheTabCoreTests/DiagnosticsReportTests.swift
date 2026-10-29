@@ -42,6 +42,7 @@ final class DiagnosticsReportTests: XCTestCase {
           List other Spaces: unknown
           Focus across Spaces: unknown
           Missing symbols: unknown
+          Last switch: none yet
 
         Triggers (2)
           ⌥⇥  option+tab  allWindows
@@ -51,13 +52,18 @@ final class DiagnosticsReportTests: XCTestCase {
           style: grid
           size: medium
           showPreviews: false
+          windowThumbnails: true
+          showLargePreview: true
           largePreviewPercent: 66
+          panelPosition: default
+          previewPosition: default
           showAppName: true
           groupByApp: false
           showMenuBarIcon: true
           theme: system
           liquidGlass: true
           glassStyle: clear
+          colorTheme: none
           placement: mouse
           showDelayMilliseconds: 90
 
@@ -98,7 +104,11 @@ final class DiagnosticsReportTests: XCTestCase {
         c.appearance.theme = .dark
         c.appearance.liquidGlass = false
         c.appearance.glassStyle = .tinted
+        c.appearance.colorTheme = ColorTheme.none.applying(ThemePreset.named("dusk")!)
         c.appearance.largePreviewPercent = 75
+        c.appearance.windowThumbnails = false
+        c.appearance.showLargePreview = false
+        c.appearance.panelPosition = BlockPosition(x: 0.2, y: 0.9)
         c.appearance.placement = .activeWindow
         c.appearance.showDelayMilliseconds = 0
         c.behavior.releaseToSwitch = false
@@ -117,7 +127,8 @@ final class DiagnosticsReportTests: XCTestCase {
         for line in [
             "Triggers (2)", "  ⌘⇥  command+tab  apps", "  ⌃⇧`  control+shift+`  activeApp",
             "  style: list", "  size: large", "  showPreviews: true", "  showAppName: false", "  groupByApp: true",
-            "  theme: dark", "  liquidGlass: false", "  glassStyle: tinted", "  largePreviewPercent: 75",
+            "  theme: dark", "  liquidGlass: false", "  glassStyle: tinted", "  colorTheme: dusk", "  largePreviewPercent: 75",
+            "  windowThumbnails: false", "  showLargePreview: false", "  panelPosition: moved", "  previewPosition: default",
             "  placement: activeWindow", "  showDelayMilliseconds: 0",
             "  releaseToSwitch: false", "  searchEnabled: false", "  startOnPrevious: false",
             "  mouseHoverSelects: false", "  wrapAround: false",
@@ -180,7 +191,7 @@ final class DiagnosticsReportTests: XCTestCase {
         r.missingPrivateSymbols = ["GetProcessForPID", "SLPSPostEventRecordTo"]
         XCTAssertTrue(r.markdown.contains(
             "Private APIs\n  List other Spaces: available\n  Focus across Spaces: unavailable\n"
-                + "  Missing symbols: GetProcessForPID, SLPSPostEventRecordTo\n\n"))
+                + "  Missing symbols: GetProcessForPID, SLPSPostEventRecordTo\n  Last switch: none yet\n\n"))
 
         r.missingPrivateSymbols = []
         r.focusAcrossSpacesAvailable = true
@@ -249,5 +260,13 @@ final class DiagnosticsReportTests: XCTestCase {
             skippedWindowsBySubrole: ["AXUnknown": 1, "AXFloatingWindow": 4, "SecretPanel": 2, "My Panel": 3, "AXSheet": 0])
         XCTAssertTrue(report.markdown.contains("  Skipped windows: AXFloatingWindow 4, AXUnknown 1, other 5\n"))
         XCTAssertFalse(report.markdown.contains("SecretPanel"))
+    }
+
+    func testLastSwitchMethodIsReportedAndCleaned() {
+        var r = report()
+        r.lastSwitchMethod = "window server, status 0"
+        XCTAssertTrue(r.markdown.components(separatedBy: "\n").contains("  Last switch: window server, status 0"))
+        r.lastSwitchMethod = "public\nfallback`"
+        XCTAssertTrue(r.markdown.components(separatedBy: "\n").contains("  Last switch: publicfallback"))
     }
 }

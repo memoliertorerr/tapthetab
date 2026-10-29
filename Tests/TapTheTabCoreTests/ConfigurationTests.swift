@@ -378,4 +378,76 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertTrue(text.contains("\"largePreviewPercent\":50"))
         XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
     }
+
+    // MARK: - Thumbnails, large preview and block positions (v0.8)
+
+    func testThumbnailAndLargePreviewDefaultsOnAndDecode() throws {
+        XCTAssertTrue(Configuration().appearance.windowThumbnails)
+        XCTAssertTrue(Configuration().appearance.showLargePreview)
+        let c = try decode(#"{"appearance": {"windowThumbnails": false, "showLargePreview": false}}"#)
+        XCTAssertFalse(c.appearance.windowThumbnails)
+        XCTAssertFalse(c.appearance.showLargePreview)
+        let bad = try decode(#"{"appearance": {"windowThumbnails": "no", "showLargePreview": 3, "style": "list"}}"#)
+        XCTAssertTrue(bad.appearance.windowThumbnails)
+        XCTAssertTrue(bad.appearance.showLargePreview)
+        XCTAssertEqual(bad.appearance.style, .list)
+    }
+
+    func testBlockPositionsDefaultToNilAndDecode() throws {
+        XCTAssertNil(Configuration().appearance.panelPosition)
+        XCTAssertNil(Configuration().appearance.previewPosition)
+        let c = try decode(#"{"appearance": {"panelPosition": {"x": 0.3, "y": 0.8}, "previewPosition": {"x": 0.7, "y": 0.2}}}"#)
+        XCTAssertEqual(c.appearance.panelPosition, BlockPosition(x: 0.3, y: 0.8))
+        XCTAssertEqual(c.appearance.previewPosition, BlockPosition(x: 0.7, y: 0.2))
+        let bad = try decode(#"{"appearance": {"panelPosition": {"x": "a"}, "previewPosition": 4, "size": "large"}}"#)
+        XCTAssertNil(bad.appearance.panelPosition)
+        XCTAssertNil(bad.appearance.previewPosition)
+        XCTAssertEqual(bad.appearance.size, .large)
+    }
+
+    func testOutOfRangePositionsAreClampedSilently() {
+        var c = Configuration()
+        c.appearance.panelPosition = BlockPosition(x: -2, y: 7)
+        c.appearance.previewPosition = BlockPosition(x: 0.4, y: 0.6)
+        let (valid, notes) = c.validated()
+        XCTAssertEqual(valid.appearance.panelPosition, BlockPosition(x: 0, y: 1))
+        XCTAssertEqual(valid.appearance.previewPosition, BlockPosition(x: 0.4, y: 0.6))
+        XCTAssertEqual(notes, [])
+        XCTAssertEqual(valid.validated().0, valid)
+    }
+
+    func testPositionsRoundTripAndNilIsOmitted() throws {
+        let plain = String(decoding: try JSONEncoder().encode(Configuration()), as: UTF8.self)
+        XCTAssertFalse(plain.contains("panelPosition"))
+        var c = Configuration()
+        c.appearance.panelPosition = BlockPosition(x: 0.5, y: 0.25)
+        let data = try JSONEncoder().encode(c)
+        XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
+    }
+
+    // MARK: - Color theme (v0.8)
+
+    func testColorThemeDefaultsToNoneAndDecodesInAppearance() throws {
+        XCTAssertEqual(Configuration().appearance.colorTheme, ColorTheme.none)
+        XCTAssertFalse(Configuration().appearance.colorTheme.isEnabled)
+        let c = try decode(##"{"appearance": {"colorTheme": {"preset": "sand", "colors": ["#c9a27e", "#d8c49a"], "intensity": 0.55, "grain": 0.3, "opacity": 0.7}}}"##)
+        XCTAssertEqual(c.appearance.colorTheme.preset, "sand")
+        XCTAssertEqual(c.appearance.colorTheme.opacity, 0.7)
+        XCTAssertTrue(c.appearance.colorTheme.isEnabled)
+    }
+
+    func testBadColorThemeDoesNotResetItsNeighbours() throws {
+        let c = try decode(#"{"appearance": {"colorTheme": 7, "style": "list"}}"#)
+        XCTAssertEqual(c.appearance.colorTheme, ColorTheme.none)
+        XCTAssertEqual(c.appearance.style, .list)
+    }
+
+    func testValidationCleansTheColorTheme() {
+        var c = Configuration()
+        c.appearance.colorTheme = ColorTheme(preset: "custom", colors: ["#ABCDEF", "nope", "#111111", "#222222", "#333333"], intensity: 4, grain: -1, opacity: 2)
+        let valid = c.validated().0
+        XCTAssertEqual(valid.appearance.colorTheme, c.appearance.colorTheme.validated())
+        XCTAssertLessThanOrEqual(valid.appearance.colorTheme.colors.count, 3)
+        XCTAssertEqual(valid.validated().0, valid)
+    }
 }

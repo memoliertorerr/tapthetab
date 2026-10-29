@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-29
+
+### Added
+
+- Move the switcher: while it is open, drag the window list or the large preview anywhere on the screen. TapTheTab remembers where; Settings → Appearance → Reset Position puts them back.
+- Themes, inspired by Arc: a soft gradient with grain over the switcher's glass. Eleven presets or up to three colors of your own, with color, grain and strength sliders (Settings → Appearance → Theme).
+- Window thumbnails in the list style: with previews on, each row shows a live thumbnail of its window (app icon as a badge) in a taller row. Thumbnails and the large preview can each be turned off.
+- Copy Diagnostics says how the last switch brought its window forward.
+
+### Fixed
+
+- Switching to a window could still bring all of the app's windows forward: the window-server call that brings only the chosen window forward was treated as failed when it returned a non-zero status, and the fallback then raised every window of the app.
+
+### Changed
+
+- Clear Liquid Glass is more see-through (no extra dimming layer).
+- The large preview is a separate floating window from the list.
+
 ## [0.7.1] - 2026-10-28
 
 ### Fixed
@@ -122,7 +140,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.5.0...v0.6.0

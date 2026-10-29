@@ -9,8 +9,16 @@ final class SwitcherPanel: NSPanel {
 }
 
 /// Lets a click on an inactive, non-key panel act immediately instead of being swallowed.
-final class SwitcherHostingView: NSHostingView<SwitcherRootView> {
+final class SwitcherHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+/// The switcher's two blocks, each in its own window so either can be dragged.
+enum SwitcherBlock {
+    /// Search bar plus grid or list.
+    case main
+    /// The large preview's card.
+    case preview
 }
 
 @MainActor
@@ -18,25 +26,56 @@ final class SwitcherPanelController {
     /// Mouse interaction: hover sends .select(index:) (only when behavior.mouseHoverSelects),
     /// click sends .select(index:) then .commit. Index is into session.visible.
     var onInput: ((SwitcherInput) -> Void)?
+    /// A block was dragged: the positions to remember (nil: the default place).
+    var onPositionsChanged: ((_ main: BlockPosition?, _ preview: BlockPosition?) -> Void)?
 
-    var isVisible: Bool { panel.isVisible }
+    var isVisible: Bool { mainPanel.isVisible }
 
     private let model: SwitcherViewModel
-    private let panel: SwitcherPanel
-    private let hostingView: SwitcherHostingView
-    /// A shadow refresh is queued for after SwiftUI has drawn the latest change.
+    private let mainPanel: SwitcherPanel
+    private let previewPanel: SwitcherPanel
+    private let mainHost: SwitcherHostingView<SwitcherMainView>
+    private let previewHost: SwitcherHostingView<SwitcherPreviewView>
+    /// A shadow refresh of the preview window is queued for after SwiftUI drew the change.
     private var shadowRefreshPending = false
     private var screen: NSScreen?
-    /// Top edge and horizontal centre of the panel for the current showing. Later
-    /// resizes keep these fixed, so the search bar does not jump while typing.
-    private var anchor: (top: CGFloat, midX: CGFloat)?
+    /// Where the blocks are for the current showing: the remembered positions, or the
+    /// main block's default place fixed when the panel opened, so resizes keep its top
+    /// edge (the search bar does not jump while typing). A nil preview position means the
+    /// card follows the main block.
+    private var mainPosition: BlockPosition?
+    private var previewPosition: BlockPosition?
+    /// The main block is at a remembered (dragged) position rather than its default place.
+    private var mainWasMoved = false
+    /// The drag in progress: which block, and where the pointer and the windows started.
+    private var drag: (block: SwitcherBlock, mouse: NSPoint, main: NSPoint, preview: NSPoint)?
 
     init() {
         let model = SwitcherViewModel()
-        let initialRect = NSRect(origin: .zero, size: SwitcherLayout.minimumSize)
+        let mainHost = SwitcherHostingView(rootView: SwitcherMainView(model: model))
+        let previewHost = SwitcherHostingView(rootView: SwitcherPreviewView(model: model))
+        mainHost.sizingOptions = []
+        previewHost.sizingOptions = []
+        self.model = model
+        self.mainHost = mainHost
+        self.previewHost = previewHost
+        mainPanel = SwitcherPanelController.makePanel(content: mainHost)
+        previewPanel = SwitcherPanelController.makePanel(content: previewHost)
 
+        model.inputHandler = { [weak self] input in
+            self?.onInput?(input)
+        }
+        model.dragHandler = { [weak self] block, phase in
+            self?.handleDrag(block, phase)
+        }
+    }
+
+    /// A transparent, borderless, non-activating panel; the SwiftUI content draws its
+    /// backdrop (glass or blur) and the window shadow follows that shape.
+    private static func makePanel(content: NSView) -> SwitcherPanel {
+        let rect = NSRect(origin: .zero, size: SwitcherLayout.minimumSize)
         let panel = SwitcherPanel(
-            contentRect: initialRect,
+            contentRect: rect,
             styleMask: [.nonactivatingPanel, .borderless],
             backing: .buffered,
             defer: true
@@ -53,23 +92,10 @@ final class SwitcherPanelController {
         panel.isReleasedWhenClosed = false
         panel.animationBehavior = .none
         panel.acceptsMouseMovedEvents = true
-
-        // The window itself is transparent; the SwiftUI content draws a backdrop (glass or
-        // blur) behind the main block and behind the preview card, and the window shadow
-        // follows those two shapes.
-        let hostingView = SwitcherHostingView(rootView: SwitcherRootView(model: model))
-        hostingView.sizingOptions = []
-        hostingView.frame = initialRect
-        hostingView.autoresizingMask = [.width, .height]
-        panel.contentView = hostingView
-
-        self.model = model
-        self.panel = panel
-        self.hostingView = hostingView
-
-        model.inputHandler = { [weak self] input in
-            self?.onInput?(input)
-        }
+        content.frame = rect
+        content.autoresizingMask = [.width, .height]
+        panel.contentView = content
+        return panel
     }
 
     /// How many columns a layout would use for this many items on that screen
@@ -85,11 +111,15 @@ final class SwitcherPanelController {
         return layout.columns
     }
 
-    /// Shows (or re-shows) the panel centred on `screen`'s visibleFrame. Returns the column count used.
+    /// Shows (or re-shows) the blocks on `screen`: where the user last dragged them, or
+    /// centred. Returns the column count used.
     @discardableResult
     func show(session: SwitcherSession, appearance: Appearance, behavior: Behavior, on screen: NSScreen) -> Int {
         self.screen = screen
-        panel.appearance = Self.nsAppearance(for: appearance.theme)
+        drag = nil
+        let nsAppearance = Self.nsAppearance(for: appearance.theme)
+        mainPanel.appearance = nsAppearance
+        previewPanel.appearance = nsAppearance
 
         let layout = Self.layout(
             for: session,
@@ -98,22 +128,29 @@ final class SwitcherPanelController {
             screenSize: screen.visibleFrame.size
         )
         model.present(session: session, appearance: appearance, behavior: behavior, layout: layout)
-        let frame = Self.centredFrame(size: layout.panelSize, in: screen.visibleFrame)
-        anchor = (top: frame.maxY, midX: frame.midX)
-        applyFrame(frame)
+        mainPosition = appearance.panelPosition
+        previewPosition = appearance.previewPosition
+        mainWasMoved = appearance.panelPosition != nil
+        let frames = placement(for: layout, in: screen)
+        if mainPosition == nil {
+            // Keep the default place's top edge for the rest of this showing.
+            mainPosition = PanelPlacement.mainPosition(of: ScreenRect(frames.main), in: ScreenRect(screen.visibleFrame))
+        }
+        apply(frames)
         renderNow()
-        panel.orderFrontRegardless()
+        if frames.preview != nil { previewPanel.orderFrontRegardless() }
+        mainPanel.orderFrontRegardless()
         return layout.columns
     }
 
     /// Re-renders with a new session state (selection, query, items). Resizes if needed,
-    /// keeping the top edge and horizontal centre from `show`. Returns columns.
+    /// keeping the blocks' places from `show`. Returns columns.
     @discardableResult
     func update(session: SwitcherSession) -> Int {
         let layout = currentLayout(for: session)
         let previewCardBefore = model.previewCardSize
         model.update(session: session, layout: layout)
-        resizeIfNeeded(to: layout)
+        relayout()
         if model.previewCardSize != previewCardBefore { refreshShadowSoon() }
         return layout.columns
     }
@@ -141,12 +178,13 @@ final class SwitcherPanelController {
     }
 
     /// Size in pixels of the box the large preview of the selected window gets in the
-    /// current session (points × the screen's backing scale factor), or nil when previews
-    /// are off or no preview fits. Available before the selected window's thumbnail
+    /// current session (points × the screen's backing scale factor), or nil when the large
+    /// preview is off or does not fit. Available before the selected window's thumbnail
     /// exists, so its capture can be sized for the box. The image is aspect-fit inside,
     /// so a capture whose long edge is `max(width, height)` is always sharp enough.
     var largePreviewPixelSize: CGSize? {
-        guard model.appearance.showPreviews, model.session.selectedItem != nil else { return nil }
+        guard model.appearance.showPreviews, model.appearance.showLargePreview,
+              model.session.selectedItem != nil else { return nil }
         let target: NSScreen? = screen ?? NSScreen.main
         let screenSize: CGSize = target?.visibleFrame.size ?? SwitcherLayout.fallbackScreenSize
         let layout = Self.layout(for: model.session, appearance: model.appearance, showsPreview: true, screenSize: screenSize)
@@ -169,11 +207,13 @@ final class SwitcherPanelController {
     }
 
     func hide() {
-        anchor = nil
-        panel.orderOut(nil)
+        drag = nil
+        model.isDragging = false
+        mainPanel.orderOut(nil)
+        previewPanel.orderOut(nil)
     }
 
-    // MARK: - Private
+    // MARK: - Layout
 
     /// Also used by `ScreenshotRenderer`, so the screenshots are sized like the real panel.
     static func layout(
@@ -191,7 +231,8 @@ final class SwitcherPanelController {
             screenSize: screenSize,
             showsPreview: showsPreview,
             previewScale: appearance.largePreviewScale,
-            sectionHeaderCount: SwitcherViewModel.sectionHeaderIndices(for: session, appearance: appearance).count
+            sectionHeaderCount: SwitcherViewModel.sectionHeaderIndices(for: session, appearance: appearance).count,
+            listThumbnails: appearance.showPreviews && appearance.windowThumbnails
         )
     }
 
@@ -206,95 +247,148 @@ final class SwitcherPanelController {
         )
     }
 
-    /// The large preview is shown only in previews mode and once the selected item has a thumbnail.
-    /// The preview box is reserved whenever previews are on and something is selected,
-    /// even before (or without) a thumbnail, so the cards don't jump while arrowing past
-    /// minimized or hidden windows; those show their app icon in the box instead.
+    /// The preview box is reserved whenever the large preview is on and something is
+    /// selected, even before (or without) a thumbnail, so the blocks don't jump while
+    /// arrowing past minimized or hidden windows; those show their app icon instead.
     private func previewAvailable(for session: SwitcherSession, appearance: Appearance) -> Bool {
-        appearance.showPreviews && session.selectedItem != nil
+        appearance.showPreviews && appearance.showLargePreview && session.selectedItem != nil
     }
 
     /// Re-lays out the shown session after the selected item's thumbnail came or went.
-    /// The preview card can change shape without the panel changing size (another
-    /// window's proportions), so the shadow is refreshed whenever the card changed.
+    /// The preview card can change shape without its window changing size (another
+    /// window's proportions), so its shadow is refreshed whenever the card changed.
     private func relayoutForPreview(previewCardBefore: CGSize) {
-        guard panel.isVisible else { return }
+        guard isVisible else { return }
         let session = model.session
         let layout = currentLayout(for: session)
         if layout != model.layout {
             model.update(session: session, layout: layout)
-            resizeIfNeeded(to: layout)
+            relayout()
         }
         if model.previewCardSize != previewCardBefore { refreshShadowSoon() }
     }
 
-    /// Recomputes the window shadow from the drawn content once SwiftUI has rendered the
-    /// current state (the shadow follows the main block and the preview card).
+    /// Frames for `layout` at the current positions on `screen`.
+    private func placement(for layout: SwitcherLayout, in screen: NSScreen) -> (main: NSRect, preview: NSRect?) {
+        let frames = PanelPlacement.frames(
+            visible: ScreenRect(screen.visibleFrame),
+            mainSize: Size(layout.mainSize),
+            previewSize: layout.showsPreview ? Size(layout.previewCardSize) : nil,
+            mainPosition: mainPosition,
+            previewPosition: previewPosition
+        )
+        return (NSRect(frames.main), frames.preview.map { NSRect($0) })
+    }
+
+    /// Moves and resizes the visible blocks to the current layout and positions. Not while
+    /// a block is being dragged: the pointer owns its place then.
+    private func relayout() {
+        guard isVisible, drag == nil, let screen else { return }
+        let frames = placement(for: model.layout, in: screen)
+        let moved = mainPanel.frame != frames.main
+            || (frames.preview.map { $0 != previewPanel.frame || !previewPanel.isVisible } ?? false)
+        apply(frames)
+        guard moved else { return }
+        renderNow()
+        // Cards moved under a resting pointer must not count as hover.
+        model.resetHoverBaseline()
+        if frames.preview != nil, !previewPanel.isVisible {
+            previewPanel.orderFrontRegardless()
+            mainPanel.orderFrontRegardless()
+        }
+    }
+
+    private func apply(_ frames: (main: NSRect, preview: NSRect?)) {
+        if mainPanel.frame != frames.main {
+            mainPanel.setFrame(frames.main, display: true, animate: false)
+        }
+        if let preview = frames.preview {
+            if previewPanel.frame != preview {
+                previewPanel.setFrame(preview, display: true, animate: false)
+            }
+        } else if previewPanel.isVisible {
+            previewPanel.orderOut(nil)
+        }
+    }
+
+    // MARK: - Dragging
+
+    /// A block is dragged with the mouse while the switcher is open. It stays on the
+    /// screen; a card that follows the main block moves with it. When the drag ends the
+    /// new positions are reported so they can be remembered.
+    private func handleDrag(_ block: SwitcherBlock, _ phase: SwitcherDragPhase) {
+        guard let screen, isVisible else { return }
+        let mouse = NSEvent.mouseLocation
+        switch phase {
+        case .changed:
+            if drag == nil {
+                drag = (block, mouse, mainPanel.frame.origin, previewPanel.frame.origin)
+                model.isDragging = true
+            }
+            guard let drag, drag.block == block else { return }
+            let delta = NSPoint(x: mouse.x - drag.mouse.x, y: mouse.y - drag.mouse.y)
+            let visible = ScreenRect(screen.visibleFrame)
+            switch block {
+            case .main:
+                let moved = PanelPlacement.clamp(ScreenRect(NSRect(origin: drag.main.offset(by: delta), size: mainPanel.frame.size)), in: visible)
+                mainPanel.setFrameOrigin(NSPoint(x: moved.x, y: moved.y))
+                if previewPosition == nil, previewPanel.isVisible {
+                    // The card follows the main block: it keeps its place relative to it.
+                    let shift = NSPoint(x: moved.x - drag.main.x, y: moved.y - drag.main.y)
+                    let card = PanelPlacement.clamp(ScreenRect(NSRect(origin: drag.preview.offset(by: shift), size: previewPanel.frame.size)), in: visible)
+                    previewPanel.setFrameOrigin(NSPoint(x: card.x, y: card.y))
+                }
+            case .preview:
+                let moved = PanelPlacement.clamp(ScreenRect(NSRect(origin: drag.preview.offset(by: delta), size: previewPanel.frame.size)), in: visible)
+                previewPanel.setFrameOrigin(NSPoint(x: moved.x, y: moved.y))
+            }
+        case .ended:
+            guard let drag, drag.block == block else { return }
+            self.drag = nil
+            model.isDragging = false
+            model.resetHoverBaseline()
+            let visible = ScreenRect(screen.visibleFrame)
+            switch block {
+            case .main:
+                guard mainPanel.frame.origin != drag.main else { return }
+                mainPosition = PanelPlacement.mainPosition(of: ScreenRect(mainPanel.frame), in: visible)
+                mainWasMoved = true
+            case .preview:
+                guard previewPanel.frame.origin != drag.preview else { return }
+                previewPosition = PanelPlacement.previewPosition(of: ScreenRect(previewPanel.frame), in: visible)
+            }
+            onPositionsChanged?(mainWasMoved ? mainPosition : nil, previewPosition)
+        }
+    }
+
+    // MARK: - Drawing
+
+    /// Recomputes the preview window's shadow from the drawn content once SwiftUI has
+    /// rendered the current state (the shadow follows the card, which hugs the image).
     private func refreshShadowSoon() {
         guard !shadowRefreshPending else { return }
         shadowRefreshPending = true
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.shadowRefreshPending = false
-            guard self.panel.isVisible else { return }
-            self.hostingView.layoutSubtreeIfNeeded()
-            self.panel.displayIfNeeded()
-            self.panel.invalidateShadow()
+            guard self.previewPanel.isVisible else { return }
+            self.previewHost.layoutSubtreeIfNeeded()
+            self.previewPanel.displayIfNeeded()
+            self.previewPanel.invalidateShadow()
         }
     }
 
-    /// Resizes a visible panel to `layout`, keeping the top edge and horizontal centre from `show`.
-    private func resizeIfNeeded(to layout: SwitcherLayout) {
-        guard panel.isVisible, let screen else { return }
-        let current = panel.frame.size
-        guard current.width != layout.panelSize.width || current.height != layout.panelSize.height else { return }
-        let visible = screen.visibleFrame
-        let frame: NSRect
-        if let anchor {
-            frame = Self.anchoredFrame(size: layout.panelSize, top: anchor.top, midX: anchor.midX, in: visible)
-        } else {
-            frame = Self.centredFrame(size: layout.panelSize, in: visible)
-        }
-        applyFrame(frame)
-        renderNow()
-        // Cards moved under a resting pointer must not count as hover.
-        model.resetHoverBaseline()
-    }
-
-    /// Centred in `visible`, at most as large as it.
-    private static func centredFrame(size: CGSize, in visible: NSRect) -> NSRect {
-        let width = min(size.width, visible.width)
-        let height = min(size.height, visible.height)
-        let origin = NSPoint(
-            x: (visible.midX - width / 2).rounded(),
-            y: (visible.midY - height / 2).rounded()
-        )
-        return NSRect(origin: origin, size: NSSize(width: width, height: height))
-    }
-
-    /// Top edge at `top` and centred on `midX`, shifted as little as needed to stay inside `visible`.
-    private static func anchoredFrame(size: CGSize, top: CGFloat, midX: CGFloat, in visible: NSRect) -> NSRect {
-        let width = min(size.width, visible.width)
-        let height = min(size.height, visible.height)
-        var x = (midX - width / 2).rounded()
-        x = min(max(x, visible.minX), visible.maxX - width)
-        var y = (top - height).rounded()
-        y = min(max(y, visible.minY), visible.maxY - height)
-        return NSRect(x: x, y: y, width: width, height: height)
-    }
-
-    private func applyFrame(_ frame: NSRect) {
-        if frame != panel.frame {
-            panel.setFrame(frame, display: true, animate: false)
-        }
-    }
-
-    /// Pushes pending SwiftUI changes through before the panel becomes visible, so it
-    /// never flashes the previous session's content, then fits the shadow to what was drawn.
+    /// Pushes pending SwiftUI changes through before the blocks become visible, so they
+    /// never flash the previous session's content, then fits the shadows to what was drawn.
     private func renderNow() {
-        hostingView.layoutSubtreeIfNeeded()
-        panel.displayIfNeeded()
-        panel.invalidateShadow()
+        mainHost.layoutSubtreeIfNeeded()
+        mainPanel.displayIfNeeded()
+        mainPanel.invalidateShadow()
+        if model.layout.showsPreview {
+            previewHost.layoutSubtreeIfNeeded()
+            previewPanel.displayIfNeeded()
+            previewPanel.invalidateShadow()
+        }
     }
 
     private static func nsAppearance(for theme: Theme) -> NSAppearance? {
@@ -303,5 +397,23 @@ final class SwitcherPanelController {
         case .light: return NSAppearance(named: .aqua)
         case .dark: return NSAppearance(named: .darkAqua)
         }
+    }
+}
+
+extension ScreenRect {
+    init(_ rect: NSRect) {
+        self.init(x: Double(rect.origin.x), y: Double(rect.origin.y), width: Double(rect.width), height: Double(rect.height))
+    }
+}
+
+extension NSRect {
+    init(_ rect: ScreenRect) {
+        self.init(x: CGFloat(rect.x), y: CGFloat(rect.y), width: CGFloat(rect.width), height: CGFloat(rect.height))
+    }
+}
+
+private extension NSPoint {
+    func offset(by delta: NSPoint) -> NSPoint {
+        NSPoint(x: x + delta.x, y: y + delta.y)
     }
 }

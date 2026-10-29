@@ -23,6 +23,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
     /// Names of private functions that could not be found (Apple's symbol names, never
     /// user data); nil when the caller did not say.
     public var missingPrivateSymbols: [String]?
+    /// How the last switch brought its window forward (e.g. "window server, status 0" or
+    /// "public fallback"); fixed wording from the app, never user data. nil: no switch yet.
+    public var lastSwitchMethod: String?
     /// How long the last full and the last partial window-list refresh took, in ms.
     public var lastFullRefreshMilliseconds: Int?
     public var lastPartialRefreshMilliseconds: Int?
@@ -47,7 +50,8 @@ public struct DiagnosticsReport: Equatable, Sendable {
         missingPrivateSymbols: [String]? = nil,
         lastFullRefreshMilliseconds: Int? = nil,
         lastPartialRefreshMilliseconds: Int? = nil,
-        skippedWindowsBySubrole: [String: Int]? = nil
+        skippedWindowsBySubrole: [String: Int]? = nil,
+        lastSwitchMethod: String? = nil
     ) {
         self.appVersion = appVersion
         self.build = build
@@ -65,6 +69,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         self.lastFullRefreshMilliseconds = lastFullRefreshMilliseconds
         self.lastPartialRefreshMilliseconds = lastPartialRefreshMilliseconds
         self.skippedWindowsBySubrole = skippedWindowsBySubrole
+        self.lastSwitchMethod = lastSwitchMethod
     }
 
     static func skipped(_ counts: [String: Int]?) -> String {
@@ -113,6 +118,7 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  List other Spaces: \(Self.available(otherSpacesListingAvailable))")
         lines.append("  Focus across Spaces: \(Self.available(focusAcrossSpacesAvailable))")
         lines.append("  Missing symbols: \(Self.symbols(missingPrivateSymbols))")
+        lines.append("  Last switch: \(lastSwitchMethod.map(Self.clean) ?? "none yet")")
         lines.append("")
         lines.append("Triggers (\(c.triggers.count))")
         for trigger in c.triggers {
@@ -123,13 +129,18 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("  style: \(c.appearance.style.rawValue)")
         lines.append("  size: \(c.appearance.size.rawValue)")
         lines.append("  showPreviews: \(c.appearance.showPreviews)")
+        lines.append("  windowThumbnails: \(c.appearance.windowThumbnails)")
+        lines.append("  showLargePreview: \(c.appearance.showLargePreview)")
         lines.append("  largePreviewPercent: \(c.appearance.largePreviewPercent)")
+        lines.append("  panelPosition: \(c.appearance.panelPosition == nil ? "default" : "moved")")
+        lines.append("  previewPosition: \(c.appearance.previewPosition == nil ? "default" : "moved")")
         lines.append("  showAppName: \(c.appearance.showAppName)")
         lines.append("  groupByApp: \(c.appearance.groupByApp)")
         lines.append("  showMenuBarIcon: \(c.appearance.showMenuBarIcon)")
         lines.append("  theme: \(c.appearance.theme.rawValue)")
         lines.append("  liquidGlass: \(c.appearance.liquidGlass)")
         lines.append("  glassStyle: \(c.appearance.glassStyle.rawValue)")
+        lines.append("  colorTheme: \(Self.clean(c.appearance.colorTheme.preset))")
         lines.append("  placement: \(c.appearance.placement.rawValue)")
         lines.append("  showDelayMilliseconds: \(c.appearance.showDelayMilliseconds)")
         lines.append("")

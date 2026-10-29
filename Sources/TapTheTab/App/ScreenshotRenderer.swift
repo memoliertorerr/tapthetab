@@ -114,11 +114,12 @@ enum ScreenshotRenderer {
     }
 
     enum Shot: CaseIterable {
-        case grid, search, previews, settings
+        case grid, search, previews, themed, settings
 
         var name: String {
             switch self {
             case .grid: return "switcher-grid"
+            case .themed: return "switcher-themed"
             case .search: return "switcher-search"
             case .previews: return "switcher-previews"
             case .settings: return "settings-general"
@@ -210,6 +211,12 @@ enum ScreenshotRenderer {
             return try switcherShot(style: .list, query: "re", previews: false, mode: mode, icons: icons)
         case .previews:
             return try switcherShot(style: .grid, query: "", previews: true, mode: mode, icons: icons)
+        case .themed:
+            // The list with window thumbnails on a theme (Dusk), no large preview.
+            let theme = ThemePreset.named("dusk").map { ColorTheme.none.applying($0) } ?? ColorTheme.none
+            // Eight windows: a scrolling list does not render offscreen.
+            return try switcherShot(style: .list, query: "", previews: true, largePreview: false, theme: theme,
+                                    sampleLimit: 8, mode: mode, icons: icons)
         case .settings:
             return try settingsShot(mode: mode)
         }
@@ -220,6 +227,9 @@ enum ScreenshotRenderer {
         style: LayoutStyle,
         query: String,
         previews: Bool,
+        largePreview: Bool = true,
+        theme: ColorTheme = .none,
+        sampleLimit: Int? = nil,
         mode: ScreenshotMode,
         icons: [Int32: NSImage]
     ) throws -> CGImage {
@@ -227,12 +237,15 @@ enum ScreenshotRenderer {
         appearance.style = style
         appearance.size = .medium
         appearance.showPreviews = previews
+        appearance.showLargePreview = largePreview
+        appearance.colorTheme = theme
         appearance.showAppName = true
         appearance.theme = mode.theme
         let behavior = Behavior()
 
+        let shown = sampleLimit.map { Array(samples.prefix($0)) } ?? samples
         var session = SwitcherSession(
-            items: samples.map { $0.item },
+            items: shown.map { $0.item },
             startsOnPrevious: behavior.startOnPrevious,
             wrapsAround: behavior.wrapAround
         )
@@ -242,7 +255,7 @@ enum ScreenshotRenderer {
         let layout = SwitcherPanelController.layout(
             for: session,
             appearance: appearance,
-            showsPreview: appearance.showPreviews && session.selectedItem != nil,
+            showsPreview: appearance.showPreviews && appearance.showLargePreview && session.selectedItem != nil,
             screenSize: screenSize
         )
         session.columns = layout.columns
@@ -252,7 +265,7 @@ enum ScreenshotRenderer {
         model.present(session: session, appearance: appearance, behavior: behavior, layout: layout)
         if previews {
             // Like the real app, minimized windows and hidden apps have no preview.
-            for sample in samples where !sample.isMinimized && !sample.isAppHidden {
+            for sample in shown where !sample.isMinimized && !sample.isAppHidden {
                 guard let image = WindowArt.image(for: sample, mode: mode, scale: scale) else {
                     throw Failure("could not draw the preview for \(sample.appName)")
                 }
@@ -419,7 +432,7 @@ enum ScreenshotRenderer {
 
         let material: CGColor
         let shadowFill: CGColor
-        switch backdrop {
+        switch backdrop.material {
         case .classic:
             material = mode == .light ? gray(0.97, 0.80) : gray(0.13, 0.80)
             shadowFill = mode == .light ? gray(0.93) : gray(0.16)

@@ -3,6 +3,12 @@ import SwiftUI
 import TapTheTabCore
 import UniformTypeIdentifiers
 
+/// A drag of one of the switcher's blocks: the pointer moved, or was released.
+enum SwitcherDragPhase {
+    case changed
+    case ended
+}
+
 /// State behind the switcher panel. Owned by `SwitcherPanelController`.
 @MainActor
 final class SwitcherViewModel: ObservableObject {
@@ -17,6 +23,10 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var generation: Int = 0
 
     var inputHandler: ((SwitcherInput) -> Void)?
+    /// A block is being dragged (see `SwitcherPanelController`).
+    var dragHandler: ((SwitcherBlock, SwitcherDragPhase) -> Void)?
+    /// True while a block is dragged: hover must not change the selection then.
+    var isDragging = false
     /// Icons to show instead of the running process's, by pid. Always empty in the app;
     /// `ScreenshotRenderer` sets it because its sample items have no real processes.
     var iconOverrides: [Int32: NSImage] = [:]
@@ -92,6 +102,21 @@ final class SwitcherViewModel: ObservableObject {
         return thumbnails[id]
     }
 
+    /// The thumbnail a card or list row shows, or nil for the app icon alone.
+    func itemThumbnail(for id: ItemID) -> CGImage? {
+        guard appearance.windowThumbnails else { return nil }
+        return thumbnail(for: id)
+    }
+
+    /// List rows show window thumbnails (taller rows, see `PanelLayout`).
+    var listShowsThumbnails: Bool {
+        appearance.showPreviews && appearance.windowThumbnails
+    }
+
+    func drag(_ block: SwitcherBlock, _ phase: SwitcherDragPhase) {
+        dragHandler?(block, phase)
+    }
+
     /// Whether a thumbnail is stored for `id`, whatever the current appearance says
     /// (the panel controller checks `showPreviews` against the appearance being shown).
     func hasThumbnail(for id: ItemID) -> Bool {
@@ -144,7 +169,7 @@ final class SwitcherViewModel: ObservableObject {
     }
 
     func hover(index: Int, inside: Bool) {
-        guard inside, behavior.mouseHoverSelects else { return }
+        guard inside, behavior.mouseHoverSelects, !isDragging else { return }
         let location: NSPoint = NSEvent.mouseLocation
         if let baseline = hoverBaseline, baseline == location { return }
         let now: TimeInterval = ProcessInfo.processInfo.systemUptime

@@ -61,7 +61,8 @@ struct SwitcherLayout: Equatable {
         screenSize: CGSize,
         showsPreview: Bool = false,
         previewScale: Double = 1,
-        sectionHeaderCount: Int = 0
+        sectionHeaderCount: Int = 0,
+        listThumbnails: Bool = false
     ) -> SwitcherLayout {
         SwitcherLayout(core: PanelLayout.compute(
             style: style,
@@ -71,7 +72,8 @@ struct SwitcherLayout: Equatable {
             screenSize: Size(screenSize),
             showsPreview: showsPreview,
             previewScale: previewScale,
-            sectionHeaderCount: sectionHeaderCount
+            sectionHeaderCount: sectionHeaderCount,
+            listThumbnails: listThumbnails
         ))
     }
 }
