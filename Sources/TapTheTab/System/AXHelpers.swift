@@ -64,6 +64,20 @@ enum AX {
         AXUIElementSetAttributeValue(element, attribute as CFString, (value ? kCFBooleanTrue : kCFBooleanFalse) as CFTypeRef) == .success
     }
 
+    /// Moves and resizes a window (global top-left-origin coordinates). The position is
+    /// set again after the size, because apps clamp a resize to the screen the window is
+    /// on at that moment.
+    @discardableResult
+    static func setFrame(_ window: AXUIElement, _ frame: CGRect) -> Bool {
+        var origin = frame.origin
+        var size = frame.size
+        guard let position = AXValueCreate(.cgPoint, &origin), let extent = AXValueCreate(.cgSize, &size) else { return false }
+        let moved = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, position)
+        AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, extent)
+        let movedAgain = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, position)
+        return moved == .success || movedAgain == .success
+    }
+
     @discardableResult
     static func perform(_ element: AXUIElement, _ action: String) -> Bool {
         AXUIElementPerformAction(element, action as CFString) == .success
@@ -87,5 +101,12 @@ extension NSScreen {
     var topLeftFrame: CGRect {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? frame.height
         return CGRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
+    }
+
+    /// Visible frame (without menu bar and Dock) in the same top-left-origin space.
+    var topLeftVisibleFrame: CGRect {
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? frame.height
+        return CGRect(x: visibleFrame.minX, y: primaryHeight - visibleFrame.maxY,
+                      width: visibleFrame.width, height: visibleFrame.height)
     }
 }

@@ -88,6 +88,9 @@ built around three goals:
 - **Themes** — Arc-style gradients with grain: eleven presets or your own colors.
 - **Move it** — drag the list or the large preview anywhere while the switcher is open;
   it remembers where.
+- **Quick select, peek, pin** — ⌘1–9 jumps to a window, ⇧Space peeks at it full size,
+  ⇧P pins an app to the top; ⇧D sends a window to your other display.
+- **A layout per shortcut** — e.g. ⌥⇥ as a grid and ⌥\` as a list.
 - **Grid or list layout**, three sizes, light/dark/system theme, shows on the display with
   your mouse (or the active window, or the main display).
 - **Optional live previews** (macOS 14+, needs Screen Recording): window thumbnails in the
@@ -151,6 +154,11 @@ brew install --cask tapthetab
 | <kbd>⇧</kbd><kbd>F</kbd> | Toggle fullscreen |
 | <kbd>⇧</kbd><kbd>H</kbd> | Hide / show the app |
 | <kbd>⇧</kbd><kbd>Q</kbd> | Quit the app |
+| <kbd>⇧</kbd><kbd>X</kbd> | Close all of the app's windows |
+| <kbd>⇧</kbd><kbd>D</kbd> | Move the window to the next display |
+| <kbd>⇧</kbd><kbd>P</kbd> | Pin or unpin the app (pinned apps' windows come first) |
+| <kbd>⌘</kbd><kbd>1</kbd>…<kbd>9</kbd> | Switch straight to that window (<kbd>⌃</kbd> instead of <kbd>⌘</kbd> when your shortcut uses <kbd>⌘</kbd>) |
+| <kbd>⇧</kbd><kbd>Space</kbd> | Peek: show the selected window full size where it is; again to go back (needs Screen Recording) |
 | <kbd>⌥</kbd><kbd>\`</kbd> | Same thing, but only the current app's windows |
 
 The mouse works too: hover to select, click to switch, click outside to dismiss.
@@ -212,6 +220,7 @@ fall back to defaults, and a file that can't be read is set aside as
 }
 ```
 
+- **Triggers** can carry their own `"style": "grid"` or `"list"`.
 - **Shortcuts** are written as `modifier+…+key`, e.g. `command+tab`, `ctrl+shift+space`,
   `option+grave`. A shortcut needs at least one of ⌘ ⌥ ⌃ fn.
 - **Scopes:** `allWindows`, `activeApp` (the frontmost app's windows) and `apps` (one

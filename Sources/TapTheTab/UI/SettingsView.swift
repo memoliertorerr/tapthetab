@@ -20,6 +20,21 @@ struct SettingsView: View {
         }
         .padding(12)
         .frame(minWidth: 640, minHeight: 520)
+        // With a color theme on, the whole window takes it (the forms hide their own
+        // background, their sections keep theirs).
+        .background(
+            ThemeBackground(theme: model.configuration.appearance.colorTheme, cornerRadius: 0)
+                .ignoresSafeArea()
+        )
+    }
+}
+
+extension View {
+    /// The settings tabs' grouped form; over a color theme its own background is hidden
+    /// so the theme shows between the sections.
+    func settingsFormStyle(themed: Bool) -> some View {
+        formStyle(.grouped)
+            .scrollContentBackground(themed ? .hidden : .automatic)
     }
 }
 
@@ -28,7 +43,9 @@ struct SettingsView: View {
 struct TriggerRowItem: Identifiable {
     let index: Int
     let trigger: Trigger
-    var id: String { "\(index)|\(trigger.shortcut.stringValue)|\(trigger.scope.rawValue)" }
+    var id: String {
+        "\(index)|\(trigger.shortcut.stringValue)|\(trigger.scope.rawValue)|\(trigger.style?.rawValue ?? "default")"
+    }
 }
 
 struct GeneralSettingsView: View {
@@ -65,6 +82,7 @@ struct GeneralSettingsView: View {
                         onRecord: { model.toggleRecording(at: row.index) },
                         onShortcut: { shortcut in model.assignShortcut(shortcut, at: row.index) },
                         onScope: { scope in model.setScope(scope, at: row.index) },
+                        onStyle: { style in model.setStyle(style, at: row.index) },
                         onRemove: { model.removeTrigger(at: row.index) }
                     )
                 }
@@ -90,11 +108,15 @@ struct GeneralSettingsView: View {
                 Toggle(L10n.tr("Start on previous window"), isOn: $model.configuration.behavior.startOnPrevious)
                 Toggle(L10n.tr("Select on mouse hover"), isOn: $model.configuration.behavior.mouseHoverSelects)
                 Toggle(L10n.tr("Wrap around at the ends"), isOn: $model.configuration.behavior.wrapAround)
+                Toggle(isOn: $model.configuration.behavior.quickSelect) {
+                    Text(L10n.tr("Quick select with 1–9"))
+                    Text(L10n.tr("While the switcher is open, ⌘1–⌘9 pick one of the first nine windows; ⌃1–⌃9 when the shortcut uses ⌘."))
+                }
             } header: {
                 Text(L10n.tr("Behaviour"))
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle(themed: model.isThemed)
         .onDisappear {
             model.cancelRecording()
         }
@@ -116,9 +138,12 @@ struct TriggerRowView: View {
     let onRecord: () -> Void
     let onShortcut: (Shortcut) -> Void
     let onScope: (SwitcherScope) -> Void
+    let onStyle: (LayoutStyle?) -> Void
     let onRemove: () -> Void
 
     @State private var scope: SwitcherScope
+    /// nil: the style from Appearance.
+    @State private var style: LayoutStyle?
 
     init(
         index: Int,
@@ -130,6 +155,7 @@ struct TriggerRowView: View {
         onRecord: @escaping () -> Void,
         onShortcut: @escaping (Shortcut) -> Void,
         onScope: @escaping (SwitcherScope) -> Void,
+        onStyle: @escaping (LayoutStyle?) -> Void,
         onRemove: @escaping () -> Void
     ) {
         self.index = index
@@ -141,8 +167,10 @@ struct TriggerRowView: View {
         self.onRecord = onRecord
         self.onShortcut = onShortcut
         self.onScope = onScope
+        self.onStyle = onStyle
         self.onRemove = onRemove
         self._scope = State(initialValue: trigger.scope)
+        self._style = State(initialValue: trigger.style)
     }
 
     private var isRecording: Bool { recorder.recordingIndex == index }
@@ -177,8 +205,17 @@ struct TriggerRowView: View {
                     Text(L10n.tr("Apps")).tag(SwitcherScope.apps)
                 }
                 .labelsHidden()
-                .frame(maxWidth: 220)
+                .frame(maxWidth: 190)
                 .padding(.leading, 4)
+
+                Picker(L10n.tr("Style"), selection: $style) {
+                    Text(L10n.tr("Default")).tag(LayoutStyle?.none)
+                    Text(L10n.tr("Grid")).tag(LayoutStyle?.some(.grid))
+                    Text(L10n.tr("List")).tag(LayoutStyle?.some(.list))
+                }
+                .labelsHidden()
+                .fixedSize()
+                .help(L10n.tr("Grid or list for this shortcut. Default uses the style set in Appearance."))
 
                 Spacer(minLength: 0)
 
@@ -207,6 +244,9 @@ struct TriggerRowView: View {
         }
         .onChange(of: scope) { newValue in
             if newValue != trigger.scope { onScope(newValue) }
+        }
+        .onChange(of: style) { newValue in
+            if newValue != trigger.style { onStyle(newValue) }
         }
     }
 }

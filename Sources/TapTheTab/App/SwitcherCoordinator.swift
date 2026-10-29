@@ -11,6 +11,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private let focus = FocusTracker()
     private let panel = SwitcherPanelController()
     private let thumbnails = ThumbnailService.make()
+    private let peek = PeekController()
     private let permissions: PermissionsProviding
 
     private(set) var configuration: Configuration
@@ -19,10 +20,14 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private(set) var lastSwitchMethod: String?
     /// The user dragged a block of the switcher: positions to remember (nil: default place).
     var onPositionsChanged: ((_ main: BlockPosition?, _ preview: BlockPosition?) -> Void)?
+    /// ⇧P pinned or unpinned an app: the new list of pinned bundle IDs to save.
+    var onPinnedAppsChanged: (([String]) -> Void)?
     private(set) var isStarted = false
 
     private var session: SwitcherSession?
     private var activeTrigger: Trigger?
+    /// The appearance of the open session: the settings with the trigger's own style, if any.
+    private var sessionAppearance = Appearance()
     private var router = KeyRouter(triggerKeyCode: KeyCode.tab)
     /// What was picked for which search, in memory only (never written to disk).
     private var searchMemory = SearchMemory()
@@ -201,14 +206,20 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let token = sessionToken
         activeTrigger = trigger
         self.screen = screen
-        router = KeyRouter(triggerKeyCode: trigger.shortcut.keyCode, searchEnabled: configuration.behavior.searchEnabled, triggerModifiers: trigger.shortcut.modifiers)
+        router = KeyRouter(
+            triggerKeyCode: trigger.shortcut.keyCode,
+            searchEnabled: configuration.behavior.searchEnabled,
+            triggerModifiers: trigger.shortcut.modifiers,
+            quickSelectEnabled: configuration.behavior.quickSelect
+        )
+        sessionAppearance = configuration.appearance.effective(for: trigger)
 
         let items = buildItems(from: catalog.latest.items, scope: trigger.scope, screen: screen)
         var newSession = SwitcherSession(
             items: items,
             startsOnPrevious: configuration.behavior.startOnPrevious,
             locked: locked,
-            columns: panel.columns(forItemCount: items.count, appearance: configuration.appearance, on: screen),
+            columns: panel.columns(forItemCount: items.count, appearance: sessionAppearance, on: screen),
             wrapsAround: configuration.behavior.wrapAround,
             searchMemory: searchMemory
         )
@@ -238,7 +249,13 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     /// Older than this, the cached window list is fully rebuilt when the switcher opens.
     private static let fullRefreshAge: TimeInterval = 30
 
+    /// Pinned apps' bundle IDs, lowercased.
+    private var pinnedSet: Set<String> {
+        Set(configuration.filters.pinnedBundleIDs.map { $0.lowercased() })
+    }
+
     private func close() {
+        endPeek()
         showTask?.cancel()
         showTask = nil
         previewTask?.cancel()
@@ -255,6 +272,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
 
     private func handle(_ input: SwitcherInput) {
         guard var current = session else { return }
+        // Any other key ends a peek first; ⇧Space toggles it.
+        if input != .peek { endPeek() }
         let effect = current.handle(input)
         session = current
 
@@ -278,6 +297,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             focus.touch(item.id)
         case .perform(let action, let item):
             perform(action, on: item)
+        case .peek(let item):
+            togglePeek(item)
         case .dismiss:
             close()
             returnFocusIfNeeded()
@@ -285,6 +306,10 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     }
 
     private func perform(_ action: WindowAction, on item: SwitcherItem) {
+        if action == .togglePin {
+            togglePin(item)
+            return
+        }
         let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id), acrossSpaces: configuration.filters.showOtherSpaces)
         guard ok, var current = session else {
             if !ok { NSSound.beep() }
@@ -303,7 +328,9 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         case .hideApp:
             let hidden = !item.isAppHidden
             for index in items.indices where items[index].pid == item.pid { items[index].isAppHidden = hidden }
-        case .toggleFullscreen, .focus:
+        case .closeAppWindows:
+            items.removeAll { $0.pid == item.pid && !$0.isWindowless }
+        case .toggleFullscreen, .focus, .moveToNextDisplay, .togglePin:
             break
         }
         current.replaceItems(items)
@@ -318,6 +345,66 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
                 self?.catalogDidRefresh(snapshot, token: token)
             }
         }
+    }
+
+    /// ⇧P: pin or unpin the item's app. Pinned apps' windows come first; the change is
+    /// saved through `onPinnedAppsChanged` and the open list is re-ordered at once.
+    private func togglePin(_ item: SwitcherItem) {
+        guard let bundleID = item.bundleID?.trimmingCharacters(in: .whitespaces), !bundleID.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        var pinned = configuration.filters.pinnedBundleIDs
+        if let index = pinned.firstIndex(where: { $0.lowercased() == bundleID.lowercased() }) {
+            pinned.remove(at: index)
+        } else {
+            pinned.append(bundleID)
+        }
+        configuration.filters.pinnedBundleIDs = pinned
+        onPinnedAppsChanged?(pinned)
+        guard var current = session else { return }
+        let selected = current.selectedItem?.id
+        current.replaceItems(ItemOrdering.pinnedFirst(current.items, pinnedBundleIDs: pinnedSet))
+        if let selected, let index = current.visible.firstIndex(where: { $0.id == selected }) {
+            current.handle(.select(index: index))
+        }
+        session = current
+        if panel.isVisible {
+            panel.setPinnedBundleIDs(pinnedSet)
+            updatePanel()
+        }
+    }
+
+    // MARK: - Peek
+
+    /// ⇧Space: the selected window full size where it is, over a dimmed screen, or back.
+    /// A still capture, so it needs Screen Recording; minimized windows have nothing to show.
+    private func togglePeek(_ item: SwitcherItem) {
+        if peek.isShowing {
+            endPeek()
+            return
+        }
+        guard permissions.screenRecordingGranted, let thumbnails, case .window(let number) = item.id,
+              !item.isMinimized, !item.isAppHidden,
+              let element = catalog.element(for: item.id) ?? lookUpWindow(item),
+              let frame = AX.frame(element) else {
+            NSSound.beep()
+            return
+        }
+        let screen = NSScreen.screens.first { $0.topLeftFrame.intersects(frame) } ?? self.screen ?? NSScreen.main
+        guard let screen else { return }
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        let appKitFrame = NSRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
+        let pixels = Int((max(frame.width, frame.height) * screen.backingScaleFactor).rounded(.up))
+        let token = sessionToken
+        thumbnails.capture(windowIDs: [number], maxPixelSize: pixels, storeInCache: false) { [weak self] _, image in
+            guard let self, self.sessionToken == token, self.session?.selectedItem?.id == item.id else { return }
+            self.peek.show(image: image, at: appKitFrame, on: screen)
+        }
+    }
+
+    private func endPeek() {
+        peek.hide()
     }
 
     private func catalogDidRefresh(_ snapshot: WindowCatalog.Snapshot, token: Int) {
@@ -335,7 +422,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }))
         guard token == sessionToken, var current = session, let trigger = activeTrigger, let screen else { return }
         current.replaceItems(buildItems(from: snapshot.items, scope: trigger.scope, screen: screen))
-        current.columns = panel.columns(forItemCount: current.visible.count, appearance: configuration.appearance, on: screen)
+        current.columns = panel.columns(forItemCount: current.visible.count, appearance: sessionAppearance, on: screen)
         session = current
         if panel.isVisible {
             updatePanel()
@@ -354,7 +441,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             ownPID: ProcessInfo.processInfo.processIdentifier
         )
         let filtered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
-        return configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(filtered) : filtered
+        let grouped = configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(filtered) : filtered
+        return ItemOrdering.pinnedFirst(grouped, pinnedBundleIDs: pinnedSet)
     }
 
     /// The second entry in plain recency order: what a quick tap should switch to.
@@ -387,7 +475,14 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
 
     private func showPanel() {
         guard let current = session, let screen else { return }
-        let columns = panel.show(session: current, appearance: configuration.appearance, behavior: configuration.behavior, on: screen)
+        let columns = panel.show(
+            session: current,
+            appearance: sessionAppearance,
+            behavior: configuration.behavior,
+            on: screen,
+            triggerModifiers: activeTrigger?.shortcut.modifiers ?? [],
+            pinnedBundleIDs: pinnedSet
+        )
         if columns != current.columns { session?.columns = columns }
         requestThumbnails()
         installOutsideClickMonitor()

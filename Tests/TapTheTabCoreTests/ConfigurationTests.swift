@@ -450,4 +450,177 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertLessThanOrEqual(valid.appearance.colorTheme.colors.count, 3)
         XCTAssertEqual(valid.validated().0, valid)
     }
+
+    // MARK: - v0.9 settings
+
+    func testNewSettingsDefaults() throws {
+        for c in [Configuration(), try decode("{}"), try decode(#"{"appearance": {}, "behavior": {}, "filters": {}}"#)] {
+            XCTAssertTrue(c.behavior.quickSelect)
+            XCTAssertTrue(c.appearance.animations)
+            XCTAssertEqual(c.appearance.menuBarIconStyle, .classic)
+            XCTAssertEqual(c.filters.pinnedBundleIDs, [])
+            XCTAssertTrue(c.triggers.allSatisfy { $0.style == nil })
+        }
+        XCTAssertNil(Trigger(shortcut: .optionTab, scope: .allWindows).style)
+    }
+
+    func testMenuBarIconStyleCases() {
+        XCTAssertEqual(MenuBarIconStyle.allCases.map(\.rawValue), ["classic", "filled", "minimal", "themed"])
+    }
+
+    func testQuickSelectDecodesLeniently() throws {
+        XCTAssertFalse(try decode(#"{"behavior": {"quickSelect": false}}"#).behavior.quickSelect)
+        XCTAssertTrue(try decode(#"{"behavior": {"quickSelect": true}}"#).behavior.quickSelect)
+        let bad = try decode(#"{"behavior": {"quickSelect": "off", "wrapAround": false}}"#)
+        XCTAssertTrue(bad.behavior.quickSelect, "bad value falls back")
+        XCTAssertFalse(bad.behavior.wrapAround, "neighbours kept")
+        XCTAssertTrue(try decode(#"{"behavior": {"quickSelect": null}}"#).behavior.quickSelect)
+    }
+
+    func testAnimationsDecodesLeniently() throws {
+        XCTAssertFalse(try decode(#"{"appearance": {"animations": false}}"#).appearance.animations)
+        let bad = try decode(#"{"appearance": {"animations": 0, "size": "small"}}"#)
+        XCTAssertTrue(bad.appearance.animations, "bad value falls back")
+        XCTAssertEqual(bad.appearance.size, .small, "neighbours kept")
+    }
+
+    func testMenuBarIconStyleDecodesLeniently() throws {
+        for style in MenuBarIconStyle.allCases {
+            XCTAssertEqual(try decode(#"{"appearance": {"menuBarIconStyle": "\#(style.rawValue)"}}"#).appearance.menuBarIconStyle, style)
+        }
+        for badValue in [#""sparkly""#, "3", "true", #"["filled"]"#, #""Filled""#] {
+            let c = try decode(#"{"appearance": {"menuBarIconStyle": \#(badValue), "theme": "dark"}}"#)
+            XCTAssertEqual(c.appearance.menuBarIconStyle, .classic, badValue)
+            XCTAssertEqual(c.appearance.theme, .dark, "neighbours kept for \(badValue)")
+        }
+    }
+
+    func testPinnedBundleIDsDecodeLeniently() throws {
+        XCTAssertEqual(try decode(#"{"filters": {"pinnedBundleIDs": ["com.a", "com.b"]}}"#).filters.pinnedBundleIDs, ["com.a", "com.b"])
+        XCTAssertEqual(try decode(#"{"filters": {"pinnedBundleIDs": ["com.a", 7, null, "com.b"]}}"#).filters.pinnedBundleIDs,
+                       ["com.a", "com.b"], "bad elements are dropped, good ones kept")
+        let bad = try decode(#"{"filters": {"pinnedBundleIDs": "com.a", "showMinimized": false}}"#)
+        XCTAssertEqual(bad.filters.pinnedBundleIDs, [])
+        XCTAssertFalse(bad.filters.showMinimized, "neighbours kept")
+        XCTAssertEqual(FilterOptions(pinnedBundleIDs: ["x.y"]).pinnedBundleIDs, ["x.y"])
+    }
+
+    func testCleansPinnedBundleIDsLikeExcludedOnes() {
+        var c = Configuration()
+        c.filters.pinnedBundleIDs = ["  com.a.App ", "", "com.b", "COM.A.APP", "\n", "com.b", "\tcom.c\n"]
+        c.filters.excludedBundleIDs = c.filters.pinnedBundleIDs
+        let (valid, notes) = c.validated()
+        XCTAssertEqual(valid.filters.pinnedBundleIDs, ["com.a.App", "com.b", "com.c"])
+        XCTAssertEqual(valid.filters.pinnedBundleIDs, valid.filters.excludedBundleIDs)
+        XCTAssertEqual(notes, [], "cleaning bundle IDs is silent")
+        XCTAssertEqual(valid.validated().0, valid, "idempotent")
+    }
+
+    func testPinnedAndExcludedListsAreCleanedIndependently() {
+        var c = Configuration()
+        c.filters.pinnedBundleIDs = ["com.a", "com.A"]
+        c.filters.excludedBundleIDs = ["com.b"]
+        let valid = c.validated().0
+        XCTAssertEqual(valid.filters.pinnedBundleIDs, ["com.a"])
+        XCTAssertEqual(valid.filters.excludedBundleIDs, ["com.b"])
+    }
+
+    func testNewSettingsRoundTrip() throws {
+        var c = Configuration()
+        c.behavior.quickSelect = false
+        c.appearance.animations = false
+        c.appearance.menuBarIconStyle = .themed
+        c.filters.pinnedBundleIDs = ["com.apple.Safari", "com.apple.mail"]
+        c.triggers = [
+            Trigger(shortcut: .optionTab, scope: .allWindows, style: .list),
+            Trigger(shortcut: .optionGrave, scope: .activeApp),
+            Trigger(shortcut: .commandGrave, scope: .apps, style: .grid),
+        ]
+        let data = try JSONEncoder().encode(c)
+        XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
+    }
+
+    // MARK: - Per-trigger style
+
+    func testTriggerStyleDecodes() throws {
+        let c = try decode(#"{"triggers": [{"shortcut": "option+tab", "scope": "allWindows", "style": "list"}, {"shortcut": "option+grave", "scope": "activeApp"}]}"#)
+        XCTAssertEqual(c.triggers, [
+            Trigger(shortcut: .optionTab, scope: .allWindows, style: .list),
+            Trigger(shortcut: .optionGrave, scope: .activeApp),
+        ])
+    }
+
+    func testBadTriggerStyleKeepsTheTrigger() throws {
+        for badValue in [#""carousel""#, "1", "null", "false", #"{"a": 1}"#, #""LIST""#] {
+            let c = try decode(#"{"triggers": [{"shortcut": "cmd+tab", "scope": "apps", "style": \#(badValue)}]}"#)
+            XCTAssertEqual(c.triggers, [Trigger(shortcut: .commandTab, scope: .apps)], badValue)
+        }
+    }
+
+    func testTriggerStillNeedsShortcutAndScope() throws {
+        let c = try decode(#"{"triggers": [{"shortcut": "hyper+tab", "scope": "apps", "style": "list"}, {"shortcut": "cmd+tab", "style": "list"}, {"scope": "apps"}, {"shortcut": "ctrl+tab", "scope": "allWindows", "style": "grid"}]}"#)
+        XCTAssertEqual(c.triggers, [Trigger(shortcut: .controlTab, scope: .allWindows, style: .grid)])
+    }
+
+    func testTriggerStyleIsOnlyEncodedWhenSet() throws {
+        let plain = try JSONEncoder().encode(Trigger(shortcut: .optionTab, scope: .allWindows))
+        let plainObject = try XCTUnwrap(JSONSerialization.jsonObject(with: plain) as? [String: Any])
+        XCTAssertEqual(Set(plainObject.keys), ["shortcut", "scope"])
+
+        let styled = try JSONEncoder().encode(Trigger(shortcut: .optionTab, scope: .allWindows, style: .list))
+        let styledObject = try XCTUnwrap(JSONSerialization.jsonObject(with: styled) as? [String: Any])
+        XCTAssertEqual(styledObject["style"] as? String, "list")
+        XCTAssertEqual(styledObject["shortcut"] as? String, "option+tab")
+        XCTAssertEqual(styledObject["scope"] as? String, "allWindows")
+    }
+
+    func testValidationKeepsTriggerStyles() {
+        var c = Configuration()
+        c.triggers = [Trigger(shortcut: .optionTab, scope: .allWindows, style: .list), Trigger(shortcut: .commandGrave, scope: .apps, style: .grid)]
+        let (valid, notes) = c.validated()
+        XCTAssertEqual(valid.triggers, c.triggers)
+        XCTAssertEqual(notes, [])
+    }
+
+    func testDuplicateShortcutsWithDifferentStylesAreStillDuplicates() {
+        var c = Configuration()
+        c.triggers = [
+            Trigger(shortcut: .optionTab, scope: .allWindows, style: .list),
+            Trigger(shortcut: .optionTab, scope: .allWindows, style: .grid),
+            Trigger(shortcut: .optionTab, scope: .allWindows),
+        ]
+        let (valid, notes) = c.validated()
+        XCTAssertEqual(valid.triggers, [Trigger(shortcut: .optionTab, scope: .allWindows, style: .list)])
+        XCTAssertEqual(notes.count, 2)
+        XCTAssertTrue(notes.allSatisfy { $0.contains("twice") })
+    }
+
+    func testTriggerMatchingReturnsTheStyle() {
+        var c = Configuration()
+        c.triggers = [Trigger(shortcut: .optionTab, scope: .allWindows, style: .list)]
+        XCTAssertEqual(c.trigger(matching: .optionTab)?.style, .list)
+    }
+
+    func testEffectiveAppearanceForTrigger() {
+        var appearance = Appearance()
+        appearance.style = .grid
+        appearance.size = .large
+        appearance.showPreviews = true
+        appearance.animations = false
+
+        let plain = Trigger(shortcut: .optionTab, scope: .allWindows)
+        XCTAssertEqual(appearance.effective(for: plain), appearance)
+
+        let list = Trigger(shortcut: .optionTab, scope: .allWindows, style: .list)
+        var expected = appearance
+        expected.style = .list
+        XCTAssertEqual(appearance.effective(for: list), expected, "only the style changes")
+
+        let grid = Trigger(shortcut: .optionTab, scope: .allWindows, style: .grid)
+        XCTAssertEqual(appearance.effective(for: grid), appearance)
+
+        appearance.style = .list
+        XCTAssertEqual(appearance.effective(for: grid).style, .grid)
+        XCTAssertEqual(appearance.effective(for: plain).style, .list)
+    }
 }

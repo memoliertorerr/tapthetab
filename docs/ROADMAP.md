@@ -58,8 +58,14 @@
 | TT34 | Arc-style themes from Little Joan's theme engine: presets, custom colors, grain, strength; clearer Clear glass | auto | ✅ done |
 | TT35 | Window thumbnails in list rows (taller rows), thumbnails and large preview as separate switches | auto | ✅ done |
 | TT36 | Release v0.8.0 | checkpoint | ✅ done |
+| TT37 | Developer ID signing + notarization: maintainer creates the certificate and API key and adds the six secrets (guide given 2026-10-29) | checkpoint | ⬜ waiting on maintainer |
+| TT38 | Animations (fade-in, sliding selection, preview reshaping), Reduce Motion respected | auto | ✅ done |
+| TT39 | Quick select (modifier + 1–9) with badges | auto | ✅ done |
+| TT40 | Window actions: next display, close app windows, pin apps first | auto | ✅ done |
+| TT41 | Layout per shortcut; peek (⇧Space); Settings themed; menu bar icon styles; main block draggable anywhere | auto | ✅ done |
+| TT42 | Release v0.9.0 | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.8.0 released. Next: the maintainer's check of the focus fix ("Last switch" in Copy Diagnostics), dragging, themes and list thumbnails on macOS 26. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
+**Overall status:** v0.1.0–v0.9.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. v0.9.0 released; Developer ID signing waits on the maintainer's secrets (TT37). The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -71,6 +77,7 @@
 6. **TT25 → TT28** — v0.6.0, testable layout, self-rescue, grouping by app.
 7. **TT29 → TT31** — v0.7.0, Liquid Glass and a floating preview.
 8. **TT32 → TT36** — v0.8.0, movable blocks, themes, list thumbnails, the real focus fix.
+9. **TT37 → TT42** — v0.9.0, feel and power features; signing when the secrets exist.
 
 ---
 
@@ -236,6 +243,15 @@ See `AGENTS.md`. In addition, for this plan:
   fractions of the visible frame (`appearance.panelPosition` / `previewPosition`).
 - Themes are Little Joan's engine ported to Swift (`ColorMath`, `ColorTheme`,
   `GrainTexture`), checked against its TypeScript output for every preset.
+
+### TT37–TT41 (2026-10-29)
+- Icon variants for the app itself were dropped: changing a signed app's icon at run time
+  writes into the bundle and breaks its signature. The menu bar icon (what is visible for
+  a menu bar app) got styles instead.
+- Peek is a still capture shown in its own panel above the switcher (no window is raised,
+  so nothing changes the window order); it needs Screen Recording.
+- Quick select uses ⌘ unless the trigger itself holds ⌘ (then ⌃, then ⌥), so plain digits
+  keep searching.
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.

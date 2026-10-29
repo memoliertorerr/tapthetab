@@ -25,6 +25,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.onPositionsChanged = { [weak self] main, preview in
             self?.blocksMoved(main: main, preview: preview)
         }
+        coordinator.onPinnedAppsChanged = { [weak self] pinned in
+            self?.pinnedAppsChanged(pinned)
+        }
         configuration.startWatching()
         coordinator.onMonitorFailure = { [weak self] in
             Log.app.notice("Keyboard capture stopped; waiting for Accessibility permission")
@@ -45,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
 
         statusItem?.setVisible(configuration.configuration.appearance.showMenuBarIcon)
+        statusItem?.setIconStyle(configuration.configuration.appearance.menuBarIconStyle,
+                                 theme: configuration.configuration.appearance.colorTheme)
         installTerminationSignalHandlers()
 
         if permissions.accessibilityGranted {
@@ -196,6 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let applied = configuration.update(newValue)
         coordinator.apply(configuration: applied)
         statusItem?.setVisible(applied.appearance.showMenuBarIcon)
+        statusItem?.setIconStyle(applied.appearance.menuBarIconStyle, theme: applied.appearance.colorTheme)
         if applied != newValue {
             // Validation changed something; show the user what is actually in effect.
             settings?.update(configuration: applied)
@@ -211,9 +217,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings?.update(configuration: configuration.configuration)
     }
 
+    /// ⇧P in the switcher pinned or unpinned an app.
+    private func pinnedAppsChanged(_ pinned: [String]) {
+        var newValue = configuration.configuration
+        newValue.filters.pinnedBundleIDs = pinned
+        settingsChanged(newValue)
+        settings?.update(configuration: configuration.configuration)
+    }
+
     private func configurationChangedOnDisk(_ newValue: Configuration) {
         coordinator.apply(configuration: newValue)
         statusItem?.setVisible(newValue.appearance.showMenuBarIcon)
+        statusItem?.setIconStyle(newValue.appearance.menuBarIconStyle, theme: newValue.appearance.colorTheme)
         settings?.update(configuration: newValue)
     }
 

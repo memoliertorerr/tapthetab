@@ -3,6 +3,37 @@ import Foundation
 /// Optional re-orderings of the switcher's items, applied after recency ordering and
 /// `ItemFilter` and before the items reach `SwitcherSession`.
 public enum ItemOrdering {
+    /// Moves the items of pinned apps (`FilterOptions.pinnedBundleIDs`, compared
+    /// case-insensitively) to the front. A stable partition: pinned items keep their
+    /// order among themselves (recency, not the order of the pin list), and so do the
+    /// others. Items without a bundle ID (or with an empty one) are never pinned. Nothing
+    /// is added or dropped.
+    ///
+    /// With `groupedByApp` the two can run in either order and give the same list: all
+    /// of an app's items share its bundle ID, so the pinned apps' groups come first, each
+    /// group intact, apps in each part in the order of their most recent window.
+    public static func pinnedFirst(_ items: [SwitcherItem], pinnedBundleIDs: Set<String>) -> [SwitcherItem] {
+        let pinned = Set(pinnedBundleIDs.lazy.map { $0.lowercased() }.filter { !$0.isEmpty })
+        guard !pinned.isEmpty else { return items }
+        var front: [SwitcherItem] = []
+        var back: [SwitcherItem] = []
+        for item in items {
+            if let bundle = item.bundleID?.lowercased(), pinned.contains(bundle) {
+                front.append(item)
+            } else {
+                back.append(item)
+            }
+        }
+        return front + back
+    }
+
+    /// Whether `item`'s app is pinned (bundle IDs compared case-insensitively), e.g. for
+    /// a pin badge or the "Pin"/"Unpin" wording of the ⇧P action.
+    public static func isPinned(_ item: SwitcherItem, pinnedBundleIDs: [String]) -> Bool {
+        guard let bundle = item.bundleID?.lowercased(), !bundle.isEmpty else { return false }
+        return pinnedBundleIDs.contains { $0.lowercased() == bundle }
+    }
+
     /// Groups the items by app (`Appearance.groupByApp`): apps in the order of their
     /// first item, each followed by all of its items in their original order.
     ///

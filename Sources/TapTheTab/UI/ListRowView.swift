@@ -13,6 +13,11 @@ struct ListRowView: View {
     let showsThumbnail: Bool
     let rowHeight: CGFloat
     let showAppName: Bool
+    let isPinned: Bool
+    /// "⌘1"… for the first nine items when quick select is on, at the row's trailing end.
+    let quickSelectLabel: String?
+    /// Shared by the list's rows so the selection highlight slides between them.
+    let selectionNamespace: Namespace.ID?
     let onHover: (Bool) -> Void
     let onTap: () -> Void
 
@@ -44,7 +49,7 @@ struct ListRowView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .layoutPriority(1)
-                    ItemBadges(item: item, size: 11)
+                    ItemBadges(item: item, size: 11, isPinned: isPinned)
                 }
                 if showAppName {
                     HighlightedText.make(item.appName, indices: match?.appNameIndices ?? [], baseColor: Color.secondary)
@@ -54,19 +59,23 @@ struct ListRowView: View {
                 }
             }
             Spacer(minLength: 8)
+            if let quickSelectLabel {
+                QuickSelectBadge(label: quickSelectLabel)
+            }
         }
         .opacity(isDimmed ? 0.6 : 1)
         .padding(.horizontal, 8)
         .frame(height: rowHeight - 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SelectionBackground(isSelected: isSelected, cornerRadius: 10))
+        .background(SelectionHighlight(isSelected: isSelected, cornerRadius: 10, namespace: selectionNamespace))
         .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onHover(perform: onHover)
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(item.displayTitle), \(item.appName)"))
-        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item)))
+        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item, isPinned: isPinned)))
+        .accessibilityHint(Text(verbatim: QuickSelectBadge.accessibilityHint(for: quickSelectLabel)))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 
@@ -82,7 +91,7 @@ struct ListRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .layoutPriority(1)
-            ItemBadges(item: item, size: 11)
+            ItemBadges(item: item, size: 11, isPinned: isPinned)
             Spacer(minLength: 8)
             if showAppName {
                 HighlightedText.make(item.appName, indices: match?.appNameIndices ?? [], baseColor: Color.secondary)
@@ -90,19 +99,23 @@ struct ListRowView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
+            if let quickSelectLabel {
+                QuickSelectBadge(label: quickSelectLabel)
+            }
         }
         .opacity(isDimmed ? 0.6 : 1)
         .padding(.horizontal, 10)
         .frame(height: rowHeight - 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(SelectionBackground(isSelected: isSelected, cornerRadius: 8))
+        .background(SelectionHighlight(isSelected: isSelected, cornerRadius: 8, namespace: selectionNamespace))
         .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onHover(perform: onHover)
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(item.displayTitle), \(item.appName)"))
-        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item)))
+        .accessibilityValue(Text(verbatim: ItemBadges.accessibilityDescription(for: item, isPinned: isPinned)))
+        .accessibilityHint(Text(verbatim: QuickSelectBadge.accessibilityHint(for: quickSelectLabel)))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
     }
 }

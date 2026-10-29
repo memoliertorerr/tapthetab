@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 import TapTheTabCore
 
-/// A running app that can be added to the exclusion list.
+/// A running app that can be added to the excluded or pinned apps.
 struct RunningAppChoice: Identifiable, Equatable {
     let bundleID: String
     let name: String
     var id: String { bundleID }
 }
 
-/// Name and icon for an excluded bundle ID, when the app can be found on disk.
+/// Name and icon for an excluded or pinned bundle ID, when the app can be found on disk.
 struct ExcludedAppInfo {
     let name: String
     let icon: NSImage?
@@ -58,6 +58,8 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var screenRecordingGranted: Bool
     @Published private(set) var runningApps: [RunningAppChoice] = []
     @Published var newBundleID: String = ""
+    /// The bundle ID typed into the pinned apps' field.
+    @Published var newPinnedBundleID: String = ""
     /// Message under one trigger row after its shortcut changed (swap, system conflict).
     @Published private(set) var shortcutFeedback: ShortcutFeedback? = nil
 
@@ -99,6 +101,9 @@ final class SettingsViewModel: ObservableObject {
         self.onChange = onChange
         recorder.delegate = self
     }
+
+    /// A color theme is on: the Settings window shows it behind its forms.
+    var isThemed: Bool { configuration.appearance.colorTheme.isEnabled }
 
     // MARK: - External updates and polling
 
@@ -226,6 +231,13 @@ final class SettingsViewModel: ObservableObject {
         configuration.triggers[index].scope = scope
     }
 
+    /// A row's layout style; nil follows Appearance → Style.
+    func setStyle(_ style: LayoutStyle?, at index: Int) {
+        guard configuration.triggers.indices.contains(index),
+              configuration.triggers[index].style != style else { return }
+        configuration.triggers[index].style = style
+    }
+
     func removeTrigger(at index: Int) {
         guard configuration.triggers.count > 1, configuration.triggers.indices.contains(index) else { return }
         recorder.cancel()
@@ -276,11 +288,17 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func addExcluded(_ rawBundleID: String) {
-        let bundleID = rawBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !bundleID.isEmpty else { return }
-        let lowered = bundleID.lowercased()
-        guard !configuration.filters.excludedBundleIDs.contains(where: { $0.lowercased() == lowered }) else { return }
+        guard let bundleID = Self.newEntry(rawBundleID, in: configuration.filters.excludedBundleIDs) else { return }
         configuration.filters.excludedBundleIDs.append(bundleID)
+    }
+
+    /// The trimmed bundle ID when it is not empty and not in `list` yet (ignoring case).
+    private static func newEntry(_ rawBundleID: String, in list: [String]) -> String? {
+        let bundleID = rawBundleID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !bundleID.isEmpty else { return nil }
+        let lowered = bundleID.lowercased()
+        guard !list.contains(where: { $0.lowercased() == lowered }) else { return nil }
+        return bundleID
     }
 
     func addTypedBundleID() {
@@ -295,6 +313,33 @@ final class SettingsViewModel: ObservableObject {
 
     func removeExcluded(_ bundleID: String) {
         configuration.filters.excludedBundleIDs.removeAll(where: { $0 == bundleID })
+    }
+
+    // MARK: - Pinned apps
+
+    /// Running regular apps that are not pinned yet, sorted by name.
+    var pinnableRunningApps: [RunningAppChoice] {
+        let pinned = Set(configuration.filters.pinnedBundleIDs.map { $0.lowercased() })
+        return runningApps.filter { !pinned.contains($0.bundleID.lowercased()) }
+    }
+
+    func addPinned(_ rawBundleID: String) {
+        guard let bundleID = Self.newEntry(rawBundleID, in: configuration.filters.pinnedBundleIDs) else { return }
+        configuration.filters.pinnedBundleIDs.append(bundleID)
+    }
+
+    func addTypedPinnedBundleID() {
+        let typed = newPinnedBundleID
+        addPinned(typed)
+        newPinnedBundleID = ""
+    }
+
+    var canAddTypedPinnedBundleID: Bool {
+        !newPinnedBundleID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    func removePinned(_ bundleID: String) {
+        configuration.filters.pinnedBundleIDs.removeAll(where: { $0 == bundleID })
     }
 
     private static func currentRunningApps() -> [RunningAppChoice] {

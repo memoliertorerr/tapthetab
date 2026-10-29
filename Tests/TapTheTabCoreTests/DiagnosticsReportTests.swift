@@ -60,12 +60,14 @@ final class DiagnosticsReportTests: XCTestCase {
           showAppName: true
           groupByApp: false
           showMenuBarIcon: true
+          menuBarIconStyle: classic
           theme: system
           liquidGlass: true
           glassStyle: clear
           colorTheme: none
           placement: mouse
           showDelayMilliseconds: 90
+          animations: true
 
         Behavior
           releaseToSwitch: true
@@ -73,6 +75,7 @@ final class DiagnosticsReportTests: XCTestCase {
           startOnPrevious: true
           mouseHoverSelects: true
           wrapAround: true
+          quickSelect: true
 
         Filters
           showMinimized: true
@@ -82,6 +85,7 @@ final class DiagnosticsReportTests: XCTestCase {
           currentDisplayOnly: false
           showOtherSpaces: false
           excludedApps: 0
+          pinnedApps: 0
 
         Config version: 1
         ```
@@ -268,5 +272,46 @@ final class DiagnosticsReportTests: XCTestCase {
         XCTAssertTrue(r.markdown.components(separatedBy: "\n").contains("  Last switch: window server, status 0"))
         r.lastSwitchMethod = "public\nfallback`"
         XCTAssertTrue(r.markdown.components(separatedBy: "\n").contains("  Last switch: publicfallback"))
+    }
+
+    // MARK: - v0.9 settings
+
+    func testNewSettingsAreReported() {
+        var c = Configuration()
+        c.triggers = [
+            Trigger(shortcut: .optionTab, scope: .allWindows, style: .list),
+            Trigger(shortcut: .optionGrave, scope: .activeApp),
+            Trigger(shortcut: .commandGrave, scope: .apps, style: .grid),
+        ]
+        c.appearance.menuBarIconStyle = .minimal
+        c.appearance.animations = false
+        c.behavior.quickSelect = false
+        c.filters.pinnedBundleIDs = ["com.a", "com.b"]
+        let lines = report(c).markdown.components(separatedBy: "\n")
+        for line in [
+            "Triggers (3)",
+            "  ⌥⇥  option+tab  allWindows  list",
+            "  ⌥`  option+`  activeApp",
+            "  ⌘`  command+`  apps  grid",
+            "  menuBarIconStyle: minimal",
+            "  animations: false",
+            "  quickSelect: false",
+            "  pinnedApps: 2",
+        ] {
+            XCTAssertTrue(lines.contains(line), "missing line: \(line)")
+        }
+    }
+
+    func testPinnedAppsAreCountedNeverListed() {
+        var c = Configuration()
+        c.filters.pinnedBundleIDs = ["com.secret.Diary", "org.example.PrivateThing"]
+        let markdown = report(c).markdown
+        XCTAssertTrue(markdown.contains("  excludedApps: 0\n  pinnedApps: 2\n"))
+        for fragment in ["secret", "Diary", "PrivateThing", "example"] {
+            XCTAssertFalse(markdown.contains(fragment), fragment)
+        }
+        var other = Configuration()
+        other.filters.pinnedBundleIDs = ["x.y", "z.w"]
+        XCTAssertEqual(report(c).markdown, report(other).markdown, "only the count shows")
     }
 }

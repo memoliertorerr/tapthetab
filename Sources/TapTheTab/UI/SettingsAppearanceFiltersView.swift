@@ -47,6 +47,11 @@ struct AppearanceSettingsView: View {
                             .foregroundColor(Color.secondary)
                     }
                 }
+
+                Toggle(isOn: $model.configuration.appearance.animations) {
+                    Text(L10n.tr("Animations"))
+                    Text(L10n.tr("The switcher fades in and the selection slides. Always off while Reduce Motion is on."))
+                }
             }
 
             Section {
@@ -115,6 +120,12 @@ struct AppearanceSettingsView: View {
                             .foregroundColor(Color.secondary)
                     }
                 }
+                if model.configuration.appearance.showMenuBarIcon {
+                    MenuBarIconStylePicker(
+                        style: $model.configuration.appearance.menuBarIconStyle,
+                        theme: model.configuration.appearance.colorTheme
+                    )
+                }
             }
 
             Section {
@@ -166,7 +177,7 @@ struct AppearanceSettingsView: View {
                 }
             }
         }
-        .formStyle(.grouped)
+        .settingsFormStyle(themed: model.isThemed)
     }
 }
 
@@ -237,18 +248,97 @@ struct FiltersSettingsView: View {
                     .font(.caption)
                     .foregroundColor(Color.secondary)
             }
+
+            PinnedAppsSection(model: model)
         }
-        .formStyle(.grouped)
+        .settingsFormStyle(themed: model.isThemed)
         .onAppear {
             model.refreshStatus()
         }
     }
 }
 
+/// Settings → Filters → Pinned apps: like the excluded apps, for apps listed first.
+struct PinnedAppsSection: View {
+    @ObservedObject var model: SettingsViewModel
+
+    var body: some View {
+        Section {
+            if model.configuration.filters.pinnedBundleIDs.isEmpty {
+                Text(L10n.tr("No pinned apps."))
+                    .foregroundColor(Color.secondary)
+            }
+            ForEach(model.configuration.filters.pinnedBundleIDs, id: \.self) { bundleID in
+                ExcludedAppRow(
+                    bundleID: bundleID,
+                    info: model.excludedAppInfo(for: bundleID),
+                    list: .pinned,
+                    onRemove: { model.removePinned(bundleID) }
+                )
+            }
+
+            HStack(spacing: 8) {
+                Menu(L10n.tr("Add running app")) {
+                    ForEach(model.pinnableRunningApps) { app in
+                        Button {
+                            model.addPinned(app.bundleID)
+                        } label: {
+                            Text(verbatim: app.name)
+                        }
+                    }
+                }
+                .fixedSize()
+                .disabled(model.pinnableRunningApps.isEmpty)
+
+                Spacer(minLength: 16)
+
+                TextField(L10n.tr("Bundle ID"), text: $model.newPinnedBundleID, prompt: Text(L10n.tr("Bundle ID, e.g. com.example.App")))
+                    .labelsHidden()
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 240)
+                    .onSubmit {
+                        model.addTypedPinnedBundleID()
+                    }
+                Button(L10n.tr("Add")) {
+                    model.addTypedPinnedBundleID()
+                }
+                .disabled(!model.canAddTypedPinnedBundleID)
+            }
+        } header: {
+            Text(L10n.tr("Pinned apps"))
+        } footer: {
+            Text(L10n.tr("Windows of pinned apps come first. Press ⇧P in the switcher to pin or unpin the selected app."))
+                .font(.caption)
+                .foregroundColor(Color.secondary)
+        }
+    }
+}
+
+/// Which list an app row belongs to; only the remove button's wording differs.
+enum AppListKind {
+    case excluded
+    case pinned
+}
+
 struct ExcludedAppRow: View {
     let bundleID: String
     let info: ExcludedAppInfo
+    var list: AppListKind = .excluded
     let onRemove: () -> Void
+
+    private var removeHelp: String {
+        switch list {
+        case .excluded: return L10n.tr("Remove from the excluded apps")
+        case .pinned: return L10n.tr("Remove from the pinned apps")
+        }
+    }
+
+    private var removeAccessibilityLabel: String {
+        switch list {
+        case .excluded: return L10n.tr("Remove %@ from the excluded apps", info.name)
+        case .pinned: return L10n.tr("Remove %@ from the pinned apps", info.name)
+        }
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -279,8 +369,66 @@ struct ExcludedAppRow: View {
                 Image(systemName: "minus.circle")
             }
             .buttonStyle(.borderless)
-            .help(L10n.tr("Remove from the excluded apps"))
-            .accessibilityLabel(Text(L10n.tr("Remove %@ from the excluded apps", info.name)))
+            .help(removeHelp)
+            .accessibilityLabel(Text(removeAccessibilityLabel))
+        }
+    }
+}
+
+/// The four menu bar icons side by side, drawn as they appear in the menu bar.
+struct MenuBarIconStylePicker: View {
+    @Binding var style: MenuBarIconStyle
+    let theme: ColorTheme
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Text(L10n.tr("Menu bar icon"))
+            Spacer(minLength: 8)
+            ForEach(MenuBarIconStyle.allCases, id: \.self) { option in
+                choice(option)
+            }
+        }
+    }
+
+    private func choice(_ option: MenuBarIconStyle) -> some View {
+        let selected = option == style
+        let name = Self.name(of: option)
+        let image = MenuBarIcon.image(for: option, theme: theme)
+        return Button {
+            style = option
+        } label: {
+            VStack(spacing: 3) {
+                Image(nsImage: image)
+                    .renderingMode(image.isTemplate ? .template : .original)
+                    .foregroundColor(Color.primary)
+                    .frame(width: 40, height: 24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.primary.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.12),
+                                          lineWidth: selected ? 2 : 1)
+                    )
+                Text(verbatim: name)
+                    .font(.caption)
+                    .foregroundColor(selected ? Color.primary : Color.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(option == .themed ? L10n.tr("The classic icon in the theme's first color; classic without a theme.") : name)
+        .accessibilityLabel(Text(verbatim: name))
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : [.isButton])
+    }
+
+    static func name(of style: MenuBarIconStyle) -> String {
+        switch style {
+        case .classic: return L10n.tr("Classic")
+        case .filled: return L10n.tr("Filled")
+        case .minimal: return L10n.tr("Minimal")
+        case .themed: return L10n.tr("Themed")
         }
     }
 }

@@ -17,6 +17,7 @@ struct SwitcherMainView: View {
                 .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius, style: .continuous))
                 .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.panelCornerRadius)
                 .switcherDraggable(.main, model: model)
+                .scaleEffect(model.entranceScale)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -32,6 +33,7 @@ struct SwitcherPreviewView: View {
         SwitcherGlassGroup(style: backdrop) {
             SwitcherPreviewCard(model: model, backdrop: backdrop)
                 .switcherDraggable(.preview, model: model)
+                .scaleEffect(model.entranceScale, anchor: .bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
@@ -95,35 +97,40 @@ struct SwitcherMainBlock: View {
 
 /// The selected window's preview on a card that hugs the image, or the app icon on a
 /// card the size of the whole box when there is no image (yet). Nothing without a preview.
+/// One card for both, so with animations on it changes shape between windows instead of
+/// being replaced (the model animates selection changes).
 struct SwitcherPreviewCard: View {
     @ObservedObject var model: SwitcherViewModel
     let backdrop: PanelBackdropStyle
 
     var body: some View {
         let layout = model.layout
-        if layout.showsPreview {
-            if let preview = model.selectedPreview {
-                let card = layout.previewCardSize(fitting: CGSize(width: preview.width, height: preview.height))
-                SwitcherLargePreview(image: preview)
-                    .padding(SwitcherLayout.previewCardPadding)
-                    .frame(width: card.width, height: card.height)
-                    .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
-            } else if let item = model.session.selectedItem {
-                let card = layout.previewCardSize
-                SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: layout.previewSize)
-                    .padding(SwitcherLayout.previewCardPadding)
-                    .frame(width: card.width, height: card.height)
-                    .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
+        if layout.showsPreview, let item = model.session.selectedItem {
+            let preview: CGImage? = model.selectedPreview
+            let card: CGSize = preview.map {
+                layout.previewCardSize(fitting: CGSize(width: $0.width, height: $0.height))
+            } ?? layout.previewCardSize
+            ZStack {
+                if let preview {
+                    SwitcherLargePreview(image: preview)
+                } else {
+                    SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: layout.previewSize)
+                }
             }
+            .padding(SwitcherLayout.previewCardPadding)
+            .frame(width: card.width, height: card.height)
+            .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
         }
     }
 }
 
 extension View {
-    /// Dragging this view moves its block's window (see `SwitcherPanelController`). The
-    /// pointer has to move a few points first, so a click still switches.
+    /// Dragging this view moves its block's window (see `SwitcherPanelController`), also
+    /// when the drag starts on a card or row: the gesture runs alongside theirs, and a
+    /// click that ends a drag does not switch (`SwitcherViewModel.click`). The pointer has
+    /// to move a few points first, so a plain click still switches.
     func switcherDraggable(_ block: SwitcherBlock, model: SwitcherViewModel) -> some View {
-        gesture(
+        simultaneousGesture(
             DragGesture(minimumDistance: 4, coordinateSpace: .global)
                 .onChanged { _ in model.drag(block, .changed) }
                 .onEnded { _ in model.drag(block, .ended) }
@@ -139,10 +146,11 @@ struct SwitcherSearchBar: View {
 
     private var fontSize: CGFloat { isLarge ? 17 : 15 }
 
+    /// A few common keys only; the README lists them all.
     private var hint: String {
         query.isEmpty
-            ? L10n.tr("⇧W close · ⇧M minimize · ⇧Q quit · ⎋ close")
-            : L10n.tr("⇧W close · ⇧M minimize · ⇧Q quit · ⎋ clear")
+            ? L10n.tr("⇧W close · ⇧M minimize · ⇧P pin · ⎋ close")
+            : L10n.tr("⇧W close · ⇧M minimize · ⇧P pin · ⎋ clear")
     }
 
     /// Shown in place of an empty query.
@@ -263,6 +271,8 @@ struct SwitcherEmptyView: View {
 
 struct SwitcherGridView: View {
     @ObservedObject var model: SwitcherViewModel
+    /// The selection highlight is one shape that moves from card to card.
+    @Namespace private var selectionNamespace
 
     var body: some View {
         if model.layout.needsScrolling {
@@ -313,6 +323,9 @@ struct SwitcherGridView: View {
             icon: model.icon(for: cell.ranked.item.pid),
             thumbnail: model.itemThumbnail(for: cell.id),
             showAppName: model.appearance.showAppName,
+            isPinned: model.isPinned(cell.ranked.item),
+            quickSelectLabel: model.quickSelectLabel(forIndex: index),
+            selectionNamespace: selectionNamespace,
             onHover: { inside in viewModel.hover(index: index, inside: inside) },
             onTap: { viewModel.click(index: index) }
         )
@@ -333,6 +346,8 @@ struct SwitcherGridView: View {
 
 struct SwitcherListView: View {
     @ObservedObject var model: SwitcherViewModel
+    /// The selection highlight is one shape that moves from row to row.
+    @Namespace private var selectionNamespace
 
     var body: some View {
         if model.layout.needsScrolling {
@@ -391,6 +406,9 @@ struct SwitcherListView: View {
             showsThumbnail: model.listShowsThumbnails,
             rowHeight: model.layout.itemSize.height,
             showAppName: model.appearance.showAppName,
+            isPinned: model.isPinned(cell.ranked.item),
+            quickSelectLabel: model.quickSelectLabel(forIndex: index),
+            selectionNamespace: selectionNamespace,
             onHover: { inside in viewModel.hover(index: index, inside: inside) },
             onTap: { viewModel.click(index: index) }
         )
