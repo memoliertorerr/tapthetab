@@ -491,4 +491,31 @@ final class PanelLayoutTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - List rows with thumbnails (v0.8)
+
+    func testListRowsWithThumbnailsAreTaller() {
+        let plain = list(5)
+        let thumbs = PanelLayout.compute(style: .list, size: .medium, itemCount: 5, showsSearchBar: true,
+                                         screenSize: macBook, listThumbnails: true)
+        XCTAssertEqual(thumbs.itemSize.height, PanelLayout.listThumbnailRowHeight)
+        XCTAssertEqual(thumbs.panelSize.height - plain.panelSize.height, 5 * (PanelLayout.listThumbnailRowHeight - PanelLayout.listRowHeight))
+        XCTAssertEqual(thumbs.panelSize.width, plain.panelSize.width)
+    }
+
+    func testThumbnailListStillStopsAtTenRowsAndFitsShortScreens() {
+        let ten = PanelLayout.compute(style: .list, size: .medium, itemCount: 30, showsSearchBar: true,
+                                      screenSize: macBook, listThumbnails: true)
+        XCTAssertTrue(ten.needsScrolling)
+        XCTAssertEqual(ten.panelSize.height, 44 + 10 * 60 + 16)
+        let short = Size(width: 1000, height: 400)
+        let fitted = PanelLayout.compute(style: .list, size: .medium, itemCount: 30, showsSearchBar: true,
+                                         screenSize: short, listThumbnails: true)
+        XCTAssertLessThanOrEqual(fitted.panelSize.height, short.height * PanelLayout.maxPanelScreenFraction + 1)
+    }
+
+    func testThumbnailsDoNotChangeTheGrid() {
+        XCTAssertEqual(PanelLayout.compute(style: .grid, size: .medium, itemCount: 9, showsSearchBar: false,
+                                           screenSize: macBook, listThumbnails: true), grid(9))
+    }
 }
