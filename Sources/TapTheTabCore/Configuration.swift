@@ -188,6 +188,9 @@ public struct Behavior: Codable, Equatable, Sendable {
     /// ⌘1…⌘9 (another modifier when the trigger uses ⌘, see `QuickSelect`) switch to the
     /// first nine items at once.
     public var quickSelect: Bool = true
+    /// Look for a newer release on GitHub once a day. Off by default: it is the app's
+    /// only network access, and the user turns it on. Checking by hand works either way.
+    public var checkForUpdates: Bool = false
 
     public init() {}
 
@@ -200,6 +203,7 @@ public struct Behavior: Codable, Equatable, Sendable {
         mouseHoverSelects = c.lenient(Bool.self, .mouseHoverSelects) ?? d.mouseHoverSelects
         wrapAround = c.lenient(Bool.self, .wrapAround) ?? d.wrapAround
         quickSelect = c.lenient(Bool.self, .quickSelect) ?? d.quickSelect
+        checkForUpdates = c.lenient(Bool.self, .checkForUpdates) ?? d.checkForUpdates
     }
 }
 

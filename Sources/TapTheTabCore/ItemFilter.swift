@@ -17,6 +17,9 @@ public struct FilterOptions: Codable, Equatable, Sendable {
     public var showWindowlessApps: Bool = false
     public var currentSpaceOnly: Bool = false
     public var currentDisplayOnly: Bool = false
+    /// List the windows on the switcher's display before the others
+    /// (`ItemOrdering.displayFirst`), each part in recency order.
+    public var currentDisplayFirst: Bool = false
     /// List windows on other Spaces (including fullscreen Spaces) too. Off by default: it
     /// relies on private macOS interfaces. `currentSpaceOnly` still hides those windows.
     public var showOtherSpaces: Bool = false
@@ -33,7 +36,8 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         currentDisplayOnly: Bool = false,
         showOtherSpaces: Bool = false,
         excludedBundleIDs: [String] = [],
-        pinnedBundleIDs: [String] = []
+        pinnedBundleIDs: [String] = [],
+        currentDisplayFirst: Bool = false
     ) {
         self.showMinimized = showMinimized
         self.showHiddenApps = showHiddenApps
@@ -43,6 +47,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         self.showOtherSpaces = showOtherSpaces
         self.excludedBundleIDs = excludedBundleIDs
         self.pinnedBundleIDs = pinnedBundleIDs
+        self.currentDisplayFirst = currentDisplayFirst
     }
 
     public init(from decoder: Decoder) throws {
@@ -53,6 +58,7 @@ public struct FilterOptions: Codable, Equatable, Sendable {
         showWindowlessApps = c.lenient(Bool.self, .showWindowlessApps) ?? d.showWindowlessApps
         currentSpaceOnly = c.lenient(Bool.self, .currentSpaceOnly) ?? d.currentSpaceOnly
         currentDisplayOnly = c.lenient(Bool.self, .currentDisplayOnly) ?? d.currentDisplayOnly
+        currentDisplayFirst = c.lenient(Bool.self, .currentDisplayFirst) ?? d.currentDisplayFirst
         showOtherSpaces = c.lenient(Bool.self, .showOtherSpaces) ?? d.showOtherSpaces
         excludedBundleIDs = c.lenientArray(String.self, .excludedBundleIDs) ?? d.excludedBundleIDs
         pinnedBundleIDs = c.lenientArray(String.self, .pinnedBundleIDs) ?? d.pinnedBundleIDs

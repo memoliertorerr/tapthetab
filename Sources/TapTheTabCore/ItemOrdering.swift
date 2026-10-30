@@ -27,6 +27,32 @@ public enum ItemOrdering {
         return front + back
     }
 
+    /// Moves the items on `displayID` (the display the switcher opens on) to the front
+    /// (`FilterOptions.currentDisplayFirst`). A stable partition: both parts keep their
+    /// order (recency). Items with an unknown display, and windowless app entries (which
+    /// have no display), go to the second part. A nil `displayID` changes nothing.
+    /// Nothing is added or dropped.
+    ///
+    /// Composition: apply this before `pinnedFirst`. Both are stable partitions, so the
+    /// result is pinned apps' items on this display, pinned apps' items elsewhere, other
+    /// items on this display, then the rest: pinned apps still lead. Applied after
+    /// `groupedByApp` it can split an app's group across the two parts; apply it before
+    /// grouping to keep groups whole: apps with a window on this display then come
+    /// before the others, each group intact.
+    public static func displayFirst(_ items: [SwitcherItem], displayID: UInt32?) -> [SwitcherItem] {
+        guard let displayID else { return items }
+        var front: [SwitcherItem] = []
+        var back: [SwitcherItem] = []
+        for item in items {
+            if !item.isWindowless, item.displayID == displayID {
+                front.append(item)
+            } else {
+                back.append(item)
+            }
+        }
+        return front + back
+    }
+
     /// Whether `item`'s app is pinned (bundle IDs compared case-insensitively), e.g. for
     /// a pin badge or the "Pin"/"Unpin" wording of the ⇧P action.
     public static func isPinned(_ item: SwitcherItem, pinnedBundleIDs: [String]) -> Bool {

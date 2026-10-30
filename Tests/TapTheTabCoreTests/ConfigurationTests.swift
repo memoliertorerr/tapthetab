@@ -623,4 +623,50 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(appearance.effective(for: grid).style, .grid)
         XCTAssertEqual(appearance.effective(for: plain).style, .list)
     }
+
+    // MARK: - v0.10 settings
+
+    func testV010SettingsDefaultToOff() throws {
+        for c in [Configuration(), try decode("{}"), try decode(#"{"behavior": {}, "filters": {}}"#)] {
+            XCTAssertFalse(c.behavior.checkForUpdates, "update checks are opt-in")
+            XCTAssertFalse(c.filters.currentDisplayFirst)
+        }
+        XCTAssertFalse(FilterOptions().currentDisplayFirst)
+        XCTAssertTrue(FilterOptions(currentDisplayFirst: true).currentDisplayFirst)
+        XCTAssertFalse(Behavior().checkForUpdates)
+    }
+
+    func testCheckForUpdatesDecodesLeniently() throws {
+        XCTAssertTrue(try decode(#"{"behavior": {"checkForUpdates": true}}"#).behavior.checkForUpdates)
+        XCTAssertFalse(try decode(#"{"behavior": {"checkForUpdates": false}}"#).behavior.checkForUpdates)
+        for badValue in [#""true""#, "1", "null", "[]", #"{"on": true}"#, #""yes""#] {
+            let c = try decode(#"{"behavior": {"checkForUpdates": \#(badValue), "wrapAround": false}}"#)
+            XCTAssertFalse(c.behavior.checkForUpdates, "bad value \(badValue) falls back to off")
+            XCTAssertFalse(c.behavior.wrapAround, "neighbours kept for \(badValue)")
+        }
+        XCTAssertFalse(try decode(#"{"checkForUpdates": true}"#).behavior.checkForUpdates, "only read from behavior")
+    }
+
+    func testCurrentDisplayFirstDecodesLeniently() throws {
+        XCTAssertTrue(try decode(#"{"filters": {"currentDisplayFirst": true}}"#).filters.currentDisplayFirst)
+        for badValue in [#""true""#, "1", "null", "[true]"] {
+            let c = try decode(#"{"filters": {"currentDisplayFirst": \#(badValue), "currentDisplayOnly": true}}"#)
+            XCTAssertFalse(c.filters.currentDisplayFirst, badValue)
+            XCTAssertTrue(c.filters.currentDisplayOnly, "neighbours kept for \(badValue)")
+        }
+    }
+
+    func testV010SettingsRoundTripAndValidate() throws {
+        var c = Configuration()
+        c.behavior.checkForUpdates = true
+        c.filters.currentDisplayFirst = true
+        let data = try JSONEncoder().encode(c)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual((object["behavior"] as? [String: Any])?["checkForUpdates"] as? Bool, true)
+        XCTAssertEqual((object["filters"] as? [String: Any])?["currentDisplayFirst"] as? Bool, true)
+        XCTAssertEqual(try JSONDecoder().decode(Configuration.self, from: data), c)
+        let (valid, notes) = c.validated()
+        XCTAssertEqual(valid, c)
+        XCTAssertEqual(notes, [])
+    }
 }
