@@ -58,14 +58,14 @@
 | TT34 | Arc-style themes from Little Joan's theme engine: presets, custom colors, grain, strength; clearer Clear glass | auto | ✅ done |
 | TT35 | Window thumbnails in list rows (taller rows), thumbnails and large preview as separate switches | auto | ✅ done |
 | TT36 | Release v0.8.0 | checkpoint | ✅ done |
-| TT37 | Developer ID signing + notarization: maintainer creates the certificate and API key and adds the six secrets (guide given 2026-10-29) | checkpoint | ⬜ waiting on maintainer |
+| TT37 | Developer ID signing + notarization: maintainer creates the certificate and API key and adds the six secrets (guide given 2026-10-29) | checkpoint | ✅ done (v0.9.0 signed and notarized, 2026-10-30) |
 | TT38 | Animations (fade-in, sliding selection, preview reshaping), Reduce Motion respected | auto | ✅ done |
 | TT39 | Quick select (modifier + 1–9) with badges | auto | ✅ done |
 | TT40 | Window actions: next display, close app windows, pin apps first | auto | ✅ done |
 | TT41 | Layout per shortcut; peek (⇧Space); Settings themed; menu bar icon styles; main block draggable anywhere | auto | ✅ done |
 | TT42 | Release v0.9.0 | checkpoint | ✅ done |
 
-**Overall status:** v0.1.0–v0.9.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. v0.9.0 released; Developer ID signing waits on the maintainer's secrets (TT37). The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
+**Overall status:** v0.1.0–v0.9.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. v0.9.0 released, the first release signed with a Developer ID and notarized. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -270,15 +270,17 @@ See `AGENTS.md`. In addition, for this plan:
 
 ## Landmines
 - ⌘⇥ never reaches an event tap; it is a Window Server symbolic hotkey (see ARCHITECTURE).
-- Ad-hoc signed builds get a new code signature every build, so macOS may silently drop
-  the Accessibility grant after an update. Document it; fix for real with Developer ID.
+- Ad-hoc signed builds (local builds, releases up to v0.8.0) get a new code signature every
+  build, so macOS may silently drop the Accessibility grant after an update. Releases are
+  Developer ID signed since v0.9.0.
+- Signing secrets: `MACOS_CERT_PASSWORD` is the password chosen when exporting the .p12
+  from Keychain Access (not a GitHub or Apple ID password); `NOTARY_ISSUER_ID` is the UUID
+  at the top of App Store Connect's Team Keys page (not the Key ID).
 - `CGWindowListCreateImage` is obsoleted in the macOS 15 SDK; use ScreenCaptureKit.
 - AX calls are synchronous IPC; one hung app can stall enumeration without
   `AXUIElementSetMessagingTimeout`.
 
 ## Later (designed, deliberately not built)
-- Developer ID signing + notarization: the release workflow already supports it when the
-  signing secrets are added; nothing to build, only secrets to provide.
 - Update checks: only as a manual "Check for updates" link that opens the releases page,
   never a background request.
 - Plugin/scripting hooks (e.g. a URL scheme to open the switcher pre-filtered).

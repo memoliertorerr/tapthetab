@@ -125,16 +125,14 @@ brew install --cask tapthetab
    Accessibility). That's the only required permission.
 
 > [!NOTE]
-> Release builds are not yet notarized by Apple, so the first launch is blocked by
-> Gatekeeper. Either right-click the app → **Open** → **Open**, or go to System Settings →
-> Privacy & Security and click **Open Anyway**. From a terminal you can instead run
-> `xattr -dr com.apple.quarantine /Applications/TapTheTab.app`.
-> Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
+> Since v0.9.0, releases are signed with a Developer ID and notarized by Apple, so they open
+> without a Gatekeeper warning and keep the Accessibility permission across updates. Each
+> release lists SHA-256 checksums in `SHA256SUMS.txt`.
 
 > [!TIP]
-> Because builds are ad-hoc signed, macOS treats every update as a new app and may ask for
-> Accessibility again. If the shortcut stops working after an update, remove TapTheTab
-> from the Accessibility list and add it back.
+> Coming from v0.8.0 or earlier (ad-hoc signed)? macOS sees the signed app as new once: if
+> the shortcut does nothing after updating, remove TapTheTab from the Accessibility list
+> and add it back. Later updates keep the permission.
 
 ## Using it
 
@@ -330,8 +328,9 @@ out and why, without names.
 ## Troubleshooting
 
 **The shortcut does nothing.** Open System Settings → Privacy & Security → Accessibility
-and make sure TapTheTab is listed and on. After an update, ad-hoc signed builds can lose
-the permission silently: remove TapTheTab from the list with **−** and add it again.
+and make sure TapTheTab is listed and on. After the first update from an ad-hoc signed
+build (v0.8.0 or earlier) or with a build you made yourself, macOS can drop the permission
+silently: remove TapTheTab from the list with **−** and add it again.
 
 **⌘⇥ stopped working after TapTheTab crashed or was deleted while using ⌘⇥.** Run:
 
