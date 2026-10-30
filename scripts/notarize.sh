@@ -84,11 +84,25 @@ submit() {
     fi
 }
 
+# Staples and validates `file`. Apple's ticket server sometimes drops the connection
+# ("The network connection was lost", error 68), so try a few times before giving up.
+staple() {
+    local file="$1" attempt
+    for attempt in 1 2 3 4; do
+        if xcrun stapler staple "$file" && xcrun stapler validate "$file"; then
+            return 0
+        fi
+        [[ "$attempt" -lt 4 ]] || break
+        log "Stapling $(basename "$file") failed; retrying in $((attempt * 15)) s"
+        sleep $((attempt * 15))
+    done
+    die "stapling $(basename "$file") failed"
+}
+
 # 1. Notarize the app (via its zip) and staple the ticket to the bundle.
 submit "$ZIP"
 log "Stapling $APP_NAME.app"
-xcrun stapler staple "$APP"
-xcrun stapler validate "$APP"
+staple "$APP"
 
 # 2. Re-package so the zip and the dmg contain the stapled app; sign the dmg.
 scripts/package.sh --sign-dmg "$IDENTITY"
@@ -96,8 +110,7 @@ scripts/package.sh --sign-dmg "$IDENTITY"
 # 3. Notarize and staple the dmg itself.
 submit "$DMG"
 log "Stapling $(basename "$DMG")"
-xcrun stapler staple "$DMG"
-xcrun stapler validate "$DMG"
+staple "$DMG"
 
 # 4. Stapling changed the dmg, so refresh the checksums.
 scripts/package.sh --checksums-only
