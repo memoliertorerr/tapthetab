@@ -74,9 +74,9 @@
 | TT48 | Website (GitHub Pages) with a demo animation; README refresh | auto | ✅ done |
 | TT49 | Release v0.10.0 | checkpoint | ✅ done |
 | TT49.1 | Native block dragging with shortcut modifiers held; Show Tour… and Quit TapTheTab in Settings → About | auto | ✅ done (interactive Mac check pending) |
-| TT49.2 | Release v0.10.1 | checkpoint | ⬜ todo |
+| TT49.2 | Release v0.10.1 | checkpoint | ✅ done (signed, notarized; published downloads verified) |
 
-**Overall status:** v0.1.0–v0.10.0 released. The maintainer reports v0.10.0 works well on macOS 26, except the lower switcher block still cannot be dragged while using ⌘⇥. A patch is in progress for native mouse dragging and Show Tour… / Quit TapTheTab in Settings → About. The drag fix and new Settings actions still need an interactive Mac check. Pages returns 404; deployment remains pending.
+**Overall status:** v0.1.0–v0.10.1 released. The maintainer reports v0.10.0 works well on macOS 26, except the lower switcher block could not be dragged while using ⌘⇥. v0.10.1 replaces its drag gesture with native mouse tracking and adds Show Tour… / Quit TapTheTab in Settings → About. The published DMG and ZIP checksums, Developer ID signature and notarization staples were verified. The drag fix and new Settings actions still need an interactive Mac check. Pages returns 404; deployment remains pending.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
