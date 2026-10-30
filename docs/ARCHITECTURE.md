@@ -43,13 +43,14 @@ previous window without the panel ever appearing.
 | `Shortcut`, `KeyCode`, `ModifierFlags` | Human-readable shortcuts (`"option+tab"`) ↔ key codes. |
 | `Configuration`, `ConfigStore` | Lenient JSON config with validation; atomic 0600 saves; broken files are set aside, never overwritten. |
 | `GridLayout` | Columns/rows/scale for the grid on a given screen (shrinks to fit height and width). |
-| `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, the large preview's box and the card it floats on (scaled by `largePreviewPercent`, hugging the window's proportions), minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
+| `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, the large preview's box and the card it floats on (scaled by `largePreviewPercent` (25–150 %, screen-limited), hugging the window's proportions), minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
 | `PanelPlacement` | Where the main block and the preview card go on a screen (default, remembered `BlockPosition`s, clamped inside the visible frame). |
 | `ColorMath`, `ColorTheme`, `GrainTexture` | Arc-style themes (ported from Little Joan): presets, colors muted into a light or dark band in OKLCH, the gradient's stops and blobs, deterministic grain pixels. |
 | `QuickSelect`, `DisplayMove` | Which modifier + digit picks a window and its badge; moving a window frame to the next display. |
 | `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings; the switcher's display first (`displayFirst`, before grouping so groups stay whole); pinned apps' windows first (`pinnedFirst`). |
 | `AppVersion`, `ReleaseFeed`, `Checksums`, `UpdatePolicy` | Update checks: SemVer ordering, parsing GitHub's latest-release response (size-capped, asset URLs only from GitHub hosts), `SHA256SUMS.txt`, whether a check is due (once a day, only when enabled). |
 | `WineNames` | Readable app names for Wine/CrossOver windows: the `.exe` name from the loader's arguments. |
+| `LargePreviewCaptureSchedule`, `PreviewCaptureTarget`, `PreviewImageRetention`, `PreviewSelectionAnimation` | Capture immediately after a pause and settle during rapid cycling; retain a few recent sharp previews; snap rapid selection changes instead of stacking animations. |
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
@@ -66,9 +67,25 @@ previous window without the panel ever appearing.
 | `WindowWatcher` | One `AXObserver` per regular app (window created/destroyed/retitled/minimized, app hidden/shown) whose coalesced events refresh the catalog, so the list is current when the switcher opens. |
 | `FocusTracker` | `NSWorkspace` activation notifications plus an `AXObserver` on the frontmost app for focused-window changes feed the `RecencyTracker`. |
 | `WindowActions` | Raise via `kAXRaiseAction` + `kAXMainAttribute`, then the window server makes the app frontmost with only that window (`_SLPSSetFrontProcessWithOptions` + a make-key event record), like a click on it; the app's other windows stay put. If those functions are missing: app `kAXFrontmostAttribute` + activation, which may bring all its windows forward. Windowless apps are reopened through Launch Services so they create a window. |
-| `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. |
+| `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. Captures use the window’s pixel scale, run four at a time with priority for large previews/peek, and share in-flight window-list fetches. |
 | `Updater`, `UpdateInstaller` | The only network access (see Network below). `Updater` (main actor) schedules checks and holds the state Settings and the Software Update window show; `UpdateInstaller` downloads, verifies and hands over to a small replace script. |
 | `UI/` | Two non-activating, transparent `NSPanel`s (never take focus — keys come from the tap) hosting SwiftUI: the main block and the large preview's card, each draggable while the switcher is open. Each draws its own backdrop (`PanelBackdrop.swift`): the system's Liquid Glass on macOS 26 (`glassEffect`, Clear or Tinted), a blur with a glass-like rim before, or the classic HUD material, with an optional theme gradient and grain on top. Settings and Onboarding windows. |
+
+## Preview responsiveness
+
+Image updates use transactions without animation: a sharp capture replaces the small
+thumbnail immediately. The preview card alone observes the sharp-image store, so a late
+result for another window does not redraw the grid or list. Card geometry ignores tiny capture-rounding
+differences, but follows the sharp image when a resized window no longer matches its
+cached thumbnail.
+
+Normal selection steps keep the slide/reshape animation. Rapid steps snap to the latest
+selection; Reduce Motion always disables animation. Thumbnail deliveries are batched for
+about one frame, and animated shadow work is deferred until the selection settles.
+Sharp captures run immediately after a pause, settle for 80 ms while cycling, and are
+scheduled one at a time with session-token guards. Up to three recent images are
+retained with a 16-megapixel soft budget (the selected and newest image are protected). Nothing is saved to disk. A larger preview box
+requests another capture even when the selected window did not change.
 
 ## Panel dragging and Settings actions
 

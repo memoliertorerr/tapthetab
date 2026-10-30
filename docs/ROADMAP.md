@@ -48,7 +48,7 @@
 | TT25 | Panel layout math (`SwitcherLayout`) moves into the core with tests | auto | ✅ done |
 | TT26 | Rescue: `TapTheTab --restore-system-shortcuts` and `--reset-settings`; README Troubleshooting + Uninstall | auto | ✅ done |
 | TT27 | Optional grouping of windows by app (`appearance.groupByApp`), apps ordered by recency | auto | ✅ done |
-| TT27.1 | Performance: scoped catalog refreshes, cheaper opens, capture list reuse, one large preview in memory, timings in diagnostics *(added 2026-10-28)* | auto | ✅ done |
+| TT27.1 | Performance: scoped catalog refreshes, cheaper opens, capture list reuse, a small recent-preview cache, timings in diagnostics *(added 2026-10-28)* | auto | ✅ done |
 | TT27.2 | Virtual machines / guest apps: research and support where possible *(added 2026-10-28)* | auto | ✅ done |
 | TT28 | Release v0.6.0 | checkpoint | ✅ done |
 | TT29 | Liquid Glass look for the switcher (setting; Clear or Tinted like the system's; a similar translucent look before macOS 26); CI and releases build with Xcode 26 *(maintainer approved 2026-10-28)* | auto | ✅ done |
@@ -75,8 +75,10 @@
 | TT49 | Release v0.10.0 | checkpoint | ✅ done |
 | TT49.1 | Native block dragging with shortcut modifiers held; Show Tour… and Quit TapTheTab in Settings → About | auto | ✅ done (interactive Mac check pending) |
 | TT49.2 | Release v0.10.1 | checkpoint | ✅ done (signed, notarized; published downloads verified) |
+| TT49.3 | Preview responsiveness under rapid cycling; size presets and fine adjustment from 25–150 % | auto | ✅ done (interactive Mac performance check pending) |
+| TT49.4 | Release v0.10.2 | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.10.1 released. The maintainer reports v0.10.0 works well on macOS 26, except the lower switcher block could not be dragged while using ⌘⇥. v0.10.1 replaces its drag gesture with native mouse tracking and adds Show Tour… / Quit TapTheTab in Settings → About. The published DMG and ZIP checksums, Developer ID signature and notarization staples were verified. The drag fix and new Settings actions still need an interactive Mac check. Pages returns 404; deployment remains pending.
+**Overall status:** v0.1.0–v0.10.1 released. The maintainer reports v0.10.0 works well on macOS 26, except the lower switcher block could not be dragged while using ⌘⇥. v0.10.1 replaces its drag gesture with native mouse tracking and adds Show Tour… / Quit TapTheTab in Settings → About. The published DMG and ZIP checksums, Developer ID signature and notarization staples were verified. The drag fix and new Settings actions still need an interactive Mac check. The maintainer reports slow blur-to-sharp preview transitions and severe lag with animations during rapid cycling. v0.10.2 work addresses capture scheduling, image transitions and render work, and expands preview sizing to 25–150 %. Interactive performance verification remains pending. Pages returns 404; deployment remains pending.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -216,7 +218,7 @@ See `AGENTS.md`. In addition, for this plan:
 - Layout math moved to `PanelLayout` (core), verified bit-identical over ~1M inputs.
 - Performance: scoped catalog refreshes (watcher reports which apps changed; opening
   re-asks only the frontmost app unless the list is >30 s old), ScreenCaptureKit window
-  list reused for 1.5 s, one large preview kept in memory, refresh timings in diagnostics.
+  list reused for 1.5 s, a small recent-preview cache, refresh timings in diagnostics.
 - Grouping by app keeps a quick tap on the previously used window.
 - VM / Windows apps: see `docs/research/vm-windows.md`; `WindowAdmission` admits titled
   `AXUnknown` windows (Wine family) and drops untitled dialogs.

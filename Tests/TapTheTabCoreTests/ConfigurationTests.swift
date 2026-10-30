@@ -333,6 +333,7 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(Configuration().appearance.largePreviewPercent, 66)
         XCTAssertEqual(try decode("{}").appearance.largePreviewPercent, 66)
         XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": 75}}"#).appearance.largePreviewPercent, 75)
+        XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": 125}}"#).appearance.largePreviewPercent, 125)
         XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": "big"}}"#).appearance.largePreviewPercent, 66)
         XCTAssertEqual(try decode(#"{"appearance": {"largePreviewPercent": 70.5}}"#).appearance.largePreviewPercent, 66)
     }
@@ -343,11 +344,16 @@ final class ConfigurationTests: XCTestCase {
         var (valid, notes) = c.validated()
         XCTAssertEqual(valid.appearance.largePreviewPercent, 25)
         XCTAssertEqual(notes.count, 1)
+        // The upper bound used to be 100; sizes above it are now valid, 150 is the limit.
         c.appearance.largePreviewPercent = 400
         (valid, notes) = c.validated()
-        XCTAssertEqual(valid.appearance.largePreviewPercent, 100)
+        XCTAssertEqual(valid.appearance.largePreviewPercent, 150)
         XCTAssertEqual(notes.count, 1)
-        for ok in [25, 50, 66, 75, 100] {
+        c.appearance.largePreviewPercent = 151
+        (valid, notes) = c.validated()
+        XCTAssertEqual(valid.appearance.largePreviewPercent, 150)
+        XCTAssertEqual(notes.count, 1)
+        for ok in [25, 26, 50, 66, 75, 100, 101, 125, 137, 150] {
             c.appearance.largePreviewPercent = ok
             (valid, notes) = c.validated()
             XCTAssertEqual(valid.appearance.largePreviewPercent, ok)
@@ -362,8 +368,14 @@ final class ConfigurationTests: XCTestCase {
         XCTAssertEqual(a.largePreviewScale, 1)
         a.largePreviewPercent = -3
         XCTAssertEqual(a.largePreviewScale, 0.25)
+        a.largePreviewPercent = 125
+        XCTAssertEqual(a.largePreviewScale, 1.25, accuracy: 1e-9)
+        a.largePreviewPercent = 150
+        XCTAssertEqual(a.largePreviewScale, 1.5)
         a.largePreviewPercent = Int.max
-        XCTAssertEqual(a.largePreviewScale, 1)
+        XCTAssertEqual(a.largePreviewScale, 1.5)
+        a.largePreviewPercent = Int.min
+        XCTAssertEqual(a.largePreviewScale, 0.25)
     }
 
     func testGlassAndPreviewSettingsRoundTrip() throws {

@@ -11,8 +11,9 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var behavior: Behavior = Behavior()
     @Published private(set) var layout: SwitcherLayout = SwitcherLayout.initial
     @Published private(set) var thumbnails: [ItemID: CGImage] = [:]
-    /// The sharper image for the large preview. Only one is kept: the selected window's.
-    @Published private(set) var largePreview: (id: ItemID, image: CGImage)?
+    /// Sharper images for the large preview, a few recent ones. Observed only by the
+    /// preview card, so a sharp image arriving does not redraw the grid or list.
+    let largePreviews = LargePreviewStore()
     /// Bumped on every show so scroll views start fresh.
     @Published private(set) var generation: Int = 0
     /// Modifiers of the shortcut that opened the switcher; quick-select labels depend on them.
@@ -43,6 +44,7 @@ final class SwitcherViewModel: ObservableObject {
     /// Hover is ignored shortly after, so typing or arrowing is not undone by a card
     /// sliding under the pointer.
     private var lastKeyboardSelectionChange: TimeInterval = 0
+    private var lastSelectionChange: TimeInterval?
     /// True while a hover or click is being forwarded, so the resulting update does not
     /// count as keyboard navigation.
     private var isForwardingPointerInput = false
@@ -71,6 +73,7 @@ final class SwitcherViewModel: ObservableObject {
         triggerModifiers: ModifierFlags = [],
         pinnedBundleIDs: Set<String> = []
     ) {
+        lastSelectionChange = nil
         // A new showing never animates from the previous one's state.
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -94,8 +97,10 @@ final class SwitcherViewModel: ObservableObject {
         if appearance.showPreviews {
             let kept = thumbnails.filter { ids.contains($0.key) }
             if kept.count != thumbnails.count { thumbnails = kept }
-        } else if !thumbnails.isEmpty {
-            thumbnails = [:]
+            largePreviews.prune(keeping: ids)
+        } else {
+            if !thumbnails.isEmpty { thumbnails = [:] }
+            largePreviews.removeAll()
         }
 
         if self.appearance != appearance { self.appearance = appearance }
@@ -104,26 +109,40 @@ final class SwitcherViewModel: ObservableObject {
         if self.triggerModifiers != triggerModifiers { self.triggerModifiers = triggerModifiers }
         setPinnedBundleIDs(pinnedBundleIDs)
         self.session = session
+        largePreviews.selectedID = session.selectedItem?.id
         generation += 1
         resetHoverBaseline()
     }
 
     /// Only the selection moved (same items, query and layout): that change slides the
     /// highlight and reshapes the preview card when animations are on. Anything else is
-    /// applied at once.
-    func update(session: SwitcherSession, layout: SwitcherLayout) {
+    /// applied at once. Returns true when the change animates.
+    @discardableResult
+    func update(session: SwitcherSession, layout: SwitcherLayout) -> Bool {
         let selectionMoved = Self.selectionChanged(from: self.session, to: session)
-        if !isForwardingPointerInput, selectionMoved {
-            lastKeyboardSelectionChange = ProcessInfo.processInfo.systemUptime
+        let now = ProcessInfo.processInfo.systemUptime
+        let animateSelection = PreviewSelectionAnimation.shouldAnimate(
+            enabled: animates, previousChange: lastSelectionChange, now: now
+        )
+        if selectionMoved {
+            lastSelectionChange = now
+            if !isForwardingPointerInput { lastKeyboardSelectionChange = now }
         }
-        if selectionMoved, animates, self.layout == layout, Self.sameContent(self.session, session) {
+        let sameContent = Self.sameContent(self.session, session)
+        // Windows that closed take their sharp images with them.
+        if !sameContent { largePreviews.prune(keeping: Set(session.items.map(\.id))) }
+        largePreviews.selectedID = session.selectedItem?.id
+        if selectionMoved, animateSelection, self.layout == layout, sameContent {
             withAnimation(Self.selectionAnimation) {
                 self.session = session
             }
-            return
+            return true
         }
-        if self.layout != layout { self.layout = layout }
-        if self.session != session { self.session = session }
+        withoutAnimation {
+            if self.layout != layout { self.layout = layout }
+            if self.session != session { self.session = session }
+        }
+        return false
     }
 
     /// Prepares the blocks for appearing: slightly smaller when they will animate in,
@@ -146,41 +165,52 @@ final class SwitcherViewModel: ObservableObject {
         }
     }
 
-    /// The selected window's image changing reshapes the preview card, so it animates
-    /// like a selection change; other windows' images just appear.
+    /// Images that arrive (or go) replace what is shown at once, never animated: inside an
+    /// animation SwiftUI would crossfade the old and new image, which read as a slow blur
+    /// turning sharp and, while cycling, stacked several large images being blended.
     func setThumbnail(_ image: CGImage?, for id: ItemID) {
-        guard appearance.showPreviews else { return }
-        animatingIfSelected(id) {
+        setThumbnails([id: image])
+    }
+
+    /// Several thumbnails in one change, so the panels redraw once for all of them.
+    func setThumbnails(_ images: [ItemID: CGImage?]) {
+        guard appearance.showPreviews, !images.isEmpty else { return }
+        var updated = thumbnails
+        for (id, image) in images {
             if let image {
-                thumbnails[id] = image
-            } else if thumbnails[id] != nil {
-                thumbnails.removeValue(forKey: id)
+                updated[id] = image
+            } else {
+                updated.removeValue(forKey: id)
             }
+        }
+        withoutAnimation {
+            thumbnails = updated
         }
     }
 
     func clearThumbnails() {
         if !thumbnails.isEmpty { thumbnails = [:] }
-        if largePreview != nil { largePreview = nil }
+        largePreviews.removeAll()
     }
 
+    /// A sharp image for the large preview. Kept even when the window is no longer
+    /// selected (a late result while cycling), so going back to it is sharp at once;
+    /// `LargePreviewStore` bounds how many are kept.
     func setLargePreview(_ image: CGImage?, for id: ItemID) {
         guard appearance.showPreviews else { return }
-        animatingIfSelected(id) {
+        withoutAnimation {
             if let image {
-                largePreview = (id, image)
-            } else if largePreview?.id == id {
-                largePreview = nil
+                largePreviews.store(image, for: id)
+            } else {
+                largePreviews.remove(id)
             }
         }
     }
 
-    private func animatingIfSelected(_ id: ItemID, _ change: () -> Void) {
-        if animates, layout.showsPreview, session.selectedItem?.id == id {
-            withAnimation(Self.selectionAnimation, change)
-        } else {
-            change()
-        }
+    private func withoutAnimation(_ change: () -> Void) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction, change)
     }
 
     /// The label for picking the item at `index` (in `session.visible`) directly, e.g. "⌘1";
@@ -241,19 +271,20 @@ final class SwitcherViewModel: ObservableObject {
         )
     }
 
-    /// The large preview's image: the selected item's thumbnail, when the layout has room for it.
+    /// The large preview's image, when the layout has room for it: the selected window's
+    /// sharp image, else its thumbnail (scaled up until the sharp one arrives).
     var selectedPreview: CGImage? {
-        guard layout.showsPreview, let id = session.selectedItem?.id else { return nil }
-        if let large = largePreview, large.id == id, appearance.showPreviews { return large.image }
-        return thumbnail(for: id)
+        guard layout.showsPreview, appearance.showPreviews, let id = session.selectedItem?.id else { return nil }
+        return largePreviews.image(for: id) ?? thumbnails[id]
     }
 
-    /// Size of the preview card as currently drawn: hugging the selected window's image,
-    /// the whole box while there is none, `.zero` without a preview.
+    /// Ignore image-rounding differences, but follow the sharp capture when a cached
+    /// thumbnail has stale proportions after the window was resized.
     var previewCardSize: CGSize {
-        guard layout.showsPreview, session.selectedItem != nil else { return .zero }
-        guard let image = selectedPreview else { return layout.previewCardSize }
-        return layout.previewCardSize(fitting: CGSize(width: image.width, height: image.height))
+        guard layout.showsPreview, let id = session.selectedItem?.id else { return .zero }
+        let thumbnail = thumbnails[id].map { Size(width: Double($0.width), height: Double($0.height)) }
+        let sharp = largePreviews.image(for: id).map { Size(width: Double($0.width), height: Double($0.height)) }
+        return CGSize(layout.core.previewCardSize(thumbnail: thumbnail, sharp: sharp))
     }
 
     /// Cached per process; not published, so filling the cache during rendering is fine.
@@ -303,5 +334,55 @@ final class SwitcherViewModel: ObservableObject {
     private static func selectionChanged(from old: SwitcherSession, to new: SwitcherSession) -> Bool {
         if old.selectedIndex != new.selectedIndex { return true }
         return old.selectedItem?.id != new.selectedItem?.id
+    }
+}
+
+/// The large preview's sharp images: the selected window's and a few recently captured
+/// others (`PreviewImageRetention` bounds them by count and pixels). Changes publish only
+/// when they alter the selected window's image, so late results for windows cycled past
+/// cost no redraw.
+@MainActor
+final class LargePreviewStore: ObservableObject {
+    private var images: [ItemID: CGImage] = [:]
+    private var retention = PreviewImageRetention<ItemID>()
+
+    /// The selected window, which is never dropped to make room. Set by the model; not
+    /// published (the session change that moves the selection redraws already).
+    var selectedID: ItemID? {
+        didSet {
+            if let selectedID, selectedID != oldValue { retention.touch(selectedID) }
+        }
+    }
+
+    func image(for id: ItemID) -> CGImage? { images[id] }
+
+    func store(_ image: CGImage, for id: ItemID) {
+        if id == selectedID { objectWillChange.send() }
+        images[id] = image
+        for dropped in retention.insert(id, pixels: image.width * image.height, protecting: selectedID) {
+            images.removeValue(forKey: dropped)
+        }
+    }
+
+    func remove(_ id: ItemID) {
+        guard images[id] != nil else { return }
+        if id == selectedID { objectWillChange.send() }
+        images.removeValue(forKey: id)
+        retention.remove(id)
+    }
+
+    /// Keeps only images of windows in `ids`.
+    func prune(keeping ids: Set<ItemID>) {
+        let dropped = retention.prune(keeping: ids)
+        guard !dropped.isEmpty else { return }
+        if let selectedID, dropped.contains(selectedID) { objectWillChange.send() }
+        for id in dropped { images.removeValue(forKey: id) }
+    }
+
+    func removeAll() {
+        guard !images.isEmpty else { return }
+        objectWillChange.send()
+        images.removeAll()
+        retention.removeAll()
     }
 }

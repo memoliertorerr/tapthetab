@@ -104,7 +104,7 @@ sample windows (`make screenshots`, `make demo`), so they always match the curre
   your mouse (or the active window, or the main display).
 - **Optional live previews** (macOS 14+, needs Screen Recording): window thumbnails in the
   grid and the list, and a large preview of the selected window on its own floating card
-  (50–100 % size).
+  (25–150 % size, with presets and fine adjustment; limited to available screen space).
 - **First-run tour** — a short walk through the keys the first time you run it; reopen it
   from the menu bar menu or Settings → About → Show Tour…. Settings → About also has
   Quit TapTheTab, which restores any system shortcuts the app took over.
@@ -246,7 +246,7 @@ fall back to defaults, and a file that can't be read is set aside as
   **Placement:** `mouse`, `activeWindow`, `main`.
 - **Look:** `liquidGlass` `true` (glass) or `false` (classic dark panel); `glassStyle`
   `clear` (more see-through) or `tinted` (frosted, more contrast).
-  `largePreviewPercent` (25–100) sizes the large preview.
+  `largePreviewPercent` (25–150) sizes the large preview.
 - **Theme:** `colorTheme.preset` is `none`, a preset (`mist`, `sand`, `sage`, `lagoon`,
   `dusk`, `ember`, `orchid`, `glacier`, `meadow`, `berry`, `graphite`) or `custom` (1–3
   `colors`); `intensity`, `grain` and `opacity` go from 0 to 1.

@@ -33,6 +33,8 @@ struct SwitcherLayout: Equatable {
     var showsSearchBar: Bool { core.showsSearchBar }
     var needsScrolling: Bool { core.needsScrolling }
     var panelSize: CGSize { CGSize(core.panelSize) }
+    /// Combined bounds for rendering both blocks, including previews wider than the list.
+    var boundingSize: CGSize { CGSize(core.boundingSize) }
     /// Box for the large preview of the selected window above the grid or list, or
     /// `.zero` when it is not shown. Included in `panelSize`.
     var previewSize: CGSize { CGSize(core.previewSize) }

@@ -9,16 +9,24 @@ struct AppearanceSettingsView: View {
         L10n.tr("%lld ms", Int(model.showDelay.rounded()))
     }
 
-    /// The preview sizes offered, plus a hand-edited value from config.json so the
-    /// picker never shows an empty selection.
+    /// The preview sizes offered, plus a value set with the slider or edited by hand in
+    /// config.json so the picker never shows an empty selection.
     private var previewPercentChoices: [Int] {
-        var choices = [50, 66, 75, 100]
+        var choices = [25, 50, 66, 75, 100, 125, 150]
         let current = model.configuration.appearance.largePreviewPercent
         if !choices.contains(current) {
             choices.append(current)
             choices.sort()
         }
         return choices
+    }
+
+    /// The fine-grained preview size control: whole percent, same range as the config.
+    private var previewPercentSlider: Binding<Double> {
+        Binding(
+            get: { Double(model.configuration.appearance.largePreviewPercent) },
+            set: { model.configuration.appearance.largePreviewPercent = Int($0.rounded()) }
+        )
     }
 
     var body: some View {
@@ -74,6 +82,11 @@ struct AppearanceSettingsView: View {
                                 Text(L10n.tr("%lld%%", percent)).tag(percent)
                             }
                         }
+                        let range = Appearance.largePreviewPercentRange
+                        Slider(value: previewPercentSlider,
+                               in: Double(range.lowerBound)...Double(range.upperBound), step: 5)
+                            .accessibilityLabel(Text(L10n.tr("Large preview size")))
+                            .accessibilityValue(Text(L10n.tr("%lld%%", model.configuration.appearance.largePreviewPercent)))
                     }
                     if !model.screenRecordingGranted {
                         HStack(spacing: 8) {

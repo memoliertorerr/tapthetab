@@ -41,6 +41,12 @@ final class SwitcherPanelController {
     private var shadowRefreshPending = false
     /// Bumped by every delayed shadow refresh, so only the latest one runs.
     private var delayedShadowToken = 0
+    /// Thumbnails delivered since the last flush; applied together (see `setThumbnail`).
+    private var pendingThumbnails: [ItemID: CGImage?] = [:]
+    private var thumbnailFlushScheduled = false
+    /// Captures finish one by one; gathering those within about a frame redraws the
+    /// panels once for all of them instead of once per window.
+    private static let thumbnailFlushDelay: TimeInterval = 0.016
     private var screen: NSScreen?
     /// Where the blocks are for the current showing: the remembered positions, or the
     /// main block's default place fixed when the panel opened, so resizes keep its top
@@ -178,9 +184,9 @@ final class SwitcherPanelController {
     func update(session: SwitcherSession) -> Int {
         let layout = currentLayout(for: session)
         let previewCardBefore = model.previewCardSize
-        model.update(session: session, layout: layout)
+        let animated = model.update(session: session, layout: layout)
         relayout()
-        if model.previewCardSize != previewCardBefore { refreshPreviewShadow() }
+        if model.previewCardSize != previewCardBefore { refreshPreviewShadow(animated: animated) }
         return layout.columns
     }
 
@@ -190,15 +196,41 @@ final class SwitcherPanelController {
         model.setPinnedBundleIDs(bundleIDs)
     }
 
-    /// Window preview arrived (or nil to clear). Ignored when previews are off.
-    /// When it is the selected item's, the large preview appears (or goes) at once.
+    /// A captured window preview arrived (or nil to clear). Ignored when previews are
+    /// off. Applied within about a frame, together with any others arriving meanwhile;
+    /// when it is the selected item's, the large preview changes at once (no fade).
     func setThumbnail(_ image: CGImage?, for id: ItemID) {
-        let previewCardBefore = model.previewCardSize
-        model.setThumbnail(image, for: id)
-        if id == model.session.selectedItem?.id { relayoutForPreview(previewCardBefore: previewCardBefore) }
+        pendingThumbnails.updateValue(image, forKey: id)
+        guard !thumbnailFlushScheduled else { return }
+        thumbnailFlushScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.thumbnailFlushDelay) { [weak self] in
+            self?.flushThumbnails()
+        }
     }
 
-    /// A sharper image of a window for the large preview; only the latest is kept.
+    /// Thumbnails already at hand (cached), applied now in one change.
+    func setThumbnails(_ images: [ItemID: CGImage]) {
+        applyThumbnails(images.mapValues { Optional($0) })
+    }
+
+    private func flushThumbnails() {
+        thumbnailFlushScheduled = false
+        let batch = pendingThumbnails
+        pendingThumbnails = [:]
+        applyThumbnails(batch)
+    }
+
+    private func applyThumbnails(_ batch: [ItemID: CGImage?]) {
+        guard !batch.isEmpty else { return }
+        let previewCardBefore = model.previewCardSize
+        model.setThumbnails(batch)
+        if let selected = model.session.selectedItem?.id, batch.keys.contains(selected) {
+            relayoutForPreview(previewCardBefore: previewCardBefore)
+        }
+    }
+
+    /// A sharper image of a window for the large preview. A few recent ones are kept
+    /// (bounded), so results for windows already cycled past are not wasted.
     func setLargePreview(_ image: CGImage?, for id: ItemID) {
         let previewCardBefore = model.previewCardSize
         model.setLargePreview(image, for: id)
@@ -207,6 +239,7 @@ final class SwitcherPanelController {
 
     /// Drop all cached thumbnails (e.g. when previews get turned off).
     func clearThumbnails() {
+        pendingThumbnails = [:]
         let previewCardBefore = model.previewCardSize
         model.clearThumbnails()
         relayoutForPreview(previewCardBefore: previewCardBefore)
@@ -295,6 +328,7 @@ final class SwitcherPanelController {
     /// Re-lays out the shown session after the selected item's thumbnail came or went.
     /// The preview card can change shape without its window changing size (another
     /// window's proportions), so its shadow is refreshed whenever the card changed.
+    /// Images are applied without animation, so the card has its new shape at once.
     private func relayoutForPreview(previewCardBefore: CGSize) {
         guard isVisible else { return }
         let session = model.session
@@ -303,7 +337,7 @@ final class SwitcherPanelController {
             model.update(session: session, layout: layout)
             relayout()
         }
-        if model.previewCardSize != previewCardBefore { refreshPreviewShadow() }
+        if model.previewCardSize != previewCardBefore { refreshPreviewShadow(animated: false) }
     }
 
     /// Frames for `layout` at the current positions on `screen`.
@@ -489,12 +523,15 @@ final class SwitcherPanelController {
 
     // MARK: - Drawing
 
-    /// The preview card changed shape: refresh its window's shadow once drawn, and again
-    /// when the card's animation has settled.
-    private func refreshPreviewShadow() {
-        refreshShadowSoon()
-        if model.animates {
+    /// The preview card changed shape: refresh its window's shadow once drawn, or, when
+    /// the change animates, once the animation has settled. Not mid-animation: that forced
+    /// a synchronous redraw and a shadow recomputation per step while cycling, for a
+    /// shadow that only fit the first frame anyway. Rapid steps share one refresh.
+    private func refreshPreviewShadow(animated: Bool) {
+        if animated {
             refreshShadows(after: SwitcherViewModel.selectionAnimationDuration)
+        } else {
+            refreshShadowSoon()
         }
     }
 

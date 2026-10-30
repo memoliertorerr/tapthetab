@@ -322,7 +322,7 @@ enum ScreenshotRenderer {
             }
         }
 
-        let panel = try renderPanel(model: model, size: layout.panelSize, mode: mode)
+        let panel = try renderPanel(model: model, size: layout.boundingSize, mode: mode)
         return RenderedPanel(
             panel: panel,
             layout: layout,
@@ -461,7 +461,7 @@ enum ScreenshotRenderer {
         mode: ScreenshotMode,
         canvasSize: CGSize? = nil
     ) throws -> CGImage {
-        let size = layout.panelSize
+        let size = layout.boundingSize
         // The panel sits in the middle of the canvas: `margin` all around by default, or
         // a larger fixed canvas (the demo's frames, which differ in size, share one).
         let canvas = canvasSize ?? CGSize(width: size.width + margin * 2, height: size.height + margin * 2)
@@ -473,7 +473,8 @@ enum ScreenshotRenderer {
         drawDesktop(in: context, size: canvas, mode: mode)
 
         // Core Graphics counts y upwards: the main block is at the bottom of the panel.
-        let mainFrame = CGRect(x: origin.x, y: origin.y, width: layout.mainSize.width, height: layout.mainSize.height)
+        let mainFrame = CGRect(x: origin.x + ((size.width - layout.mainSize.width) / 2).rounded(),
+                               y: origin.y, width: layout.mainSize.width, height: layout.mainSize.height)
         var pieces: [(frame: CGRect, radius: CGFloat)] = [(mainFrame, panelCornerRadius)]
         if previewCard.width > 0, previewCard.height > 0 {
             let cardFrame = CGRect(
@@ -824,8 +825,8 @@ extension ScreenshotRenderer {
             }
         }
         let canvas = CGSize(
-            width: (panels.map { $0.layout.panelSize.width }.max() ?? 0) + margin * 2,
-            height: (panels.map { $0.layout.panelSize.height }.max() ?? 0) + margin * 2
+            width: (panels.map { $0.layout.boundingSize.width }.max() ?? 0) + margin * 2,
+            height: (panels.map { $0.layout.boundingSize.height }.max() ?? 0) + margin * 2
         )
         var images: [CGImage] = []
         for panel in panels {

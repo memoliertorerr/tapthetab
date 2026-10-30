@@ -42,7 +42,13 @@ public struct PanelLayout: Equatable, Sendable {
     /// Height the card and the gap add on top of the box itself.
     public static var previewChromeHeight: Double { previewCardPadding * 2 + previewGap }
     /// Range of `previewScale` (fraction of the full-size box); other values are clamped.
-    public static let previewScaleRange: ClosedRange<Double> = 0.25...1
+    /// Above 1 the box grows past the main block's width and the usual screen fraction, but
+    /// never past `previewMaxScreenWidthFraction` of the screen's width or the room the panel
+    /// has on screen (`maxPanelScreenFraction`).
+    public static let previewScaleRange: ClosedRange<Double> = 0.25...1.5
+    /// A scaled-up preview card is at most this fraction of the screen's width (the same
+    /// fraction the list uses).
+    public static let previewMaxScreenWidthFraction: Double = 0.95
     /// The preview box is at most this fraction of the screen's visible height…
     public static let previewScreenFraction: Double = 0.45
     /// …and at most this tall relative to its width (4:3), so landscape windows fill it.
@@ -65,8 +71,9 @@ public struct PanelLayout: Equatable, Sendable {
     public var needsScrolling: Bool
     public var panelSize: Size
     /// Box for the large preview of the selected window above the grid or list, or
-    /// `.zero` when it is not shown. The image is aspect-fit inside it. Included, with
-    /// its card and the gap below it, in `panelSize`.
+    /// `.zero` when it is not shown. The image is aspect-fit inside it. Its card and the
+    /// gap below it are included in `panelSize`'s height; at a preview scale above 1 the
+    /// card can be wider than `panelSize` (see `boundingSize`).
     public var previewSize: Size
 
     public var showsPreview: Bool { previewSize.width > 0 && previewSize.height > 0 }
@@ -81,6 +88,12 @@ public struct PanelLayout: Equatable, Sendable {
     /// Height above the grid or list taken by the preview card and the gap below it.
     public var previewAreaHeight: Double {
         showsPreview ? previewCardSize.height + Self.previewGap : 0
+    }
+
+    /// `panelSize` widened to the preview card when that is wider: the smallest box that
+    /// holds both blocks stacked, for views that draw them in one container.
+    public var boundingSize: Size {
+        Size(width: max(panelSize.width, previewCardSize.width), height: panelSize.height)
     }
 
     /// The grid or list block (search bar included), below the preview area.
@@ -103,6 +116,19 @@ public struct PanelLayout: Equatable, Sendable {
         let height = max(1, (imageSize.height * scale).rounded())
         return Size(width: min(width, previewSize.width) + Self.previewCardPadding * 2,
                     height: min(height, previewSize.height) + Self.previewCardPadding * 2)
+    }
+
+    /// Ignore capture-rounding differences, but follow a newly resized window rather
+    /// than letting a stale thumbnail dictate the sharp image's card shape.
+    public func previewCardSize(thumbnail: Size?, sharp: Size?) -> Size {
+        guard let sharp else { return previewCardSize(fitting: thumbnail) }
+        let sharpCard = previewCardSize(fitting: sharp)
+        guard let thumbnail else { return sharpCard }
+        let thumbnailCard = previewCardSize(fitting: thumbnail)
+        if abs(sharpCard.width - thumbnailCard.width) > 2 || abs(sharpCard.height - thumbnailCard.height) > 2 {
+            return sharpCard
+        }
+        return thumbnailCard
     }
 
     public init(
@@ -139,7 +165,9 @@ public struct PanelLayout: Equatable, Sendable {
     ///     columns and card size), so the preview never reflows the cards; when the panel
     ///     would grow past the screen the preview is skipped (`previewSize == .zero`).
     ///   - previewScale: size of the preview box relative to the full-size box (1), clamped
-    ///     to `previewScaleRange`; not a number counts as 1.
+    ///     to `previewScaleRange`; not a number counts as 1. Up to 1 the box stays within
+    ///     the main block's width; above 1 it keeps growing until the screen's width or
+    ///     the room left on screen stops it.
     ///   - listThumbnails: list rows show window thumbnails (`listThumbnailRowHeight`).
     ///   - sectionHeaderCount: app-name headings shown between the rows of a list grouped
     ///     by app (ignored by the grid). Clamped to `0...itemCount`.
@@ -174,19 +202,29 @@ public struct PanelLayout: Equatable, Sendable {
     /// The large preview's box for a panel `panelWidth` wide whose other content is
     /// `contentHeight` tall, or nil when no box of at least `minimumPreviewHeight` fits
     /// without the panel exceeding `maxPanelScreenFraction` of the screen height.
-    /// `scale` shrinks the full-size box (width and height alike) before the room on
-    /// screen is taken into account.
+    /// `scale` resizes the full-size box (width and height alike) before the room on
+    /// screen is taken into account. A scale above 1 can make the box wider than the
+    /// panel, up to `previewMaxScreenWidthFraction` of the screen's width, but never
+    /// narrower than the full-size box.
     public static func previewBox(panelWidth: Double, contentHeight: Double, screenSize: Size, scale: Double = 1) -> Size? {
         let factor = clampedPreviewScale(scale)
-        let width = ((panelWidth - previewInset * 2) * factor).rounded(.down)
-        guard width >= minimumPreviewHeight else { return nil }
+        let fullWidth = panelWidth - previewInset * 2
+        var width = fullWidth * factor
+        if factor > 1 {
+            let screenCap = screenSize.width * previewMaxScreenWidthFraction - previewCardPadding * 2
+            if screenCap.isFinite { width = min(width, max(fullWidth, screenCap)) }
+        }
+        width = width.rounded(.down)
+        // Small user-selected previews need a proportionally smaller minimum too.
+        let minimum = minimumPreviewHeight * min(1, factor)
+        guard width >= minimum else { return nil }
         let room = screenSize.height * maxPanelScreenFraction - contentHeight - previewChromeHeight
         let height = min(
             screenSize.height * previewScreenFraction * factor,
             width * previewMaxHeightToWidth,
             room
         ).rounded(.down)
-        guard height.isFinite, height >= minimumPreviewHeight else { return nil }
+        guard height.isFinite, height >= minimum else { return nil }
         return Size(width: width, height: height)
     }
 

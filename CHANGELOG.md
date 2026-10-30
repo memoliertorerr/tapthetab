@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-30
+
+### Added
+
+- Large preview size presets from 25 % to 150 %, including 125 %, plus a slider for finer adjustment. Larger previews fit the available screen space; smaller sizes keep a proportionally smaller minimum so the preview stays available on short screens.
+
+### Fixed
+
+- Sharp window previews replace the thumbnail immediately instead of fading through a blur. Retina captures use the window's pixel resolution.
+- Rapid cycling avoids overlapping selection animations, batches thumbnail updates, and defers shadow work until movement settles. Normal selection and entrance animations remain available and respect Reduce Motion.
+- Large-preview captures start immediately after a pause, take priority over queued thumbnails, and keep a small recent-image cache for revisiting windows. Capture concurrency is limited and overlapping window-list requests share one fetch.
+
 ## [0.10.1] - 2026-10-30
 
 ### Added
@@ -181,7 +193,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...v0.9.0

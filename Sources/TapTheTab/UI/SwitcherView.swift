@@ -47,8 +47,9 @@ struct SwitcherRootView: View {
         let backdrop = PanelBackdropStyle(model.appearance)
         VStack(spacing: 0) {
             if layout.showsPreview {
+                // A preview above 100 % can be wider than the main block.
                 SwitcherPreviewCard(model: model, backdrop: backdrop)
-                    .frame(width: layout.panelSize.width, height: layout.previewCardSize.height, alignment: .bottom)
+                    .frame(width: layout.boundingSize.width, height: layout.previewCardSize.height, alignment: .bottom)
                 Color.clear
                     .frame(height: SwitcherLayout.previewGap)
                     .accessibilityHidden(true)
@@ -96,23 +97,32 @@ struct SwitcherMainBlock: View {
 /// The selected window's preview on a card that hugs the image, or the app icon on a
 /// card the size of the whole box when there is no image (yet). Nothing without a preview.
 /// One card for both, so with animations on it changes shape between windows instead of
-/// being replaced (the model animates selection changes).
+/// being replaced (the model animates selection changes). The image itself never fades:
+/// it is swapped at once, also while the card reshapes.
 struct SwitcherPreviewCard: View {
     @ObservedObject var model: SwitcherViewModel
+    /// The sharp images; observed here only, so their arrival redraws just this card.
+    @ObservedObject private var largePreviews: LargePreviewStore
     let backdrop: PanelBackdropStyle
+
+    init(model: SwitcherViewModel, backdrop: PanelBackdropStyle) {
+        _model = ObservedObject(wrappedValue: model)
+        _largePreviews = ObservedObject(wrappedValue: model.largePreviews)
+        self.backdrop = backdrop
+    }
 
     var body: some View {
         let layout = model.layout
         if layout.showsPreview, let item = model.session.selectedItem {
             let preview: CGImage? = model.selectedPreview
-            let card: CGSize = preview.map {
-                layout.previewCardSize(fitting: CGSize(width: $0.width, height: $0.height))
-            } ?? layout.previewCardSize
+            let card: CGSize = model.previewCardSize
             ZStack {
                 if let preview {
                     SwitcherLargePreview(image: preview)
+                        .transition(.identity)
                 } else {
                     SwitcherPreviewPlaceholder(icon: model.icon(for: item.pid), boxSize: layout.previewSize)
+                        .transition(.identity)
                 }
             }
             .padding(SwitcherLayout.previewCardPadding)
@@ -203,6 +213,9 @@ struct SwitcherLargePreview: View {
             .resizable()
             .interpolation(.high)
             .aspectRatio(contentMode: .fit)
+            // A new image (another window, or the sharp capture replacing the thumbnail)
+            // replaces the old one at once instead of crossfading inside the animation.
+            .contentTransition(.identity)
             .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
             .accessibilityHidden(true)
     }

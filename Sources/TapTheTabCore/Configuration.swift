@@ -99,7 +99,8 @@ public struct Appearance: Codable, Equatable, Sendable {
     /// With previews on: the larger preview of the selected window on its own card.
     public var showLargePreview: Bool = true
     /// Size of the large preview of the selected window, in percent of the full-size
-    /// box (previews mode). Clamped to 25...100.
+    /// box (previews mode). Clamped to 25...150; above 100 the preview grows until the
+    /// screen limits it.
     public var largePreviewPercent: Int = Appearance.defaultLargePreviewPercent
     /// Where the user dragged the main block (search plus grid or list); nil: centred.
     public var panelPosition: BlockPosition?
@@ -132,7 +133,7 @@ public struct Appearance: Codable, Equatable, Sendable {
     public var animations: Bool = true
 
     public static let defaultLargePreviewPercent = 66
-    public static let largePreviewPercentRange: ClosedRange<Int> = 25...100
+    public static let largePreviewPercentRange: ClosedRange<Int> = 25...150
 
     /// `largePreviewPercent` as a fraction for `PanelLayout` (clamped, so a value that
     /// slipped past validation still lays out sensibly).

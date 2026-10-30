@@ -420,7 +420,7 @@ final class PanelLayoutTests: XCTestCase {
     }
 
     func testScaledPreviewNeverReflowsTheCards() {
-        for scale in [0.25, 0.5, 0.66, 0.75, 1] {
+        for scale in [0.25, 0.5, 0.66, 0.75, 1, 1.25, 1.5] {
             for count in [1, 5, 10, 25] {
                 let plain = grid(count)
                 let withPreview = grid(count, preview: true, scale: scale)
@@ -428,8 +428,14 @@ final class PanelLayoutTests: XCTestCase {
                 XCTAssertEqual(withPreview.itemSize, plain.itemSize)
                 XCTAssertEqual(withPreview.mainSize, plain.panelSize)
                 if withPreview.showsPreview {
-                    XCTAssertLessThanOrEqual(withPreview.previewCardSize.width, withPreview.panelSize.width)
-                    XCTAssertGreaterThanOrEqual(withPreview.previewSize.height, PanelLayout.minimumPreviewHeight)
+                    if scale <= 1 {
+                        XCTAssertLessThanOrEqual(withPreview.previewCardSize.width, withPreview.panelSize.width)
+                    } else {
+                        // Above full size the card may be wider than the main block, but
+                        // never than the screen.
+                        XCTAssertLessThanOrEqual(withPreview.previewCardSize.width, macBook.width * PanelLayout.previewMaxScreenWidthFraction)
+                    }
+                    XCTAssertGreaterThanOrEqual(withPreview.previewSize.height, PanelLayout.minimumPreviewHeight * min(1, scale))
                 }
             }
         }
@@ -447,21 +453,197 @@ final class PanelLayoutTests: XCTestCase {
         }
     }
 
-    func testTinyScaleSkipsThePreviewOnNarrowPanels() {
-        // Panel 360 wide: (360 - 32) × 0.25 = 82 < 120.
-        XCTAssertFalse(grid(1, preview: true, scale: 0.25).showsPreview)
-        XCTAssertEqual(grid(1, preview: true, scale: 0.25), grid(1))
+    func testQuarterSizePreviewRemainsVisibleOnNarrowPanels() {
+        // The minimum scales down too: choosing 25 % must not hide the preview.
+        let layout = grid(1, preview: true, scale: 0.25)
+        XCTAssertTrue(layout.showsPreview)
+        XCTAssertEqual(layout.previewSize, Size(width: 82, height: 61))
+        XCTAssertEqual(layout.mainSize, grid(1).panelSize)
     }
 
     func testPreviewScaleIsClamped() {
         XCTAssertEqual(PanelLayout.clampedPreviewScale(0.66), 0.66)
         XCTAssertEqual(PanelLayout.clampedPreviewScale(0), 0.25)
         XCTAssertEqual(PanelLayout.clampedPreviewScale(-1), 0.25)
-        XCTAssertEqual(PanelLayout.clampedPreviewScale(3), 1)
+        XCTAssertEqual(PanelLayout.clampedPreviewScale(1.25), 1.25)
+        XCTAssertEqual(PanelLayout.clampedPreviewScale(1.5), 1.5)
+        // The upper bound used to be 1; it is 1.5 now.
+        XCTAssertEqual(PanelLayout.clampedPreviewScale(3), 1.5)
         XCTAssertEqual(PanelLayout.clampedPreviewScale(.nan), 1)
         XCTAssertEqual(PanelLayout.clampedPreviewScale(.infinity), 1)
+        XCTAssertEqual(PanelLayout.clampedPreviewScale(-.infinity), 1)
         XCTAssertEqual(grid(5, preview: true, scale: .nan), grid(5, preview: true))
-        XCTAssertEqual(grid(5, preview: true, scale: 7), grid(5, preview: true))
+        XCTAssertEqual(grid(5, preview: true, scale: 7), grid(5, preview: true, scale: 1.5))
+    }
+
+    // MARK: - Preview sizes above 100 %
+
+    func testPreviewAboveFullSizeGrows() {
+        // 5-item grid: full box 896 × 425. 125 %: 1120 wide, 425.25 × 1.25 = 531.56 → 531 tall.
+        let l125 = grid(5, preview: true, scale: 1.25)
+        XCTAssertEqual(l125.previewSize, Size(width: 1120, height: 531))
+        // 150 %: 1344 wide (cap 1512 × 0.95 - 10 = 1426.4), 637.875 → 637, room 850.5 - 190 - 20 = 640.
+        let l150 = grid(5, preview: true, scale: 1.5)
+        XCTAssertEqual(l150.previewSize, Size(width: 1344, height: 637))
+        XCTAssertEqual(l150.mainSize, grid(5).panelSize, "the grid block keeps its size")
+        XCTAssertEqual(l150.panelSize.height, 190 + 20 + 637)
+    }
+
+    func testPreviewAboveFullSizeIsWiderThanANarrowPanel() {
+        // One card: panel 360 wide, box 328 × 246 at 100 %; 150 % → 492 × 369.
+        let layout = grid(1, preview: true, scale: 1.5)
+        XCTAssertEqual(layout.previewSize, Size(width: 492, height: 369))
+        XCTAssertEqual(layout.panelSize, Size(width: 360, height: 190 + 20 + 369))
+        XCTAssertEqual(layout.previewCardSize.width, 502)
+        XCTAssertEqual(layout.boundingSize, Size(width: 502, height: layout.panelSize.height))
+        XCTAssertEqual(grid(1, preview: true).boundingSize, grid(1, preview: true).panelSize,
+                       "up to 100 % the card is never wider than the panel")
+    }
+
+    func testPreviewAboveFullSizeIsLimitedByTheScreen() {
+        // List (640 wide) on a 700 pt wide screen: the card may use 700 × 0.95 - 10 = 655.
+        let narrow = Size(width: 700, height: 2000)
+        XCTAssertEqual(list(3, preview: true, scale: 1.5, screen: narrow).previewSize.width, 655)
+        // Never below the 100 % box: at 100 % the list box is 608 wide.
+        XCTAssertEqual(list(3, preview: true, scale: 1, screen: narrow).previewSize.width, 608)
+        // A panel as wide as the screen already has a full-size box beyond the cap
+        // (1000 - 32 = 968 > 1000 × 0.95 - 10 = 940): scaling up neither shrinks it nor
+        // grows it.
+        let screen = Size(width: 1000, height: 2000)
+        XCTAssertEqual(PanelLayout.previewBox(panelWidth: 1000, contentHeight: 100, screenSize: screen, scale: 1)?.width, 968)
+        XCTAssertEqual(PanelLayout.previewBox(panelWidth: 1000, contentHeight: 100, screenSize: screen, scale: 1.5)?.width, 968)
+        // Height: 150 % never takes more than the room (90 % of the screen) either.
+        let room = grid(25, preview: true, scale: 1.5)
+        XCTAssertEqual(room.previewSize.height, grid(25, preview: true).previewSize.height,
+                       "a tall grid leaves the same room whatever the scale")
+    }
+
+    func testScaledPreviewDimensionsIncludeQuarterSize() {
+        // Preserve the existing sizing formula, including small user-selected previews.
+        for scale in [0.25, 0.5, 0.66, 0.75, 1] {
+            let box = PanelLayout.previewBox(panelWidth: 928, contentHeight: 190, screenSize: macBook, scale: scale)
+            let width = ((928.0 - 32) * scale).rounded(.down)
+            let height = min(945 * 0.45 * scale, width * 0.75, 850.5 - 190 - 20).rounded(.down)
+            let minimum = PanelLayout.minimumPreviewHeight * min(1, scale)
+            XCTAssertEqual(box, height >= minimum ? Size(width: width, height: height) : nil, "scale \(scale)")
+        }
+    }
+
+    func testPreviewGrowsMonotonicallyWithScale() {
+        for count in [1, 5, 10, 25] {
+            var previous = Size.zero
+            for scale in [0.25, 0.5, 0.66, 0.75, 1, 1.1, 1.25, 1.4, 1.5] {
+                let box = grid(count, preview: true, scale: scale).previewSize
+                if box != .zero {
+                    XCTAssertGreaterThanOrEqual(box.width, previous.width, "\(count) items at \(scale)")
+                    XCTAssertGreaterThanOrEqual(box.height, previous.height, "\(count) items at \(scale)")
+                    previous = box
+                }
+            }
+        }
+    }
+
+    func testEveryLayoutStaysOnScreenAtEveryScale() {
+        let screens = [
+            Size(width: 1512, height: 945),     // laptop
+            Size(width: 2560, height: 1415),    // wide external display
+            Size(width: 800, height: 600),      // small
+            Size(width: 1000, height: 300),     // short
+            Size(width: 400, height: 900),      // narrow portrait
+            Size(width: 1080, height: 1920),    // portrait monitor
+            Size(width: 320, height: 240),      // tiny
+            Size(width: 200, height: 150),      // absurdly tiny
+        ]
+        let scales = [0.25, 0.5, 0.66, 1, 1.25, 1.5, 7, .nan, .infinity]
+        for screen in screens {
+            for scale in scales {
+                for style in [LayoutStyle.grid, .list] {
+                    for count in [0, 1, 5, 25, 200] {
+                        let layout = PanelLayout.compute(style: style, size: .medium, itemCount: count, showsSearchBar: true,
+                                                         screenSize: screen, showsPreview: true, previewScale: scale)
+                        let label = "\(style) \(count) items, scale \(scale), screen \(screen)"
+                        for value in [layout.panelSize.width, layout.panelSize.height,
+                                      layout.previewSize.width, layout.previewSize.height,
+                                      layout.mainSize.width, layout.mainSize.height,
+                                      layout.boundingSize.width, layout.boundingSize.height] {
+                            XCTAssertTrue(value.isFinite && value >= 0, label)
+                        }
+                        XCTAssertLessThanOrEqual(layout.panelSize.width, screen.width, label)
+                        XCTAssertLessThanOrEqual(layout.panelSize.height, screen.height, label)
+                        XCTAssertLessThanOrEqual(layout.mainSize.height, layout.panelSize.height, label)
+                        XCTAssertLessThanOrEqual(layout.previewCardSize.width, screen.width, label)
+                        XCTAssertLessThanOrEqual(layout.previewCardSize.height, screen.height, label)
+                        XCTAssertLessThanOrEqual(layout.boundingSize.width, screen.width, label)
+                        if layout.showsPreview {
+                            XCTAssertGreaterThanOrEqual(layout.previewSize.height, PanelLayout.minimumPreviewHeight * min(1, PanelLayout.clampedPreviewScale(scale)), label)
+                            XCTAssertGreaterThan(layout.mainSize.height, 0, label)
+                            XCTAssertLessThanOrEqual(layout.panelSize.height, screen.height * PanelLayout.maxPanelScreenFraction + 1, label)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func testPlacedBlocksStayOnScreenAtEveryScale() {
+        // The two blocks, placed by default, fit the visible frame even at 150 %.
+        for screen in [Size(width: 1512, height: 945), Size(width: 1080, height: 1920), Size(width: 800, height: 600)] {
+            let visible = ScreenRect(x: 0, y: 0, width: screen.width, height: screen.height)
+            for scale in [0.66, 1, 1.5] {
+                for count in [1, 5, 25] {
+                    let layout = grid(count, preview: true, scale: scale, screen: screen)
+                    let frames = PanelPlacement.frames(visible: visible, mainSize: layout.mainSize,
+                                                       previewSize: layout.showsPreview ? layout.previewCardSize : nil,
+                                                       mainPosition: nil, previewPosition: nil)
+                    XCTAssertGreaterThanOrEqual(frames.main.minX, 0)
+                    XCTAssertLessThanOrEqual(frames.main.maxX, screen.width)
+                    XCTAssertLessThanOrEqual(frames.main.maxY, screen.height)
+                    if let preview = frames.preview {
+                        XCTAssertGreaterThanOrEqual(preview.minX, 0)
+                        XCTAssertLessThanOrEqual(preview.maxX, screen.width)
+                        XCTAssertGreaterThanOrEqual(preview.minY, 0)
+                        XCTAssertLessThanOrEqual(preview.maxY, screen.height)
+                        XCTAssertLessThanOrEqual(preview.minY - frames.main.maxY, PanelPlacement.gap + 1)
+                        XCTAssertGreaterThanOrEqual(preview.minY, frames.main.maxY + PanelPlacement.gap - 1,
+                                                    "the card sits above the main block, not on it")
+                    }
+                }
+            }
+        }
+    }
+
+    func testWideAndPortraitImagesFitTheLargerBox() {
+        let layout = grid(5, preview: true, scale: 1.5) // box 1344 × 637
+        let wide = layout.previewCardSize(fitting: Size(width: 4000, height: 1000))
+        XCTAssertEqual(wide, Size(width: 1354, height: 346))
+        let portrait = layout.previewCardSize(fitting: Size(width: 1000, height: 1500))
+        XCTAssertEqual(portrait, Size(width: 435, height: 647))
+        for card in [wide, portrait] {
+            XCTAssertLessThanOrEqual(card.width, layout.previewCardSize.width)
+            XCTAssertLessThanOrEqual(card.height, layout.previewCardSize.height)
+        }
+    }
+
+    func testSharpCaptureCorrectsStaleThumbnailProportions() {
+        let layout = grid(5, preview: true)
+        let old = Size(width: 1600, height: 900)
+        let resized = Size(width: 900, height: 1600)
+        XCTAssertEqual(layout.previewCardSize(thumbnail: old, sharp: resized),
+                       layout.previewCardSize(fitting: resized))
+        XCTAssertNotEqual(layout.previewCardSize(thumbnail: old, sharp: resized),
+                          layout.previewCardSize(fitting: old))
+    }
+
+    func testCaptureRoundingDoesNotReshapeThePreview() {
+        let layout = grid(5, preview: true)
+        let thumbnail = Size(width: 320, height: 180)
+        let sharp = Size(width: 1920, height: 1081)
+        XCTAssertEqual(layout.previewCardSize(thumbnail: thumbnail, sharp: sharp),
+                       layout.previewCardSize(fitting: thumbnail))
+        XCTAssertEqual(layout.previewCardSize(thumbnail: nil, sharp: sharp),
+                       layout.previewCardSize(fitting: sharp))
+        XCTAssertEqual(layout.previewCardSize(thumbnail: thumbnail, sharp: nil),
+                       layout.previewCardSize(fitting: thumbnail))
     }
 
     func testPreviewCardHugsTheImage() {

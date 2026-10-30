@@ -34,7 +34,16 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     private var screen: NSScreen?
     private var sessionToken = 0
     private var showTask: Task<Void, Never>?
+    /// The large preview's wait before capturing, while the selection is moving fast.
     private var previewTask: Task<Void, Never>?
+    /// When the large preview's sharper capture runs: one at a time, at once after a
+    /// pause, once the selection rests while cycling.
+    private var previewSchedule = LargePreviewCaptureSchedule()
+    /// The item the large preview was last asked for, so typing a query or a catalog
+    /// refresh that keeps the selection does not capture it again.
+    private var previewRequestedTarget: PreviewCaptureTarget?
+    /// Identifies the latest large-preview capture; only its completion counts.
+    private var previewCaptureSerial = 0
     private var lastThumbnailRequestIDs: [ItemID] = []
     private var outsideClickMonitor: Any?
 
@@ -212,6 +221,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let token = sessionToken
         activeTrigger = trigger
         self.screen = screen
+        resetPreviewSchedule()
         router = KeyRouter(
             triggerKeyCode: trigger.shortcut.keyCode,
             searchEnabled: configuration.behavior.searchEnabled,
@@ -264,8 +274,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         endPeek()
         showTask?.cancel()
         showTask = nil
-        previewTask?.cancel()
-        previewTask = nil
+        resetPreviewSchedule()
         sessionToken += 1
         session = nil
         activeTrigger = nil
@@ -341,7 +350,10 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }
         current.replaceItems(items)
         session = current
-        if panel.isVisible { updatePanel() }
+        if panel.isVisible {
+            updatePanel()
+            requestSelectedPreview()
+        }
 
         let token = sessionToken
         Task { @MainActor [weak self] in
@@ -403,7 +415,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let appKitFrame = NSRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
         let pixels = Int((max(frame.width, frame.height) * screen.backingScaleFactor).rounded(.up))
         let token = sessionToken
-        thumbnails.capture(windowIDs: [number], maxPixelSize: pixels, storeInCache: false) { [weak self] _, image in
+        thumbnails.capture(windowIDs: [number], maxPixelSize: pixels, storeInCache: false, priority: true) { [weak self] _, image in
             guard let self, self.sessionToken == token, self.session?.selectedItem?.id == item.id else { return }
             self.peek.show(image: image, at: appKitFrame, on: screen)
         }
@@ -434,6 +446,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             updatePanel()
             let ids = current.visible.map(\.id)
             if ids != lastThumbnailRequestIDs { requestThumbnails() }
+            // The refresh may have moved the selection to another window.
+            requestSelectedPreview()
         }
     }
 
@@ -495,6 +509,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             pinnedBundleIDs: pinnedSet
         )
         if columns != current.columns { session?.columns = columns }
+        // The large preview first: its capture goes ahead of the cards' thumbnails.
+        requestSelectedPreview(force: true)
         requestThumbnails()
         installOutsideClickMonitor()
     }
@@ -503,6 +519,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         guard let current = session else { return }
         let columns = panel.update(session: current)
         if columns != current.columns { session?.columns = columns }
+        requestSelectedPreview()
     }
 
     private func requestThumbnails() {
@@ -510,36 +527,104 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
               permissions.screenRecordingGranted else { return }
         lastThumbnailRequestIDs = current.visible.map(\.id)
         var ids: [UInt32] = []
+        var cached: [ItemID: CGImage] = [:]
         for ranked in current.visible {
             guard case .window(let number) = ranked.id, !ranked.item.isMinimized, !ranked.item.isAppHidden else { continue }
-            if let cached = thumbnails.cachedImage(for: number) { panel.setThumbnail(cached, for: ranked.id) }
+            if let image = thumbnails.cachedImage(for: number) { cached[ranked.id] = image }
             ids.append(number)
         }
+        panel.setThumbnails(cached)
         let longEdge = Int(configuration.appearance.size.cardSize.width * 2)
         thumbnails.capture(windowIDs: ids, maxPixelSize: longEdge) { [weak self] number, image in
             self?.panel.setThumbnail(image, for: .window(number))
         }
-        requestSelectedPreview(after: 0)
+    }
+
+    // MARK: - Large preview
+
+    private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+    private func resetPreviewSchedule() {
+        previewTask?.cancel()
+        previewTask = nil
+        previewSchedule = LargePreviewCaptureSchedule()
+        previewRequestedTarget = nil
     }
 
     /// The large preview needs a sharper image of the selected window than the cards do.
-    /// Debounced so holding ⇥ doesn't start a capture per step.
-    private func requestSelectedPreview(after delay: UInt64 = 80_000_000) {
+    /// Asked for when the selection lands on another window (`force`: also the same one,
+    /// when the switcher appears); `previewSchedule` decides when the capture runs.
+    private func requestSelectedPreview(force: Bool = false) {
+        let target = session?.selectedItem.map {
+            PreviewCaptureTarget(id: $0.id, pixelSize: panel.largePreviewMaxPixelSize ?? 0)
+        }
+        guard force || (target?.requiresCapture(after: previewRequestedTarget) ?? (previewRequestedTarget != nil)) else { return }
+        previewRequestedTarget = target
+        // A newer decision replaces a pending wait.
         previewTask?.cancel()
-        guard configuration.appearance.showPreviews, let thumbnails, permissions.screenRecordingGranted,
+        previewTask = nil
+        guard target != nil, configuration.appearance.showPreviews, thumbnails != nil else { return }
+        performPreviewDecision(previewSchedule.selectionChanged(at: Self.now))
+    }
+
+    private func performPreviewDecision(_ decision: LargePreviewCaptureSchedule.Decision) {
+        switch decision {
+        case .none:
+            break
+        case .captureNow:
+            previewTask?.cancel()
+            previewTask = nil
+            startLargePreviewCapture()
+        case .wait(let delay):
+            previewTask?.cancel()
+            let token = sessionToken
+            previewTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                guard !Task.isCancelled, let self, self.sessionToken == token else { return }
+                self.previewTask = nil
+                self.performPreviewDecision(self.previewSchedule.timerFired(at: Self.now))
+            }
+        }
+    }
+
+    /// Captures the current selection for the large preview, ahead of queued thumbnails.
+    /// A result that arrives after the selection moved on is kept (bounded) by the panel
+    /// for going back, without redrawing anything now.
+    private func startLargePreviewCapture() {
+        guard let thumbnails, let target = largePreviewTarget() else {
+            // Nothing to capture for this selection: finished at once.
+            performPreviewDecision(previewSchedule.captureFinished(at: Self.now))
+            return
+        }
+        previewCaptureSerial += 1
+        let serial = previewCaptureSerial
+        let token = sessionToken
+        thumbnails.capture(
+            windowIDs: [target.number],
+            maxPixelSize: target.pixelSize,
+            storeInCache: false,
+            priority: true,
+            deliver: { [weak self] number, image in
+                guard let self, self.sessionToken == token else { return }
+                self.panel.setLargePreview(image, for: .window(number))
+            },
+            completion: { [weak self] in
+                guard let self, self.sessionToken == token, self.previewCaptureSerial == serial else { return }
+                self.performPreviewDecision(self.previewSchedule.captureFinished(at: Self.now))
+            }
+        )
+    }
+
+    /// The selected window and the long edge (pixels) to capture it at, or nil when there
+    /// is nothing to capture: no large preview, a minimized window or hidden app, an app
+    /// without windows, or a box no larger than the cards' thumbnails.
+    private func largePreviewTarget() -> (number: UInt32, pixelSize: Int)? {
+        guard configuration.appearance.showPreviews, permissions.screenRecordingGranted,
               let selected = session?.selectedItem, case .window(let number) = selected.id,
               !selected.isMinimized, !selected.isAppHidden,
               let size = panel.largePreviewMaxPixelSize,
-              size > Int(configuration.appearance.size.cardSize.width * 2) else { return }
-        let token = sessionToken
-        previewTask = Task { @MainActor [weak self] in
-            if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
-            guard !Task.isCancelled, let self, self.sessionToken == token,
-                  self.session?.selectedItem?.id == selected.id else { return }
-            thumbnails.capture(windowIDs: [number], maxPixelSize: size, storeInCache: false) { [weak self] number, image in
-                self?.panel.setLargePreview(image, for: .window(number))
-            }
-        }
+              size > Int(configuration.appearance.size.cardSize.width * 2) else { return nil }
+        return (number, size)
     }
 
     private func installOutsideClickMonitor() {

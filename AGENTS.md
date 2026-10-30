@@ -12,7 +12,7 @@ default; see `docs/ROADMAP.md` → Decisions) — that is a product promise, not
 ## Layout
 | Path | What | Builds on |
 |---|---|---|
-| `Sources/TapTheTabCore/` | Pure Swift + Foundation logic: session state machine, fuzzy matcher, recency, filters, key routing, shortcuts, config | macOS + Linux |
+| `Sources/TapTheTabCore/` | Pure Swift + Foundation logic: session state machine, fuzzy matcher, recency, filters, key routing, shortcuts, config, preview capture/retention/animation policies | macOS + Linux |
 | `Tests/TapTheTabCoreTests/` | XCTest suite for the core | macOS + Linux |
 | `Sources/TapTheTab/App/` | Entry point, app delegate, coordinator, menu bar, config controller, `Interfaces.swift` (contracts between layers) | macOS |
 | `Sources/TapTheTab/System/` | Event tap, window catalog (CGWindowList + AX), focus tracking, window actions, thumbnails, permissions | macOS |
