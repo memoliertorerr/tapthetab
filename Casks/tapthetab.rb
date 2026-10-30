@@ -4,7 +4,7 @@
 # Bump with scripts/update-cask.sh after each release.
 cask "tapthetab" do
   version "0.10.0"
-  sha256 "d612706c2f3f6c46acf99c9b5ce8732e2e53e6a40844c1b648aa51e78a5fd53c"
+  sha256 "c4eaf27a1201af45368493df0e3a5575028044c444bb6349227b557d0cfba3c2"
 
   url "https://github.com/memoliertorerr/tapthetab/releases/download/v#{version}/TapTheTab-#{version}.dmg"
   name "TapTheTab"
