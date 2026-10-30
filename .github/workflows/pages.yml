@@ -1,0 +1,79 @@
+name: Pages
+
+# Publishes site/ (plus the pictures in docs/images/) as the project website:
+#   https://memoliertorerr.github.io/tapthetab/
+#
+# One-time setup by a repository admin: Settings → Pages → Build and deployment →
+# Source: GitHub Actions. Until then the "Configure Pages" step fails with instructions.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "docs/images/**"
+      - "scripts/build-site.sh"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Nothing by default; each job asks for what it needs.
+permissions: {}
+
+# One deployment at a time; a newer one waits instead of cancelling a running one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the repository
+      pages: write # Configure Pages reads (and, when enabled, describes) the Pages site
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        # The next step turns a failure into a readable message.
+        continue-on-error: true
+
+      - name: Explain how to enable Pages
+        if: ${{ steps.pages.outcome == 'failure' }}
+        run: |
+          echo "::error title=GitHub Pages is not enabled::Open ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/settings/pages, set Build and deployment → Source to \"GitHub Actions\", then re-run this workflow (Actions → Pages → Run workflow)."
+          exit 1
+
+      - name: Assemble the site
+        run: scripts/build-site.sh "$RUNNER_TEMP/site"
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish the artifact
+      id-token: write # prove to Pages that the deployment comes from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

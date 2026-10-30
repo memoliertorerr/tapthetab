@@ -76,6 +76,7 @@ final class DiagnosticsReportTests: XCTestCase {
           mouseHoverSelects: true
           wrapAround: true
           quickSelect: true
+          checkForUpdates: false
 
         Filters
           showMinimized: true
@@ -83,6 +84,7 @@ final class DiagnosticsReportTests: XCTestCase {
           showWindowlessApps: false
           currentSpaceOnly: false
           currentDisplayOnly: false
+          currentDisplayFirst: false
           showOtherSpaces: false
           excludedApps: 0
           pinnedApps: 0
@@ -313,5 +315,22 @@ final class DiagnosticsReportTests: XCTestCase {
         var other = Configuration()
         other.filters.pinnedBundleIDs = ["x.y", "z.w"]
         XCTAssertEqual(report(c).markdown, report(other).markdown, "only the count shows")
+    }
+
+    // MARK: - v0.10 settings
+
+    func testV010SettingsAreReported() {
+        var c = Configuration()
+        let defaults = report(c).markdown
+        XCTAssertTrue(defaults.contains("  quickSelect: true\n  checkForUpdates: false\n\nFilters\n"))
+        XCTAssertTrue(defaults.contains("  currentDisplayOnly: false\n  currentDisplayFirst: false\n  showOtherSpaces: false\n"))
+
+        c.behavior.checkForUpdates = true
+        c.filters.currentDisplayFirst = true
+        let lines = report(c).markdown.components(separatedBy: "\n")
+        XCTAssertTrue(lines.contains("  checkForUpdates: true"))
+        XCTAssertTrue(lines.contains("  currentDisplayFirst: true"))
+        XCTAssertEqual(lines.filter { $0.hasPrefix("  checkForUpdates:") }.count, 1)
+        XCTAssertEqual(lines.filter { $0.hasPrefix("  currentDisplayFirst:") }.count, 1)
     }
 }

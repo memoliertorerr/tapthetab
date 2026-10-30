@@ -74,11 +74,63 @@ jobs:
       - name: Build universal app (ad-hoc signed)
         run: scripts/build-app.sh --universal
 
+      # The built binary must start, report the version in the VERSION file, and know the
+      # hidden rendering flags (they are what the next steps run).
+      - name: Smoke test the app binary
+        run: |
+          set -euo pipefail
+          app=dist/TapTheTab.app/Contents/MacOS/TapTheTab
+          expected="$(tr -d '[:space:]' < VERSION)"
+
+          output="$("$app" --version)"
+          echo "--version: $output"
+          # RescueCommands prints "TapTheTab <version> (<build>)".
+          pattern='^TapTheTab ([^ ]+) \(([^)]+)\)$'
+          if [[ ! "$output" =~ $pattern ]]; then
+            echo "::error title=Smoke test::--version printed '$output', expected 'TapTheTab $expected (<build>)'"
+            exit 1
+          fi
+          if [[ "${BASH_REMATCH[1]}" != "$expected" ]]; then
+            echo "::error title=Smoke test::--version reports ${BASH_REMATCH[1]} but the VERSION file says $expected"
+            exit 1
+          fi
+
+          # A non-zero exit fails the step by itself (set -e).
+          help="$("$app" --help)"
+          echo "$help"
+          if ! grep -q -- '--render-screenshots' <<< "$help"; then
+            echo "::error title=Smoke test::--help does not mention --render-screenshots"
+            exit 1
+          fi
+
       # The app draws its own UI from sample data (no real windows or titles) for the README.
       - name: Render screenshots
         id: screenshots
         timeout-minutes: 3
         run: dist/TapTheTab.app/Contents/MacOS/TapTheTab --render-screenshots dist/screenshots
+
+      # The animated PNG for the README and the website, from the same sample data.
+      - name: Render demo animation
+        id: demo
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          dist/TapTheTab.app/Contents/MacOS/TapTheTab --render-demo dist/screenshots/demo.png
+          size="$(wc -c < dist/screenshots/demo.png | tr -d ' ')"
+          echo "demo.png: $size bytes"
+          if [[ "$size" -gt 4000000 ]]; then
+            echo "::error title=Demo animation::demo.png is $size bytes (more than 4 MB)"
+            exit 1
+          fi
+
+      # Compares sizes and a coarse picture hash with docs/images/screenshot-reference.json.
+      # Without that file it passes with a notice; the reference it would use is written to
+      # dist/screenshots/screenshot-reference.json and uploaded below. A failure is reported
+      # at the end of the job, after the artifacts are uploaded.
+      - name: Check screenshots
+        id: check-screenshots
+        continue-on-error: true
+        run: python3 -I scripts/check-screenshots.py --write dist/screenshots/screenshot-reference.json dist/screenshots
 
       - name: Upload screenshots
         # Also after a failed render, so the shots that did work can be inspected.
@@ -86,7 +138,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: screenshots-${{ github.sha }}
-          path: dist/screenshots/*.png
+          path: |
+            dist/screenshots/*.png
+            dist/screenshots/screenshot-reference.json
           if-no-files-found: error
           retention-days: 14
 
@@ -103,3 +157,9 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 14
+
+      - name: Fail if the screenshots changed
+        if: ${{ steps.check-screenshots.outcome == 'failure' }}
+        run: |
+          echo "::error title=Screenshot regression::The screenshots differ from docs/images/screenshot-reference.json (see the 'Check screenshots' step). If the change is intended: python3 -I scripts/check-screenshots.py --update dist/screenshots"
+          exit 1

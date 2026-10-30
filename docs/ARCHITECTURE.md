@@ -47,7 +47,9 @@ previous window without the panel ever appearing.
 | `PanelPlacement` | Where the main block and the preview card go on a screen (default, remembered `BlockPosition`s, clamped inside the visible frame). |
 | `ColorMath`, `ColorTheme`, `GrainTexture` | Arc-style themes (ported from Little Joan): presets, colors muted into a light or dark band in OKLCH, the gradient's stops and blobs, deterministic grain pixels. |
 | `QuickSelect`, `DisplayMove` | Which modifier + digit picks a window and its badge; moving a window frame to the next display. |
-| `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings; pinned apps' windows first (`pinnedFirst`). |
+| `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings; the switcher's display first (`displayFirst`, before grouping so groups stay whole); pinned apps' windows first (`pinnedFirst`). |
+| `AppVersion`, `ReleaseFeed`, `Checksums`, `UpdatePolicy` | Update checks: SemVer ordering, parsing GitHub's latest-release response (size-capped, asset URLs only from GitHub hosts), `SHA256SUMS.txt`, whether a check is due (once a day, only when enabled). |
+| `WineNames` | Readable app names for Wine/CrossOver windows: the `.exe` name from the loader's arguments. |
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
@@ -65,6 +67,7 @@ previous window without the panel ever appearing.
 | `FocusTracker` | `NSWorkspace` activation notifications plus an `AXObserver` on the frontmost app for focused-window changes feed the `RecencyTracker`. |
 | `WindowActions` | Raise via `kAXRaiseAction` + `kAXMainAttribute`, then the window server makes the app frontmost with only that window (`_SLPSSetFrontProcessWithOptions` + a make-key event record), like a click on it; the app's other windows stay put. If those functions are missing: app `kAXFrontmostAttribute` + activation, which may bring all its windows forward. Windowless apps are reopened through Launch Services so they create a window. |
 | `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. |
+| `Updater`, `UpdateInstaller` | The only network access (see Network below). `Updater` (main actor) schedules checks and holds the state Settings and the Software Update window show; `UpdateInstaller` downloads, verifies and hands over to a small replace script. |
 | `UI/` | Two non-activating, transparent `NSPanel`s (never take focus — keys come from the tap) hosting SwiftUI: the main block and the large preview's card, each draggable while the switcher is open. Each draws its own backdrop (`PanelBackdrop.swift`): the system's Liquid Glass on macOS 26 (`glassEffect`, Clear or Tinted), a blur with a glass-like rim before, or the classic HUD material, with an optional theme gradient and grain on top. Settings and Onboarding windows. |
 
 ## Localization
@@ -94,6 +97,42 @@ synthetic previews drawn with Core Graphics), lays the panel out with the same
 gradient "desktop". The switcher is drawn with `ImageRenderer`; Settings (AppKit-backed
 controls) from an offscreen window that is never shown. The README images in
 `docs/images/` come from that artifact.
+
+`--render-demo <file.png>` (`make demo`) draws the demo animation the same way: 13 frames
+of the grid, a search narrowing the list, and a themed list, encoded as an animated PNG
+with ImageIO (≤ 3 MB). CI then runs `scripts/check-screenshots.py`, which compares each
+rendered PNG with `docs/images/screenshot-reference.json` (size and a 256-bit perceptual
+hash) and fails on a visible change; `--update` accepts the new images.
+
+## Website
+
+`site/` is a static page (no JavaScript, no external fonts or analytics, strict CSP).
+`scripts/build-site.sh` (`make site`) copies it with the images from `docs/images/` into
+`dist/site`; `.github/workflows/pages.yml` publishes it to GitHub Pages on pushes to
+`main` that touch it.
+
+## Network
+
+TapTheTab goes online only to ask GitHub for the latest release: once a day when
+`behavior.checkForUpdates` is on (off by default), or when the user clicks Check for
+Updates. Requests use an ephemeral `URLSession` (no cookies, cache or credentials) and
+carry only `Accept` and `User-Agent: TapTheTab/<version>`; responses are size-capped.
+
+Installing is always a click (Install and Relaunch):
+
+1. The release's `.dmg` and `SHA256SUMS.txt` are downloaded into a new 0700 folder.
+2. The image's SHA-256 must match before it is mounted (read-only, hidden from Finder).
+3. The copied `TapTheTab.app` must pass a strict code-signature check for an Apple-issued
+   Developer ID certificate with the running app's team ID and bundle ID, and its version
+   must equal the release's.
+4. A fixed `/bin/sh` script (paths only as arguments) waits for TapTheTab to quit, swaps
+   the bundle (restoring the old one on failure), opens the new version and moves the old
+   one to the Trash.
+
+It does not self-update when it was installed by Homebrew (it shows
+`brew upgrade --cask tapthetab`), when the running copy has no Developer ID (ad-hoc
+builds), runs from App Translocation, or cannot write to its folder; it then opens the
+release page instead.
 
 ## Permissions
 

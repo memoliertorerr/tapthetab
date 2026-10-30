@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-30
+
+### Added
+
+- Update checks (off by default): turn on Settings → About → "Check for updates automatically" and TapTheTab asks GitHub for the latest version once a day; "Check for Updates…" in the menu does it once on request. When an update is available, "Install and Relaunch" downloads it, checks its SHA-256 checksum and Developer ID signature, replaces the app and opens the new version. Homebrew installs are told to run `brew upgrade --cask tapthetab`. Only the request is sent; nothing about you or your Mac.
+- Multiple displays: an option (Settings → Filters) lists the windows on the switcher's display first.
+- German, French and Spanish.
+- A short tour of the keys on first run; open it again from the menu bar icon (Show Tour…).
+- Windows of Windows apps run through Wine or CrossOver show the program's name instead of `wine64-preloader`.
+- A website with a demo animation: https://memoliertorerr.github.io/tapthetab/
+
+### Changed
+
+- The privacy text in Settings → About now describes the opt-in update check.
+
 ## [0.9.0] - 2026-10-29
 
 ### Added
@@ -156,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.0...v0.7.1

@@ -269,4 +269,71 @@ final class ItemOrderingTests: XCTestCase {
         XCTAssertFalse(ItemOrdering.isPinned(window(1), pinnedBundleIDs: ["com.a"]))
         XCTAssertFalse(ItemOrdering.isPinned(window(1, bundle: "com.a"), pinnedBundleIDs: []))
     }
+
+    // MARK: - displayFirst
+
+    func testDisplayFirstMovesThisDisplaysWindowsToTheFront() {
+        let items = [
+            window(1, display: 2), window(2, display: 1), window(3, display: 2), window(4, display: 1), window(5, display: 3),
+        ]
+        XCTAssertEqual(ids(ItemOrdering.displayFirst(items, displayID: 1)),
+                       [.window(2), .window(4), .window(1), .window(3), .window(5)])
+    }
+
+    func testDisplayFirstIsStableInBothParts() {
+        let items = (0..<30).map { window(UInt32($0), display: UInt32($0 % 3)) }
+        let result = ItemOrdering.displayFirst(items, displayID: 2)
+        let front = result.prefix { $0.displayID == 2 }
+        XCTAssertEqual(ids(Array(front)), ids(items.filter { $0.displayID == 2 }))
+        XCTAssertEqual(ids(Array(result.dropFirst(front.count))), ids(items.filter { $0.displayID != 2 }))
+        XCTAssertFalse(result.dropFirst(front.count).contains { $0.displayID == 2 })
+    }
+
+    func testDisplayFirstWithoutADisplayChangesNothing() {
+        let items = [window(1, display: 2), window(2, display: 1), windowlessApp(pid: 9)]
+        XCTAssertEqual(ItemOrdering.displayFirst(items, displayID: nil), items)
+    }
+
+    func testDisplayFirstUnknownDisplaysAndWindowlessAppsGoLast() {
+        var odd = windowlessApp(pid: 9)
+        odd.displayID = 1 // a windowless entry never counts as on a display
+        let items = [windowlessApp(pid: 8), window(1), odd, window(2, display: 1), window(3, display: 2)]
+        XCTAssertEqual(ids(ItemOrdering.displayFirst(items, displayID: 1)),
+                       [.window(2), .app(pid: 8), .window(1), .app(pid: 9), .window(3)])
+    }
+
+    func testDisplayFirstEdgeCases() {
+        XCTAssertEqual(ItemOrdering.displayFirst([], displayID: 1), [])
+        let none = [window(1, display: 2), window(2)]
+        XCTAssertEqual(ItemOrdering.displayFirst(none, displayID: 1), none, "nothing on this display")
+        let all = [window(1, display: 1), window(2, display: 1)]
+        XCTAssertEqual(ItemOrdering.displayFirst(all, displayID: 1), all, "everything on this display")
+        let items = [window(1, display: 2), window(2, display: 1), window(3, display: 1)]
+        let once = ItemOrdering.displayFirst(items, displayID: 1)
+        XCTAssertEqual(ItemOrdering.displayFirst(once, displayID: 1), once, "idempotent")
+        XCTAssertEqual(Set(ids(once)), Set(ids(items)))
+        XCTAssertEqual(ItemOrdering.displayFirst([window(1, display: UInt32.max)], displayID: UInt32.max).count, 1)
+    }
+
+    func testDisplayFirstThenPinnedFirstKeepsPinnedAppsLeading() {
+        // The app applies displayFirst, then pinnedFirst.
+        let items = [
+            window(1, pid: 1, bundle: "com.other", display: 2),
+            window(2, pid: 2, bundle: "com.pinned", display: 2),
+            window(3, pid: 1, bundle: "com.other", display: 1),
+            window(4, pid: 2, bundle: "com.pinned", display: 1),
+            window(5, pid: 3, bundle: "com.third", display: 1),
+        ]
+        let result = ItemOrdering.pinnedFirst(ItemOrdering.displayFirst(items, displayID: 1), pinnedBundleIDs: ["com.pinned"])
+        XCTAssertEqual(ids(result), [.window(4), .window(2), .window(3), .window(5), .window(1)],
+                       "pinned on this display, pinned elsewhere, others on this display, the rest")
+    }
+
+    func testDisplayFirstBeforeGroupingKeepsGroupsWhole() {
+        let items = [
+            window(1, pid: 1, display: 2), window(2, pid: 2, display: 1), window(3, pid: 1, display: 1), window(4, pid: 3, display: 2),
+        ]
+        let result = ItemOrdering.groupedByApp(ItemOrdering.displayFirst(items, displayID: 1))
+        XCTAssertEqual(ids(result), [.window(2), .window(3), .window(1), .window(4)])
+    }
 }

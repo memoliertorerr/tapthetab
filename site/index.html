@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TapTheTab: a keyboard-first window switcher for macOS</title>
+  <meta name="description" content="Hold Option, tap Tab, see every window. Type to search, let go to switch. Free, open source, no telemetry.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
+  <!-- The page loads nothing but its own stylesheet and pictures: no scripts, fonts, trackers. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#top"><img src="favicon.svg" alt="" width="30" height="30">TapTheTab</a>
+    <nav aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#keys">Keys</a>
+      <a href="#install">Install</a>
+      <a href="#privacy">Privacy</a>
+      <a href="https://github.com/memoliertorerr/tapthetab">GitHub</a>
+    </nav>
+  </header>
+</div>
+
+<main id="top">
+
+  <div class="wrap hero">
+    <h1>TapTheTab</h1>
+    <p class="pitch">Every window, one tap away.</p>
+    <p class="sub">A fast, keyboard-first window switcher for macOS. Hold <kbd>⌥</kbd>, tap <kbd>⇥</kbd>, see every window. Type to search. Let go to switch.</p>
+    <div class="cta">
+      <a class="button primary" href="https://github.com/memoliertorerr/tapthetab/releases/latest">Download for macOS</a>
+      <a class="button" href="https://github.com/memoliertorerr/tapthetab">View on GitHub</a>
+    </div>
+    <p class="facts">Free and open source (MIT) · macOS 13 or later · Developer ID signed and notarized</p>
+
+    <div class="demo">
+      <picture>
+        <source media="(prefers-reduced-motion: reduce)" srcset="images/switcher-grid-light.png">
+        <img src="images/demo.png" alt="Animation: the TapTheTab switcher shows fourteen windows in a grid and the selection moves from card to card; then typing “re” narrows a list to the matching windows; then the selection moves down a list with window thumbnails on a purple theme." width="800">
+      </picture>
+    </div>
+  </div>
+
+  <section class="why">
+    <div class="narrow">
+      <h2>Windows, not just apps</h2>
+      <p>macOS’s <kbd>⌘</kbd><kbd>⇥</kbd> switches <strong>apps</strong>, not windows. With three Safari windows and two editor projects open, getting to the right one means <kbd>⌘</kbd><kbd>⇥</kbd>, then <kbd>⌘</kbd><kbd>`</kbd>, then guessing.</p>
+      <p>TapTheTab shows <strong>every window</strong> in one place, ordered by when you last used it, and lets you jump to any of them by typing a few letters of its title. <code>⌥⇥ sl ⌥</code> goes to Slack. <code>⌥⇥ gh pull ⌥</code> goes to the GitHub pull-request tab, in whichever browser it lives in.</p>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>Features</h2>
+      <p class="lead">Small and quick, with room to make it yours.</p>
+      <div class="grid">
+        <div class="card"><h3>All windows, most recent first</h3><p>Including minimized windows and hidden apps (each can be filtered out). A quick tap goes back to the previous window without the panel ever flashing.</p></div>
+        <div class="card"><h3>Type to search</h3><p>Fuzzy, case- and accent-insensitive, across titles and app names. Matches are highlighted, and what you picked ranks first next time.</p></div>
+        <div class="card"><h3>Quick select, peek, pin</h3><p><kbd>⌘</kbd>1–9 jumps straight to a window, <kbd>⇧</kbd>Space peeks at it full size, <kbd>⇧</kbd>P pins an app to the top.</p></div>
+        <div class="card"><h3>Act without switching</h3><p>Close, minimize, make fullscreen, hide or quit from the switcher. <kbd>⇧</kbd>D sends a window to your next display.</p></div>
+        <div class="card"><h3>Liquid Glass</h3><p>See-through glass on macOS 26 (Clear or Tinted), a similar translucent look on earlier versions, or the classic dark panel.</p></div>
+        <div class="card"><h3>Themes</h3><p>Soft gradients with grain: eleven presets or your own colors. The Settings window follows.</p></div>
+        <div class="card"><h3>Thumbnails and previews</h3><p>Optional live window thumbnails in the grid and the list, and a large preview of the selected window on its own floating card.</p></div>
+        <div class="card"><h3>Move it</h3><p>Drag the list or the large preview anywhere while the switcher is open. It remembers where.</p></div>
+        <div class="card"><h3>A layout per shortcut</h3><p>Grid or list, three sizes. For example <kbd>⌥</kbd><kbd>⇥</kbd> as a grid and <kbd>⌥</kbd><kbd>`</kbd> as a list for the current app.</p></div>
+        <div class="card"><h3>Several displays</h3><p>Shows on the display with your mouse, the active window or the main display, and can list that display’s windows first.</p></div>
+        <div class="card"><h3>Easy to start</h3><p>A first-run tour walks through the keys, and you can reopen it any time. Any shortcut works, including <kbd>⌘</kbd><kbd>⇥</kbd>.</p></div>
+        <div class="card"><h3>Your language</h3><p>English, Italian, Turkish, German, French and Spanish, with VoiceOver support.</p></div>
+        <div class="card"><h3>Scriptable</h3><p><code>tapthetab://</code> links open the switcher pre-filtered, for launchers, Shortcuts and the terminal.</p></div>
+        <div class="card"><h3>Hackable</h3><p>A plain-text JSON config that reloads when you save it, and a pure-Swift core with unit tests that run on any platform.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screenshots">
+    <div class="wrap">
+      <h2>Screenshots</h2>
+      <p class="lead">Drawn by the app itself from made-up windows, in light and dark.</p>
+      <div class="shots">
+        <figure class="wide shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="images/switcher-previews-dark.png">
+            <img src="images/switcher-previews-light.png" alt="The grid with live window previews and a large preview of the selected window" width="800" height="440" loading="lazy">
+          </picture>
+          <figcaption>The grid, with live previews</figcaption>
+        </figure>
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="images/switcher-search-dark.png">
+            <img src="images/switcher-search-light.png" alt="List layout while searching for “re”: matching letters are highlighted in titles and app names" width="768" height="496" loading="lazy">
+          </picture>
+          <figcaption>Type to search: matches are highlighted</figcaption>
+        </figure>
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="images/switcher-themed-dark.png">
+            <img src="images/switcher-themed-light.png" alt="List layout on the Dusk theme: each row shows a thumbnail of its window with the app icon as a badge" width="768" height="668" loading="lazy">
+          </picture>
+          <figcaption>Themes and window thumbnails in the list</figcaption>
+        </figure>
+        <figure class="wide shot settings">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="images/settings-general-dark.png">
+            <img src="images/settings-general-light.png" alt="TapTheTab Settings, General tab: launch at login, shortcut recorder rows and behavior toggles" width="768" height="676" loading="lazy">
+          </picture>
+          <figcaption>Settings</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="keys">
+    <div class="wrap">
+      <h2>Keys</h2>
+      <p class="lead">While you hold the trigger modifier (<kbd>⌥</kbd> by default).</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Keys</th><th scope="col">What happens</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>⌥</kbd><kbd>⇥</kbd></td><td>Open the switcher, select the previous window</td></tr>
+            <tr><td><kbd>⇥</kbd> / <kbd>⇧</kbd><kbd>⇥</kbd></td><td>Next / previous window</td></tr>
+            <tr><td><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></td><td>Move around the grid</td></tr>
+            <tr><td><em>letters, digits</em></td><td>Search</td></tr>
+            <tr><td><kbd>⌫</kbd></td><td>Delete the last search character</td></tr>
+            <tr><td><em>release</em> <kbd>⌥</kbd></td><td>Switch to the selection</td></tr>
+            <tr><td><kbd>↩</kbd></td><td>Switch to the selection</td></tr>
+            <tr><td><kbd>⎋</kbd></td><td>Clear the search; press again to close</td></tr>
+            <tr><td><kbd>Space</kbd> (empty search)</td><td>Keep the switcher open after you release <kbd>⌥</kbd></td></tr>
+            <tr><td><kbd>⌘</kbd><kbd>1</kbd>…<kbd>9</kbd></td><td>Switch straight to that window (<kbd>⌃</kbd> instead of <kbd>⌘</kbd> when your shortcut uses <kbd>⌘</kbd>)</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>Space</kbd></td><td>Peek: show the selected window full size where it is; again to go back (needs Screen Recording)</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>W</kbd></td><td>Close the window</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>M</kbd></td><td>Minimize / restore the window</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>F</kbd></td><td>Toggle fullscreen</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>H</kbd></td><td>Hide / show the app</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>Q</kbd></td><td>Quit the app</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>X</kbd></td><td>Close all of the app’s windows</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>D</kbd></td><td>Move the window to the next display</td></tr>
+            <tr><td><kbd>⇧</kbd><kbd>P</kbd></td><td>Pin or unpin the app (pinned apps’ windows come first)</td></tr>
+            <tr><td><kbd>⌥</kbd><kbd>`</kbd></td><td>The same, but only the current app’s windows</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">The mouse works too: hover to select, click to switch, click outside to dismiss. Shortcuts are yours to change in Settings.</p>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="lead">Needs macOS 13 or later. The only required permission is Accessibility.</p>
+      <div class="two">
+        <div>
+          <h3>Homebrew</h3>
+<pre><code>brew tap memoliertorerr/tapthetab https://github.com/memoliertorerr/tapthetab
+brew install --cask tapthetab</code></pre>
+          <p class="note">Update later with <code>brew upgrade</code>.</p>
+        </div>
+        <div>
+          <h3>Disk image</h3>
+          <ol>
+            <li>Download <code>TapTheTab-&lt;version&gt;.dmg</code> from the <a href="https://github.com/memoliertorerr/tapthetab/releases/latest">latest release</a>.</li>
+            <li>Drag <strong>TapTheTab</strong> into <strong>Applications</strong> and open it.</li>
+            <li>Grant <strong>Accessibility</strong> when asked (System Settings → Privacy &amp; Security → Accessibility).</li>
+          </ol>
+          <p class="note">Releases are signed with a Developer ID and notarized by Apple, and list SHA-256 checksums in <code>SHA256SUMS.txt</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" class="privacy">
+    <div class="narrow">
+      <h2>Privacy</h2>
+      <p><strong>No telemetry.</strong> No analytics, no accounts, nothing about you or your windows is collected.</p>
+      <ul>
+        <li><strong>No network access unless you turn on automatic update checks</strong> (off by default). Then, once a day, TapTheTab asks GitHub for the latest release. Nothing about you or your Mac is sent beyond that request.</li>
+        <li><strong>Updates are verified</strong> (Developer ID signature and checksum) before installing. Homebrew installs update with <code>brew upgrade</code>.</li>
+        <li><strong>Permissions:</strong> Accessibility is required to listen for the shortcut and list windows. Screen Recording is needed only if you turn on live previews, which are kept in memory and never saved.</li>
+        <li><strong>Your settings</strong> are one readable JSON file on your Mac, with owner-only permissions. This website has no scripts, no cookies and no third-party requests.</li>
+        <li><strong>Open source:</strong> read every line in the <a href="https://github.com/memoliertorerr/tapthetab">repository</a>. To report a vulnerability, see <a href="https://github.com/memoliertorerr/tapthetab/blob/main/SECURITY.md">SECURITY.md</a>.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <ul>
+      <li><a href="https://github.com/memoliertorerr/tapthetab/releases">Releases</a></li>
+      <li><a href="https://github.com/memoliertorerr/tapthetab#readme">README</a></li>
+      <li><a href="https://github.com/memoliertorerr/tapthetab/blob/main/CHANGELOG.md">Changelog</a></li>
+      <li><a href="https://github.com/memoliertorerr/tapthetab/issues">Issues</a></li>
+      <li><a href="https://github.com/memoliertorerr/tapthetab/blob/main/LICENSE">MIT license</a></li>
+    </ul>
+    <p>TapTheTab is an independent project, inspired by AltTab and containing none of its code. MIT © 2026 memoliertorerr.</p>
+  </div>
+</footer>
+
+</body>
+</html>

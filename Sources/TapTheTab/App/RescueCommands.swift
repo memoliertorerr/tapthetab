@@ -17,6 +17,8 @@ enum RescueCommands {
                                   TapTheTab's other saved state. The next launch uses defaults.
       --version                   Print the version.
       --help                      Show this help.
+      --render-screenshots <dir>  Draw the README screenshots from sample data (for developers).
+      --render-demo <file.png>    Draw the demo animation (animated PNG) from sample data.
 
     Quit TapTheTab before using these.
     """

@@ -11,6 +11,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         var showSettings: () -> Void
         var showPermissions: () -> Void
         var accessibilityGranted: () -> Bool
+        /// "Check for Updates…": one check on request (and its result). nil opens the
+        /// releases page in the browser instead, without any request by TapTheTab.
+        var checkForUpdates: (() -> Void)? = nil
+        /// The version of an update found by the last check; nil when there is none.
+        var availableUpdateVersion: () -> String? = { nil }
+        /// "Update to <version>…": shows the available update.
+        var showAvailableUpdate: () -> Void = {}
+        /// "Show Tour…": the first-run tour again.
+        var showTour: () -> Void = {}
     }
 
     private let statusItem: NSStatusItem
@@ -49,6 +58,13 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
 
+        if let version = actions.availableUpdateVersion() {
+            let update = item(L10n.tr("Update to %@…", version), #selector(showAvailableUpdate))
+            update.image = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: nil)
+            menu.addItem(update)
+            menu.addItem(.separator())
+        }
+
         if !actions.accessibilityGranted() {
             let warning = item(L10n.tr("Accessibility permission needed…"), #selector(showPermissions))
             warning.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
@@ -63,6 +79,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item(L10n.tr("Settings…"), #selector(showSettings), key: ","))
         menu.addItem(item(L10n.tr("Permissions…"), #selector(showPermissions)))
+        menu.addItem(item(L10n.tr("Show Tour…"), #selector(showTour)))
         menu.addItem(.separator())
         let version = NSMenuItem(title: "TapTheTab \(AppInfo.version)", action: nil, keyEquivalent: "")
         version.isEnabled = false
@@ -85,10 +102,24 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     @objc private func togglePause() { actions.togglePause() }
     @objc private func showSettings() { actions.showSettings() }
     @objc private func showPermissions() { actions.showPermissions() }
+    @objc private func showTour() {
+        DispatchQueue.main.async { [actions] in actions.showTour() }
+    }
     @objc private func quit() { NSApp.terminate(nil) }
 
-    /// Opens the releases page in the browser. TapTheTab itself never goes online.
-    @objc private func checkForUpdates() { NSWorkspace.shared.open(AppInfo.releasesURL) }
+    /// One update check on request. Without an updater: the releases page in the browser.
+    @objc private func checkForUpdates() {
+        if let check = actions.checkForUpdates {
+            // Let the menu finish closing before a window appears.
+            DispatchQueue.main.async { check() }
+        } else {
+            NSWorkspace.shared.open(AppInfo.releasesURL)
+        }
+    }
+
+    @objc private func showAvailableUpdate() {
+        DispatchQueue.main.async { [actions] in actions.showAvailableUpdate() }
+    }
 }
 
 /// The menu bar icon in each `MenuBarIconStyle`. Also drawn small in Settings to pick one.

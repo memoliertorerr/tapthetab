@@ -103,7 +103,8 @@ for bundle in "$BIN_DIR"/*.bundle; do
 done
 shopt -u nullglob
 
-# Localizations (en, it, tr): Bundle.main finds Contents/Resources/<lang>.lproj.
+# Localizations (every Resources/Localization/*.lproj): Bundle.main finds
+# Contents/Resources/<lang>.lproj. List new languages in Info.plist CFBundleLocalizations.
 LPROJS=(Resources/Localization/*.lproj)
 [[ -d "${LPROJS[0]}" ]] || die "no localizations found in Resources/Localization"
 for lproj in "${LPROJS[@]}"; do

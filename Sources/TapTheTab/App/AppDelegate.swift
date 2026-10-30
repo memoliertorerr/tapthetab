@@ -44,13 +44,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             isPaused: { [weak self] in self?.coordinator.isPaused ?? false },
             showSettings: { [weak self] in self?.showSettings() },
             showPermissions: { [weak self] in self?.showOnboarding() },
-            accessibilityGranted: { [weak self] in self?.permissions.accessibilityGranted ?? false }
+            accessibilityGranted: { [weak self] in self?.permissions.accessibilityGranted ?? false },
+            checkForUpdates: { Updater.shared.check(userInitiated: true) },
+            availableUpdateVersion: { Updater.shared.availableVersion },
+            showAvailableUpdate: { Updater.shared.showWindow() },
+            showTour: { [weak self] in self?.showTour(onlyFirstTime: false) }
         ))
 
         statusItem?.setVisible(configuration.configuration.appearance.showMenuBarIcon)
         statusItem?.setIconStyle(configuration.configuration.appearance.menuBarIconStyle,
                                  theme: configuration.configuration.appearance.colorTheme)
         installTerminationSignalHandlers()
+        // Off by default: nothing goes online unless the user turned this on.
+        Updater.shared.scheduleAutomaticChecks(enabled: configuration.configuration.behavior.checkForUpdates)
 
         if permissions.accessibilityGranted {
             startSwitcher()
@@ -130,11 +136,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Windows
 
+    /// The tour of the keys: once after the first permission grant, and from Settings / the menu.
+    private func showTour(onlyFirstTime: Bool) {
+        let appearance = configuration.configuration.appearance
+        let symbols = configuration.configuration.triggers.first?.shortcut.modifiers.symbols ?? ""
+        let modifier = symbols.isEmpty ? "⌥" : symbols
+        if onlyFirstTime {
+            _ = TourWindowController.showIfFirstRun(modifier: modifier, theme: appearance.colorTheme)
+        } else {
+            TourWindowController.show(modifier: modifier, theme: appearance.colorTheme)
+        }
+    }
+
     private func showOnboarding() {
         if onboarding == nil {
             onboarding = OnboardingWindowController(permissions: permissions) { [weak self] in
                 self?.onboarding = nil
                 self?.startSwitcher()
+                self?.showTour(onlyFirstTime: true)
             }
         }
         onboarding?.show()
@@ -200,6 +219,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func settingsChanged(_ newValue: Configuration) {
         let applied = configuration.update(newValue)
         coordinator.apply(configuration: applied)
+        Updater.shared.scheduleAutomaticChecks(enabled: applied.behavior.checkForUpdates)
         statusItem?.setVisible(applied.appearance.showMenuBarIcon)
         statusItem?.setIconStyle(applied.appearance.menuBarIconStyle, theme: applied.appearance.colorTheme)
         if applied != newValue {
@@ -227,6 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configurationChangedOnDisk(_ newValue: Configuration) {
         coordinator.apply(configuration: newValue)
+        Updater.shared.scheduleAutomaticChecks(enabled: newValue.behavior.checkForUpdates)
         statusItem?.setVisible(newValue.appearance.showMenuBarIcon)
         statusItem?.setIconStyle(newValue.appearance.menuBarIconStyle, theme: newValue.appearance.colorTheme)
         settings?.update(configuration: newValue)

@@ -6,7 +6,8 @@ and `docs/ROADMAP.md` before starting any change.
 ## What this is
 TapTheTab is a keyboard-first window switcher for macOS 13+ (menu-bar agent app,
 `LSUIElement`). ⌥⇥ shows every window, typing fuzzy-searches, releasing ⌥ switches.
-MIT licensed. No network access and no telemetry — that is a product promise, not a default.
+MIT licensed. No telemetry, and no network access except the opt-in update check (off by
+default; see `docs/ROADMAP.md` → Decisions) — that is a product promise, not a default.
 
 ## Layout
 | Path | What | Builds on |
@@ -29,8 +30,11 @@ MIT licensed. No network access and no telemetry — that is a product promise, 
 1. **Logic goes in the core.** Anything that can be expressed on plain values (ordering,
    filtering, matching, key handling, layout math, config) lives in `TapTheTabCore` with
    tests. The macOS layer only translates between the OS and core values.
-2. **No network, no telemetry, no third-party runtime dependencies.** Don't add a package
-   dependency without a written decision in `docs/ROADMAP.md`.
+2. **No network, no telemetry, no third-party runtime dependencies.** The only network
+   access is the update check (`System/Updater.swift`): opt-in (`behavior.checkForUpdates`,
+   default off) or started by the user from the menu, talking only to GitHub, sending nothing
+   but the request. Don't add other network access or a package dependency without a
+   written decision in `docs/ROADMAP.md`.
 3. **Never log window titles or app content publicly**: use `privacy: .private` in `Log.*`.
 4. **Config compatibility:** every config key is optional when decoding and a bad value
    falls back to its default. Never rename or remove a key without migration code and a

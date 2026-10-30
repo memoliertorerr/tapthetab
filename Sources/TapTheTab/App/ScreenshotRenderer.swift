@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import SwiftUI
 import TapTheTabCore
 import UniformTypeIdentifiers
@@ -9,6 +10,9 @@ import UniformTypeIdentifiers
 // window previews drawn below. Nothing is read from the screen, the window list, the
 // config file or the network, and no permission is needed. Output is deterministic for
 // a given macOS version.
+//
+// `TapTheTab --render-demo <file>` (same rules) draws a short animation of the switcher
+// from the same sample data into an animated PNG for the README and the website.
 
 /// Light or dark version of a screenshot.
 enum ScreenshotMode: CaseIterable {
@@ -99,6 +103,14 @@ struct SampleWindow {
             isAppHidden: isAppHidden
         )
     }
+}
+
+/// A switcher panel drawn from sample data, before it is composed onto a desktop.
+private struct RenderedPanel {
+    let panel: CGImage
+    let layout: SwitcherLayout
+    let previewCard: CGSize
+    let backdrop: PanelBackdropStyle
 }
 
 @MainActor
@@ -233,6 +245,32 @@ enum ScreenshotRenderer {
         mode: ScreenshotMode,
         icons: [Int32: NSImage]
     ) throws -> CGImage {
+        let rendered = try switcherPanel(
+            style: style, query: query, previews: previews, largePreview: largePreview,
+            theme: theme, sampleLimit: sampleLimit, mode: mode, icons: icons
+        )
+        return try composeSwitcher(
+            panel: rendered.panel,
+            layout: rendered.layout,
+            previewCard: rendered.previewCard,
+            backdrop: rendered.backdrop,
+            mode: mode
+        )
+    }
+
+    /// The panel's content for the sample windows, before it is put on a desktop. `inputs`
+    /// are applied to the opened (and searched) session, like keys pressed in the switcher.
+    private static func switcherPanel(
+        style: LayoutStyle,
+        query: String,
+        previews: Bool,
+        largePreview: Bool = true,
+        theme: ColorTheme = .none,
+        sampleLimit: Int? = nil,
+        inputs: [SwitcherInput] = [],
+        mode: ScreenshotMode,
+        icons: [Int32: NSImage]
+    ) throws -> RenderedPanel {
         var appearance = Appearance()
         appearance.style = style
         appearance.size = .medium
@@ -252,13 +290,24 @@ enum ScreenshotRenderer {
         for character in query {
             session.handle(.type(String(character)))
         }
-        let layout = SwitcherPanelController.layout(
-            for: session,
-            appearance: appearance,
-            showsPreview: appearance.showPreviews && appearance.showLargePreview && session.selectedItem != nil,
-            screenSize: screenSize
-        )
+        func layoutForSession() -> SwitcherLayout {
+            SwitcherPanelController.layout(
+                for: session,
+                appearance: appearance,
+                showsPreview: appearance.showPreviews && appearance.showLargePreview && session.selectedItem != nil,
+                screenSize: screenSize
+            )
+        }
+        var layout = layoutForSession()
         session.columns = layout.columns
+        if !inputs.isEmpty {
+            // Arrow keys need the column count of the layout, so they come after it.
+            for input in inputs {
+                session.handle(input)
+            }
+            layout = layoutForSession()
+            session.columns = layout.columns
+        }
 
         let model = SwitcherViewModel()
         model.iconOverrides = icons
@@ -274,12 +323,11 @@ enum ScreenshotRenderer {
         }
 
         let panel = try renderPanel(model: model, size: layout.panelSize, mode: mode)
-        return try composeSwitcher(
+        return RenderedPanel(
             panel: panel,
             layout: layout,
             previewCard: model.previewCardSize,
-            backdrop: PanelBackdropStyle(appearance),
-            mode: mode
+            backdrop: PanelBackdropStyle(appearance)
         )
     }
 
@@ -410,19 +458,26 @@ enum ScreenshotRenderer {
         layout: SwitcherLayout,
         previewCard: CGSize,
         backdrop: PanelBackdropStyle,
-        mode: ScreenshotMode
+        mode: ScreenshotMode,
+        canvasSize: CGSize? = nil
     ) throws -> CGImage {
         let size = layout.panelSize
-        let canvas = CGSize(width: size.width + margin * 2, height: size.height + margin * 2)
+        // The panel sits in the middle of the canvas: `margin` all around by default, or
+        // a larger fixed canvas (the demo's frames, which differ in size, share one).
+        let canvas = canvasSize ?? CGSize(width: size.width + margin * 2, height: size.height + margin * 2)
+        let origin = CGPoint(
+            x: ((canvas.width - size.width) / 2).rounded(),
+            y: ((canvas.height - size.height) / 2).rounded()
+        )
         let context = try canvasContext(size: canvas)
         drawDesktop(in: context, size: canvas, mode: mode)
 
         // Core Graphics counts y upwards: the main block is at the bottom of the panel.
-        let mainFrame = CGRect(x: margin, y: margin, width: layout.mainSize.width, height: layout.mainSize.height)
+        let mainFrame = CGRect(x: origin.x, y: origin.y, width: layout.mainSize.width, height: layout.mainSize.height)
         var pieces: [(frame: CGRect, radius: CGFloat)] = [(mainFrame, panelCornerRadius)]
         if previewCard.width > 0, previewCard.height > 0 {
             let cardFrame = CGRect(
-                x: margin + ((size.width - previewCard.width) / 2).rounded(),
+                x: origin.x + ((size.width - previewCard.width) / 2).rounded(),
                 y: mainFrame.maxY + SwitcherLayout.previewGap,
                 width: previewCard.width,
                 height: previewCard.height
@@ -462,7 +517,7 @@ enum ScreenshotRenderer {
             context.addPath(roundedPath(piece.frame, radius: piece.radius))
         }
         context.clip()
-        context.draw(panel, in: CGRect(x: margin, y: margin, width: size.width, height: size.height))
+        context.draw(panel, in: CGRect(x: origin.x, y: origin.y, width: size.width, height: size.height))
         context.restoreGState()
         for piece in pieces {
             strokeHairline(around: piece.frame, radius: piece.radius, in: context, mode: mode)
@@ -676,6 +731,173 @@ enum ScreenshotRenderer {
             }
         }
         return covered < side * side / 100 || lightest - darkest < 12
+    }
+}
+
+// MARK: - Demo animation
+
+/// One frame of the demo: the switcher opened on a scene, searched, and then fed some keys.
+private struct DemoFrame {
+    enum Scene {
+        /// All fourteen windows in the grid, with thumbnails and the large preview.
+        case grid
+        /// A plain list of the first ten windows (a list this long still fits without scrolling).
+        case list
+        /// A list on the Dusk theme with window thumbnails.
+        case themedList
+    }
+
+    let scene: Scene
+    var query: String = ""
+    var inputs: [SwitcherInput] = []
+    /// How long the frame stays on screen, in seconds.
+    let seconds: TimeInterval
+}
+
+extension ScreenshotRenderer {
+    /// The animation, in order: the selection stepping through the grid, a search narrowing
+    /// the list, and the selection moving on a themed list.
+    private static let demoFrames: [DemoFrame] = [
+        DemoFrame(scene: .grid, seconds: 1.0),
+        DemoFrame(scene: .grid, inputs: [.next], seconds: 0.5),
+        DemoFrame(scene: .grid, inputs: [.next, .next], seconds: 0.5),
+        DemoFrame(scene: .grid, inputs: [.next, .next, .next], seconds: 0.5),
+        DemoFrame(scene: .grid, inputs: [.next, .next, .next, .moveDown], seconds: 1.0),
+        DemoFrame(scene: .list, seconds: 0.8),
+        DemoFrame(scene: .list, query: "r", seconds: 0.6),
+        DemoFrame(scene: .list, query: "re", seconds: 0.8),
+        DemoFrame(scene: .list, query: "re", inputs: [.next], seconds: 1.0),
+        DemoFrame(scene: .themedList, seconds: 0.8),
+        DemoFrame(scene: .themedList, inputs: [.next], seconds: 0.5),
+        DemoFrame(scene: .themedList, inputs: [.next, .next], seconds: 0.5),
+        DemoFrame(scene: .themedList, inputs: [.next, .next, .next], seconds: 1.4),
+    ]
+
+    /// Widest the animation may be, in pixels.
+    private static let demoMaxWidth = 1600
+    /// The encoded file should stay below this; frames are scaled down until it does.
+    private static let demoMaxBytes = 3_000_000
+    /// Rows in the themed list (a list that scrolls does not render offscreen).
+    private static let demoThemedRows = 7
+
+    /// Renders the demo (light appearance) into the animated PNG `url`. The parent folder is
+    /// created if needed.
+    static func renderDemo(to url: URL) -> Result {
+        var result = Result()
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try writeDemo(to: url)
+            result.written.append(url)
+        } catch {
+            result.failures.append("\(url.lastPathComponent): \(error)")
+        }
+        return result
+    }
+
+    private static func writeDemo(to url: URL) throws {
+        let mode = ScreenshotMode.light
+        let icons = loadIcons(mode: mode)
+        let dusk = ThemePreset.named("dusk").map { ColorTheme.none.applying($0) } ?? ColorTheme.none
+
+        // First every panel, since the frames differ in size and share the largest canvas.
+        var panels: [RenderedPanel] = []
+        for frame in demoFrames {
+            switch frame.scene {
+            case .grid:
+                panels.append(try switcherPanel(
+                    style: .grid, query: frame.query, previews: true,
+                    inputs: frame.inputs, mode: mode, icons: icons
+                ))
+            case .list:
+                panels.append(try switcherPanel(
+                    style: .list, query: frame.query, previews: false, sampleLimit: 10,
+                    inputs: frame.inputs, mode: mode, icons: icons
+                ))
+            case .themedList:
+                panels.append(try switcherPanel(
+                    style: .list, query: frame.query, previews: true, largePreview: false, theme: dusk,
+                    sampleLimit: demoThemedRows, inputs: frame.inputs, mode: mode, icons: icons
+                ))
+            }
+        }
+        let canvas = CGSize(
+            width: (panels.map { $0.layout.panelSize.width }.max() ?? 0) + margin * 2,
+            height: (panels.map { $0.layout.panelSize.height }.max() ?? 0) + margin * 2
+        )
+        var images: [CGImage] = []
+        for panel in panels {
+            images.append(try composeSwitcher(
+                panel: panel.panel,
+                layout: panel.layout,
+                previewCard: panel.previewCard,
+                backdrop: panel.backdrop,
+                mode: mode,
+                canvasSize: canvas
+            ))
+        }
+
+        guard let firstWidth = images.first?.width else { throw Failure("no frames") }
+        var factor = min(1, CGFloat(demoMaxWidth) / CGFloat(firstWidth))
+        var data = Data()
+        for attempt in 1...4 {
+            let sized = try images.map { try resized($0, by: factor) }
+            data = try encodeAnimatedPNG(sized, delays: demoFrames.map { $0.seconds })
+            if data.count <= demoMaxBytes { break }
+            if attempt < 4 {
+                factor *= 0.75
+            } else {
+                FileHandle.standardError.write(Data(
+                    "note: the animation is \(data.count) bytes, above the \(demoMaxBytes) target\n".utf8
+                ))
+            }
+        }
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// `image` scaled by `factor` (1 returns it as is).
+    private static func resized(_ image: CGImage, by factor: CGFloat) throws -> CGImage {
+        guard factor < 1 else { return image }
+        let width = max(1, Int((CGFloat(image.width) * factor).rounded()))
+        let height = max(1, Int((CGFloat(image.height) * factor).rounded()))
+        guard let context = makeBitmapContext(width: width, height: height) else {
+            throw Failure("could not allocate a \(width)×\(height) frame")
+        }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let scaled = context.makeImage() else { throw Failure("could not scale a frame") }
+        return scaled
+    }
+
+    /// An animated PNG (APNG) with `delays[i]` seconds per frame, repeating forever.
+    private static func encodeAnimatedPNG(_ frames: [CGImage], delays: [TimeInterval]) throws -> Data {
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output as CFMutableData, UTType.png.identifier as CFString, frames.count, nil
+        ) else {
+            throw Failure("this system cannot write PNG animations")
+        }
+        let fileProperties: [String: Any] = [
+            kCGImagePropertyPNGDictionary as String: [kCGImagePropertyAPNGLoopCount as String: 0],
+        ]
+        CGImageDestinationSetProperties(destination, fileProperties as CFDictionary)
+        for (index, frame) in frames.enumerated() {
+            let frameProperties: [String: Any] = [
+                kCGImagePropertyPNGDictionary as String: [kCGImagePropertyAPNGDelayTime as String: delays[index]],
+            ]
+            CGImageDestinationAddImage(destination, frame, frameProperties as CFDictionary)
+        }
+        guard CGImageDestinationFinalize(destination) else {
+            throw Failure("PNG animation encoding failed")
+        }
+        let data = output as Data
+        // An APNG carries an animation control chunk before its image data.
+        guard data.range(of: Data("acTL".utf8)) != nil else {
+            throw Failure("the encoder wrote a still image, not an animation")
+        }
+        return data
     }
 }
 

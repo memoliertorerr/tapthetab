@@ -6,7 +6,7 @@ SWIFT ?= swift
 APP   := dist/TapTheTab.app
 
 .DEFAULT_GOAL := help
-.PHONY: help build test app universal package run screenshots clean lint
+.PHONY: help build test app universal package run screenshots demo check-screenshots site clean lint
 
 help: ## Show this help
 	@grep -E '^[a-z][a-zA-Z_-]*:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -34,6 +34,16 @@ run: ## Open dist/TapTheTab.app (builds it if missing)
 screenshots: ## Render the README screenshots from sample data into dist/screenshots
 	@test -d $(APP) || $(MAKE) app
 	$(APP)/Contents/MacOS/TapTheTab --render-screenshots dist/screenshots
+
+demo: ## Render the demo animation (animated PNG) into dist/screenshots/demo.png
+	@test -d $(APP) || $(MAKE) app
+	$(APP)/Contents/MacOS/TapTheTab --render-demo dist/screenshots/demo.png
+
+check-screenshots: ## Compare dist/screenshots with docs/images/screenshot-reference.json
+	python3 -I scripts/check-screenshots.py dist/screenshots
+
+site: ## Assemble the website into dist/site (open dist/site/index.html)
+	scripts/build-site.sh dist/site
 
 clean: ## Remove build products
 	rm -rf .build dist

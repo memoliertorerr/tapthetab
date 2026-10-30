@@ -8,6 +8,9 @@ enum TapTheTabMain {
         if let flagIndex = arguments.firstIndex(of: "--render-screenshots") {
             renderScreenshots(arguments: arguments, flagIndex: flagIndex)
         }
+        if let flagIndex = arguments.firstIndex(of: "--render-demo") {
+            renderDemo(arguments: arguments, flagIndex: flagIndex)
+        }
         if let code = RescueCommands.run(arguments) {
             exit(code)
         }
@@ -40,6 +43,34 @@ enum TapTheTabMain {
         app.setActivationPolicy(.accessory)
 
         let result = ScreenshotRenderer.renderAll(to: directory)
+        for url in result.written {
+            print(url.path)
+        }
+        for failure in result.failures {
+            FileHandle.standardError.write(Data("error: \(failure)\n".utf8))
+        }
+        let succeeded = result.failures.isEmpty && !result.written.isEmpty
+        exit(succeeded ? 0 : 1)
+    }
+
+    /// Hidden mode for the README and website animation (`make demo`, CI):
+    /// `TapTheTab --render-demo <file.png>` draws a short sequence of the switcher from the
+    /// same built-in sample data into an animated PNG, prints its path and exits. Like
+    /// `--render-screenshots`, nothing else of the app starts.
+    @MainActor
+    private static func renderDemo(arguments: [String], flagIndex: Int) -> Never {
+        let pathIndex = flagIndex + 1
+        guard pathIndex < arguments.count, !arguments[pathIndex].hasPrefix("-") else {
+            FileHandle.standardError.write(Data("usage: TapTheTab --render-demo <output file>\n".utf8))
+            exit(2)
+        }
+        let file = URL(fileURLWithPath: arguments[pathIndex])
+
+        // Needed for windows and AppKit drawing; never run, never activated.
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
+
+        let result = ScreenshotRenderer.renderDemo(to: file)
         for url in result.written {
             print(url.path)
         }

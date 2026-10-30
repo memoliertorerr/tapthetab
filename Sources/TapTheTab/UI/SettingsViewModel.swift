@@ -406,12 +406,6 @@ final class SettingsViewModel: ObservableObject {
             self.diagnosticsCopied = false
         }
     }
-
-    /// Only opens the browser; TapTheTab itself never checks for updates over the network.
-    func openReleasesPage() {
-        guard let url = URL(string: "https://github.com/memoliertorerr/tapthetab/releases/latest") else { return }
-        NSWorkspace.shared.open(url)
-    }
 }
 
 extension SettingsViewModel: ShortcutRecorderDelegate {
