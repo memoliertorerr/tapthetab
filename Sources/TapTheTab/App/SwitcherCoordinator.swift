@@ -441,7 +441,12 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             ownPID: ProcessInfo.processInfo.processIdentifier
         )
         let filtered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
-        let grouped = configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(filtered) : filtered
+        // Display first goes before grouping so each app's group stays whole.
+        let sorted = ItemOrdering.displayFirst(
+            filtered,
+            displayID: configuration.filters.currentDisplayFirst ? screen.displayID : nil
+        )
+        let grouped = configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(sorted) : sorted
         return ItemOrdering.pinnedFirst(grouped, pinnedBundleIDs: pinnedSet)
     }
 

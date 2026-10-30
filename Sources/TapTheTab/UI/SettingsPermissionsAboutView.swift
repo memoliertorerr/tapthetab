@@ -70,14 +70,14 @@ struct AboutSettingsView: View {
             }
 
             Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Button(L10n.tr("Check for Updates…")) {
-                        model.openReleasesPage()
-                    }
-                    Text(L10n.tr("Opens the releases page in your browser."))
-                        .font(.caption)
-                        .foregroundColor(Color.secondary)
+                Toggle(isOn: $model.configuration.behavior.checkForUpdates) {
+                    Text(L10n.tr("Check for updates automatically"))
+                    Text(L10n.tr("Once a day, TapTheTab asks GitHub for the latest version. Nothing else is sent. When this is off, TapTheTab only goes online when you check by hand."))
                 }
+                UpdateStatusView(updater: Updater.shared)
+                    .padding(.vertical, 2)
+            } header: {
+                Text(L10n.tr("Updates"))
             }
 
             Section {
@@ -108,7 +108,7 @@ struct AboutSettingsView: View {
             }
 
             Section {
-                Text(L10n.tr("TapTheTab never connects to the internet and collects no data. Settings live in config.json on this Mac."))
+                Text(L10n.tr("TapTheTab collects no data. It only goes online to ask GitHub for the latest version: once a day if automatic update checks are on, or when you check by hand. Settings live in config.json on this Mac."))
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Button(L10n.tr("Reveal config file")) {
