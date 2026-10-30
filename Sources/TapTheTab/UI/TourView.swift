@@ -252,11 +252,13 @@ struct TourView: View {
         HStack(spacing: 10) {
             if model.isLast {
                 // Keeps the dots centered; the last page has nothing to skip.
-                Color.clear.frame(width: 80, height: 1)
+                Color.clear.frame(width: 120, height: 1)
             } else {
                 Button(L10n.tr("Skip tour")) { model.finish() }
                     .buttonStyle(.link)
-                    .frame(width: 80, alignment: .leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(width: 120, alignment: .leading)
             }
             Spacer()
             dots

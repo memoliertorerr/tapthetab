@@ -13,6 +13,9 @@
 		<string>en</string>
 		<string>it</string>
 		<string>tr</string>
+		<string>de</string>
+		<string>fr</string>
+		<string>es</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
