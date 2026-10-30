@@ -6,6 +6,8 @@
 
 Hold <kbd>⌥</kbd>, tap <kbd>⇥</kbd>, see every window. Type to search. Let go to switch.
 
+**[Website](https://memoliertorerr.github.io/tapthetab/)** · **[Download](https://github.com/memoliertorerr/tapthetab/releases/latest)** · **[Changelog](CHANGELOG.md)**
+
 [![CI](https://github.com/memoliertorerr/tapthetab/actions/workflows/ci.yml/badge.svg)](https://github.com/memoliertorerr/tapthetab/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/memoliertorerr/tapthetab?include_prereleases&sort=semver)](https://github.com/memoliertorerr/tapthetab/releases)
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)
@@ -14,10 +16,7 @@ Hold <kbd>⌥</kbd>, tap <kbd>⇥</kbd>, see every window. Type to search. Let g
 </div>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-grid-dark.png">
-    <img alt="The TapTheTab switcher showing fourteen windows from different apps in a grid, the second one selected" src="docs/images/switcher-grid-light.png" width="800">
-  </picture>
+  <img alt="Animation: the switcher lists fourteen windows in a grid and the selection moves from card to card; typing “re” narrows a list to the matching windows; the selection then moves down a list with window thumbnails on a purple theme" src="docs/images/demo.png" width="800">
 </p>
 
 ---
@@ -33,8 +32,9 @@ built around three goals:
 1. **Search first.** Typing while the switcher is open fuzzy-matches window titles *and*
    app names. `⌥⇥ sl ⌥` → Slack. `⌥⇥ gh pull` → the GitHub pull-request tab in whichever
    browser it lives in.
-2. **Privacy by default.** No network access, no telemetry, no analytics, ever. Window
-   previews are opt-in, so out of the box TapTheTab needs only the Accessibility
+2. **Privacy by default.** No telemetry, no analytics, ever, and no network access unless
+   you turn on update checks (off by default; see [Privacy](#permissions-and-privacy)).
+   Window previews are opt-in, so out of the box TapTheTab needs only the Accessibility
    permission, not Screen Recording.
 3. **Small and hackable.** A plain-text JSON config, a pure-Swift core with unit tests that
    run on any platform, and a thin macOS layer on top.
@@ -45,11 +45,20 @@ built around three goals:
   <tr>
     <td width="50%">
       <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-grid-dark.png">
+        <img alt="The switcher showing fourteen windows from different apps in a grid, the second one selected" src="docs/images/switcher-grid-light.png">
+      </picture>
+      <p align="center"><sub>Every window, most recent first</sub></p>
+    </td>
+    <td width="50%">
+      <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-search-dark.png">
         <img alt="List layout while searching for 're': matching letters are highlighted in titles and app names" src="docs/images/switcher-search-light.png">
       </picture>
       <p align="center"><sub>Type to search — matches are highlighted</sub></p>
     </td>
+  </tr>
+  <tr>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-previews-dark.png">
@@ -57,9 +66,7 @@ built around three goals:
       </picture>
       <p align="center"><sub>Optional live previews</sub></p>
     </td>
-  </tr>
-  <tr>
-    <td colspan="2">
+    <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/images/switcher-themed-dark.png">
         <img alt="List layout on the Dusk theme: each row shows a live thumbnail of its window with the app icon as a badge" src="docs/images/switcher-themed-light.png">
@@ -69,8 +76,8 @@ built around three goals:
   </tr>
 </table>
 
-<sub>Screenshots are rendered by the app itself from fictional sample windows
-(`make screenshots`), so they always match the current UI.</sub>
+<sub>The screenshots and the animation are rendered by the app itself from fictional
+sample windows (`make screenshots`, `make demo`), so they always match the current UI.</sub>
 
 
 - **All windows, most recent first** — including minimized windows and hidden apps
@@ -83,6 +90,8 @@ built around three goals:
 - **Quick tap = previous window** — a tap under the show delay (90 ms by default) switches
   back without the panel ever flashing.
 - **Group by app** if you like — apps in recency order, each app's windows together.
+- **Several displays** — the switcher can list the windows of the display it opens on
+  first (option).
 - **Liquid Glass** — the panel is see-through glass on macOS 26 (Clear or Tinted, like the
   system setting), a similar translucent look on earlier versions, or the classic dark panel.
 - **Themes** — Arc-style gradients with grain: eleven presets or your own colors.
@@ -96,7 +105,10 @@ built around three goals:
 - **Optional live previews** (macOS 14+, needs Screen Recording): window thumbnails in the
   grid and the list, and a large preview of the selected window on its own floating card
   (50–100 % size).
-- **Speaks your language** — English, Italian and Turkish, with VoiceOver support.
+- **First-run tour** — a short walk through the keys the first time you run it; reopen it
+  any time.
+- **Speaks your language** — English, Italian, Turkish, German, French and Spanish, with
+  VoiceOver support.
 - **Scriptable** — `tapthetab://` links open the switcher pre-filtered from launchers,
   Shortcuts or the terminal (see [Automation](#automation)).
 - **Use ⌘⇥ if you like** — TapTheTab can take over the system shortcut while it runs and
@@ -104,6 +116,8 @@ built around three goals:
 - **Any shortcut you like** — record one in Settings, or edit the config.
 - **Always current** — window changes are watched live, so the list is right the moment
   the switcher opens.
+- **Update checks, if you want them** — off by default (see
+  [Privacy](#permissions-and-privacy)); Homebrew installs update with `brew upgrade`.
 - **Menu bar app** with Settings, pause/resume and launch at login.
 - **Hand-editable config** that is reloaded live when you save it.
 
@@ -116,6 +130,8 @@ brew tap memoliertorerr/tapthetab https://github.com/memoliertorerr/tapthetab
 brew install --cask tapthetab
 ```
 
+Update later with `brew upgrade`.
+
 **Manually**
 
 1. Download `TapTheTab-<version>.dmg` (or `.zip`) from the
@@ -125,9 +141,9 @@ brew install --cask tapthetab
    Accessibility). That's the only required permission.
 
 > [!NOTE]
-> Since v0.9.0, releases are signed with a Developer ID and notarized by Apple, so they open
-> without a Gatekeeper warning and keep the Accessibility permission across updates. Each
-> release lists SHA-256 checksums in `SHA256SUMS.txt`.
+> Releases are signed with a Developer ID and notarized by Apple (since v0.9.0), so they
+> open without a Gatekeeper warning and keep the Accessibility permission across updates.
+> Each release lists SHA-256 checksums in `SHA256SUMS.txt`.
 
 > [!TIP]
 > Coming from v0.8.0 or earlier (ad-hoc signed)? macOS sees the signed app as new once: if
@@ -187,7 +203,8 @@ fall back to defaults, and a file that can't be read is set aside as
     "searchEnabled": true,
     "startOnPrevious": true,
     "mouseHoverSelects": true,
-    "wrapAround": true
+    "wrapAround": true,
+    "checkForUpdates": false
   },
   "appearance": {
     "style": "grid",
@@ -219,6 +236,7 @@ fall back to defaults, and a file that can't be read is set aside as
 ```
 
 - **Triggers** can carry their own `"style": "grid"` or `"list"`.
+- **Updates:** `checkForUpdates` is `false` unless you turn it on (Settings, or here).
 - **Shortcuts** are written as `modifier+…+key`, e.g. `command+tab`, `ctrl+shift+space`,
   `option+grave`. A shortcut needs at least one of ⌘ ⌥ ⌃ fn.
 - **Scopes:** `allWindows`, `activeApp` (the frontmost app's windows) and `apps` (one
@@ -259,10 +277,16 @@ anything.
 |---|---|---|
 | Accessibility | Listen for the shortcut, list windows, focus/close/minimize them | Yes |
 | Screen Recording | Live window previews | Only if you turn previews on |
+| Network (outgoing) | The daily check for a newer release, if you turn update checks on | No (off by default) |
 
-TapTheTab makes **no network connections** and collects **no data**. It does not read
-window contents unless you enable previews, and previews are kept in memory only.
-See [SECURITY.md](SECURITY.md) to report a vulnerability.
+**No telemetry. No network access unless you turn on automatic update checks** (off by
+default): then once a day TapTheTab asks GitHub for the latest release; nothing about you
+or your Mac is sent beyond that request. Updates are verified (Developer ID signature and
+checksum) before installing; Homebrew installs update with `brew upgrade`.
+
+TapTheTab collects **no data**. It does not read window contents unless you enable
+previews, and previews are kept in memory only. See [SECURITY.md](SECURITY.md) to report a
+vulnerability.
 
 ## Build from source
 
@@ -275,6 +299,7 @@ cd tapthetab
 make test      # unit tests for the core
 make app       # builds dist/TapTheTab.app (ad-hoc signed)
 make run       # opens it
+make screenshots demo   # renders the pictures above from sample data
 ```
 
 The core logic (`Sources/TapTheTabCore`) is plain Swift and also builds and tests on Linux:
