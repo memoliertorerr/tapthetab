@@ -28,8 +28,6 @@ subrole (Apple's names only), to explain what is still missing on a given Mac.
 
 - Accepting `.accessory` apps in general: would bring in menu-bar palettes and HUDs.
 - Mapping windows owned by one VM process to per-app proxy bundles by title: fragile.
-- Better names for Wine processes that report as `wine64-preloader` (use the .exe name
-  from the process arguments): possible later.
 
 ## Sources
 

@@ -2,8 +2,8 @@ import Foundation
 
 // Opt-in update checks (`Behavior.checkForUpdates`, off by default). The core only
 // decides: which versions are newer, what a GitHub release response means, whether a
-// check is due. The app does the one HTTPS request and shows the result; it never
-// downloads or installs anything on its own.
+// check is due. The app does the request and shows the result. It downloads and installs
+// an update only when the user clicks Install and Relaunch, never on its own.
 
 /// A release version like "0.10.0", "v1.2.3" or "1.0.0-beta.2", ordered by SemVer 2.0
 /// precedence: numeric parts compared numerically, a prerelease below its release,

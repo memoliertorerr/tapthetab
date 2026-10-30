@@ -66,12 +66,12 @@
 | TT40 | Window actions: next display, close app windows, pin apps first | auto | ✅ done |
 | TT41 | Layout per shortcut; peek (⇧Space); Settings themed; menu bar icon styles; main block draggable anywhere | auto | ✅ done |
 | TT42 | Release v0.9.0 | checkpoint | ✅ done |
-| TT43 | Opt-in update checks and verified self-update (Homebrew installs: `brew upgrade`) *(maintainer approved 2026-10-30)* | auto | ⬜ todo |
-| TT44 | Multiple displays: list the switcher's display first (option) | auto | ⬜ todo |
-| TT45 | German, French, Spanish (and every new string in Italian and Turkish) | auto | ⬜ todo |
-| TT46 | First-run tour of the keys, reopenable | auto | ⬜ todo |
-| TT47 | CI smoke test, screenshot regression check, readable Wine/CrossOver app names | auto | ⬜ todo |
-| TT48 | Website (GitHub Pages) with a demo animation; README refresh | auto | ⬜ todo |
+| TT43 | Opt-in update checks and verified self-update (Homebrew installs: `brew upgrade`) *(maintainer approved 2026-10-30)* | auto | ✅ done |
+| TT44 | Multiple displays: list the switcher's display first (option) | auto | ✅ done |
+| TT45 | German, French, Spanish (and every new string in Italian and Turkish) | auto | ✅ done |
+| TT46 | First-run tour of the keys, reopenable | auto | ✅ done |
+| TT47 | CI smoke test, screenshot regression check, readable Wine/CrossOver app names | auto | ✅ done |
+| TT48 | Website (GitHub Pages) with a demo animation; README refresh | auto | ✅ done |
 | TT49 | Release v0.10.0 | checkpoint | ⬜ todo |
 
 **Overall status:** v0.1.0–v0.9.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. v0.9.0 released, the first release signed with a Developer ID and notarized. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
