@@ -1,0 +1,61 @@
+{
+  "about": "Written by scripts/check-screenshots.py. Per image: pixel size and a 16x16 average hash (256 bits, hex, row by row). Update with: python3 -I scripts/check-screenshots.py --update dist/screenshots",
+  "format": 1,
+  "images": {
+    "demo.png": {
+      "hash": "01ff03ff003f001f043f07ff07ff07ff67ff27ff67ff79f763e73bff00ff0003",
+      "height": 372,
+      "width": 675
+    },
+    "settings-general-dark.png": {
+      "hash": "01ff23ff00033007300306db07fb38033fff20033c0730073c07380700010001",
+      "height": 1352,
+      "width": 1536
+    },
+    "settings-general-light.png": {
+      "hash": "001e00003ffc2ffc1ffc3f3c3b2c2ffc3ffc3ffc07fc0ffc07fc07fc00000000",
+      "height": 1352,
+      "width": 1536
+    },
+    "switcher-grid-dark.png": {
+      "hash": "00ff00ff00011dff1fff19ff587f0001000b77ff67ff002b000100010001003f",
+      "height": 960,
+      "width": 2832
+    },
+    "switcher-grid-light.png": {
+      "hash": "01ff00ff67ff019f01e703ff03df67ff7fff21f121913bff7fff7fff0001007f",
+      "height": 960,
+      "width": 2832
+    },
+    "switcher-previews-dark.png": {
+      "hash": "01ff01ff03ff07ff03df021f03df001f19051d5d182107d957dd001b0001000f",
+      "height": 1560,
+      "width": 2832
+    },
+    "switcher-previews-light.png": {
+      "hash": "01ff03ff003f001f047f07ff07ff07ff67ff27ff67ff79f763e73bff00ff0003",
+      "height": 1560,
+      "width": 2832
+    },
+    "switcher-search-dark.png": {
+      "hash": "03ff03ff003f01ff7fff787f00037c0f7c0f000378077807600560050003003f",
+      "height": 992,
+      "width": 1536
+    },
+    "switcher-search-light.png": {
+      "hash": "00ff007f1fff00ff000107fb3fff03ff03ff3fff07ff07ff2fff0fff0001000f",
+      "height": 992,
+      "width": 1536
+    },
+    "switcher-themed-dark.png": {
+      "hash": "01ff00ff3c3f1e077fff3fff1c07180330011e033c033c011001380100010003",
+      "height": 1336,
+      "width": 1536
+    },
+    "switcher-themed-light.png": {
+      "hash": "03ff03ff03ff21ff0001000123ff27ff3fff61ff23ff23ff2fff27ff0001003f",
+      "height": 1336,
+      "width": 1536
+    }
+  }
+}
