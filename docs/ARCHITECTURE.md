@@ -70,6 +70,21 @@ previous window without the panel ever appearing.
 | `Updater`, `UpdateInstaller` | The only network access (see Network below). `Updater` (main actor) schedules checks and holds the state Settings and the Software Update window show; `UpdateInstaller` downloads, verifies and hands over to a small replace script. |
 | `UI/` | Two non-activating, transparent `NSPanel`s (never take focus — keys come from the tap) hosting SwiftUI: the main block and the large preview's card, each draggable while the switcher is open. Each draws its own backdrop (`PanelBackdrop.swift`): the system's Liquid Glass on macOS 26 (`glassEffect`, Clear or Tinted), a blur with a glass-like rim before, or the classic HUD material, with an optional theme gradient and grain on top. Settings and Onboarding windows. |
 
+## Panel dragging and Settings actions
+
+While the switcher is visible, a local AppKit mouse monitor tracks a left-button drag
+starting in either panel, independently of SwiftUI row/card gestures and shortcut
+modifiers. Movement begins after four points; ordinary clicks and scroll-wheel events
+still reach the content. During a drag, hover selection is suppressed; the ending click
+does not switch windows. Existing `PanelPlacement` clamping and fractional saved positions
+remain unchanged. Saving positions updates only the coordinator’s stored positions,
+without closing the active switching session. Hiding mid-drag also saves movement.
+The monitor is removed when the switcher closes.
+
+Settings → About can reopen the shared tour window with the current shortcut and theme.
+Its Quit TapTheTab button calls normal application termination, so the coordinator stops
+the event tap and restores system shortcuts.
+
 ## Localization
 
 User-facing strings go through `L10n.tr("English sentence")` (App/Localization.swift),

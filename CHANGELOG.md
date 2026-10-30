@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-30
+
+### Added
+
+- Show Tour… and Quit TapTheTab buttons in Settings → About.
+
+### Fixed
+
+- Switcher block dragging uses native mouse events so it works while holding the shortcut modifier, including ⌘ for ⌘⇥, and when starting over a window row or card. Saving the position keeps the switcher open, and releasing the shortcut during a drag also remembers the position.
+
 ## [0.10.0] - 2026-10-30
 
 ### Added
@@ -171,7 +181,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Menu bar app with a settings window and an optional launch-at-login toggle.
 - Privacy by design: no network access and no telemetry. Settings stay on your Mac.
 
-[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/memoliertorerr/tapthetab/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/memoliertorerr/tapthetab/compare/v0.7.1...v0.8.0

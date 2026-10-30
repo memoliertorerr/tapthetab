@@ -67,6 +67,14 @@ struct AboutSettingsView: View {
                     }
                 }
                 .padding(.vertical, 4)
+                HStack(spacing: 8) {
+                    Button(L10n.tr("Show Tour…")) {
+                        model.showTour()
+                    }
+                    Button(L10n.tr("Quit TapTheTab")) {
+                        model.quit()
+                    }
+                }
             }
 
             Section {

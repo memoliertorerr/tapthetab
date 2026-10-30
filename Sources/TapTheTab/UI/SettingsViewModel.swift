@@ -359,6 +359,20 @@ final class SettingsViewModel: ObservableObject {
         return result
     }
 
+    // MARK: - App actions
+
+    func showTour() {
+        let symbols = configuration.triggers.first?.shortcut.modifiers.symbols ?? ""
+        TourWindowController.show(
+            modifier: symbols.isEmpty ? "⌥" : symbols,
+            theme: configuration.appearance.colorTheme
+        )
+    }
+
+    func quit() {
+        NSApp.terminate(nil)
+    }
+
     // MARK: - Permissions and files
 
     func requestAccessibility() {

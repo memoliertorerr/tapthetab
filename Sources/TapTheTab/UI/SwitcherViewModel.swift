@@ -3,12 +3,6 @@ import SwiftUI
 import TapTheTabCore
 import UniformTypeIdentifiers
 
-/// A drag of one of the switcher's blocks: the pointer moved, or was released.
-enum SwitcherDragPhase {
-    case changed
-    case ended
-}
-
 /// State behind the switcher panel. Owned by `SwitcherPanelController`.
 @MainActor
 final class SwitcherViewModel: ObservableObject {
@@ -29,8 +23,6 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var entranceScale: CGFloat = 1
 
     var inputHandler: ((SwitcherInput) -> Void)?
-    /// A block is being dragged (see `SwitcherPanelController`).
-    var dragHandler: ((SwitcherBlock, SwitcherDragPhase) -> Void)?
     /// True while a block is dragged: hover must not change the selection then.
     var isDragging = false {
         didSet { if oldValue && !isDragging { dragEndedAt = ProcessInfo.processInfo.systemUptime } }
@@ -224,10 +216,6 @@ final class SwitcherViewModel: ObservableObject {
     /// List rows show window thumbnails (taller rows, see `PanelLayout`).
     var listShowsThumbnails: Bool {
         appearance.showPreviews && appearance.windowThumbnails
-    }
-
-    func drag(_ block: SwitcherBlock, _ phase: SwitcherDragPhase) {
-        dragHandler?(block, phase)
     }
 
     /// Whether a thumbnail is stored for `id`, whatever the current appearance says

@@ -50,7 +50,8 @@ final class SwitcherPanelController {
     private var previewPosition: BlockPosition?
     /// The main block is at a remembered (dragged) position rather than its default place.
     private var mainWasMoved = false
-    /// The drag in progress: which block, and where the pointer and the windows started.
+    private var mouseMonitor: Any?
+    /// A pending or active drag: which block, and the pointer and windows at mouse-down.
     private var drag: (block: SwitcherBlock, mouse: NSPoint, main: NSPoint, preview: NSPoint)?
 
     init() {
@@ -68,9 +69,10 @@ final class SwitcherPanelController {
         model.inputHandler = { [weak self] input in
             self?.onInput?(input)
         }
-        model.dragHandler = { [weak self] block, phase in
-            self?.handleDrag(block, phase)
-        }
+    }
+
+    deinit {
+        if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
     }
 
     /// A transparent, borderless, non-activating panel; the SwiftUI content draws its
@@ -131,6 +133,7 @@ final class SwitcherPanelController {
         let wasVisible = isVisible
         self.screen = screen
         drag = nil
+        model.isDragging = false
         let nsAppearance = Self.nsAppearance(for: appearance.theme)
         mainPanel.appearance = nsAppearance
         previewPanel.appearance = nsAppearance
@@ -164,6 +167,7 @@ final class SwitcherPanelController {
         if !wasVisible { setAlpha(animatesIn ? 0 : 1) }
         if frames.preview != nil { previewPanel.orderFrontRegardless() }
         mainPanel.orderFrontRegardless()
+        startMouseMonitor()
         if animatesIn { playEntrance() }
         return layout.columns
     }
@@ -238,6 +242,9 @@ final class SwitcherPanelController {
     }
 
     func hide() {
+        finishDrag()
+        if let mouseMonitor { NSEvent.removeMonitor(mouseMonitor) }
+        mouseMonitor = nil
         drag = nil
         model.isDragging = false
         mainPanel.orderOut(nil)
@@ -344,22 +351,48 @@ final class SwitcherPanelController {
 
     // MARK: - Dragging
 
-    /// A block is dragged with the mouse while the switcher is open. It stays on the
-    /// screen; a card that follows the main block moves with it. When the drag ends the
-    /// new positions are reported so they can be remembered.
-    private func handleDrag(_ block: SwitcherBlock, _ phase: SwitcherDragPhase) {
+    /// Observe before SwiftUI arbitrates the row, card and scroll-view gestures. Keeping
+    /// every event in the stream lets ordinary clicks finish normally; the model ignores
+    /// the click at the end of a drag. No modifier check: the shortcut may still be held.
+    private func startMouseMonitor() {
+        guard mouseMonitor == nil else { return }
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            self?.handleMouse(event)
+            return event
+        }
+    }
+
+    private func handleMouse(_ event: NSEvent) {
         guard let screen, isVisible else { return }
         let mouse = NSEvent.mouseLocation
-        switch phase {
-        case .changed:
-            if drag == nil {
-                drag = (block, mouse, mainPanel.frame.origin, previewPanel.frame.origin)
+        switch event.type {
+        case .leftMouseDown:
+            drag = nil
+            model.isDragging = false
+            let block: SwitcherBlock
+            if event.window === mainPanel {
+                guard !isScrollbarClick(event) else { return }
+                block = .main
+            } else if event.window === previewPanel, previewPanel.isVisible {
+                // The preview window reserves more space than a portrait card draws.
+                let size = model.previewCardSize
+                let card = NSRect(x: (previewPanel.frame.width - size.width) / 2,
+                                  y: 0, width: size.width, height: size.height)
+                guard card.contains(event.locationInWindow) else { return }
+                block = .preview
+            } else {
+                return
+            }
+            drag = (block, mouse, mainPanel.frame.origin, previewPanel.frame.origin)
+        case .leftMouseDragged:
+            guard let drag else { return }
+            let delta = NSPoint(x: mouse.x - drag.mouse.x, y: mouse.y - drag.mouse.y)
+            if !model.isDragging {
+                guard delta.x * delta.x + delta.y * delta.y >= 16 else { return }
                 model.isDragging = true
             }
-            guard let drag, drag.block == block else { return }
-            let delta = NSPoint(x: mouse.x - drag.mouse.x, y: mouse.y - drag.mouse.y)
             let visible = ScreenRect(screen.visibleFrame)
-            switch block {
+            switch drag.block {
             case .main:
                 let moved = PanelPlacement.clamp(ScreenRect(NSRect(origin: drag.main.offset(by: delta), size: mainPanel.frame.size)), in: visible)
                 mainPanel.setFrameOrigin(NSPoint(x: moved.x, y: moved.y))
@@ -373,23 +406,47 @@ final class SwitcherPanelController {
                 let moved = PanelPlacement.clamp(ScreenRect(NSRect(origin: drag.preview.offset(by: delta), size: previewPanel.frame.size)), in: visible)
                 previewPanel.setFrameOrigin(NSPoint(x: moved.x, y: moved.y))
             }
-        case .ended:
-            guard let drag, drag.block == block else { return }
-            self.drag = nil
-            model.isDragging = false
-            model.resetHoverBaseline()
-            let visible = ScreenRect(screen.visibleFrame)
-            switch block {
-            case .main:
-                guard mainPanel.frame.origin != drag.main else { return }
-                mainPosition = PanelPlacement.mainPosition(of: ScreenRect(mainPanel.frame), in: visible)
-                mainWasMoved = true
-            case .preview:
-                guard previewPanel.frame.origin != drag.preview else { return }
-                previewPosition = PanelPlacement.previewPosition(of: ScreenRect(previewPanel.frame), in: visible)
-            }
-            onPositionsChanged?(mainWasMoved ? mainPosition : nil, previewPosition)
+        case .leftMouseUp:
+            finishDrag()
+        default:
+            break
         }
+    }
+
+    private func isScrollbarClick(_ event: NSEvent) -> Bool {
+        guard let content = mainPanel.contentView else { return false }
+        var view = content.hitTest(content.convert(event.locationInWindow, from: nil))
+        while let current = view {
+            if current is NSScroller { return true }
+            view = current.superview
+        }
+        return false
+    }
+
+    /// Also finish on hide: releasing the shortcut can close the panel before mouse-up.
+    private func finishDrag() {
+        guard let drag else { return }
+        self.drag = nil
+        // Apply any layout change deferred while the mouse was down, after content
+        // receives mouse-up so a normal click keeps its original target.
+        defer {
+            DispatchQueue.main.async { [weak self] in self?.relayout() }
+        }
+        guard model.isDragging else { return }
+        model.isDragging = false
+        model.resetHoverBaseline()
+        guard let screen else { return }
+        let visible = ScreenRect(screen.visibleFrame)
+        switch drag.block {
+        case .main:
+            guard mainPanel.frame.origin != drag.main else { return }
+            mainPosition = PanelPlacement.mainPosition(of: ScreenRect(mainPanel.frame), in: visible)
+            mainWasMoved = true
+        case .preview:
+            guard previewPanel.frame.origin != drag.preview else { return }
+            previewPosition = PanelPlacement.previewPosition(of: ScreenRect(previewPanel.frame), in: visible)
+        }
+        onPositionsChanged?(mainWasMoved ? mainPosition : nil, previewPosition)
     }
 
     // MARK: - Appearing

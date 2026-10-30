@@ -233,8 +233,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var newValue = configuration.configuration
         newValue.appearance.panelPosition = main
         newValue.appearance.previewPosition = preview
-        settingsChanged(newValue)
-        settings?.update(configuration: configuration.configuration)
+        let applied = configuration.update(newValue)
+        coordinator.rememberPanelPositions(
+            main: applied.appearance.panelPosition,
+            preview: applied.appearance.previewPosition
+        )
+        settings?.update(configuration: applied)
     }
 
     /// ⇧P in the switcher pinned or unpinned an app.

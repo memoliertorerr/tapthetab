@@ -3,7 +3,7 @@ import SwiftUI
 import TapTheTabCore
 
 /// The main block in its own window: search bar plus grid or list, on its backdrop.
-/// Dragging it (anywhere a click would not switch) moves the block.
+/// Pointer dragging is handled by the panel controller, including on cards and rows.
 struct SwitcherMainView: View {
     @ObservedObject var model: SwitcherViewModel
 
@@ -16,7 +16,6 @@ struct SwitcherMainView: View {
                 // Scrolled rows and cards stop at the rounded corners.
                 .clipShape(RoundedRectangle(cornerRadius: SwitcherLayout.panelCornerRadius, style: .continuous))
                 .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.panelCornerRadius)
-                .switcherDraggable(.main, model: model)
                 .scaleEffect(model.entranceScale)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -32,7 +31,6 @@ struct SwitcherPreviewView: View {
         let backdrop = PanelBackdropStyle(model.appearance)
         SwitcherGlassGroup(style: backdrop) {
             SwitcherPreviewCard(model: model, backdrop: backdrop)
-                .switcherDraggable(.preview, model: model)
                 .scaleEffect(model.entranceScale, anchor: .bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -121,20 +119,6 @@ struct SwitcherPreviewCard: View {
             .frame(width: card.width, height: card.height)
             .switcherBackdrop(backdrop, cornerRadius: SwitcherLayout.previewCardCornerRadius)
         }
-    }
-}
-
-extension View {
-    /// Dragging this view moves its block's window (see `SwitcherPanelController`), also
-    /// when the drag starts on a card or row: the gesture runs alongside theirs, and a
-    /// click that ends a drag does not switch (`SwitcherViewModel.click`). The pointer has
-    /// to move a few points first, so a plain click still switches.
-    func switcherDraggable(_ block: SwitcherBlock, model: SwitcherViewModel) -> some View {
-        simultaneousGesture(
-            DragGesture(minimumDistance: 4, coordinateSpace: .global)
-                .onChanged { _ in model.drag(block, .changed) }
-                .onEnded { _ in model.drag(block, .ended) }
-        )
     }
 }
 

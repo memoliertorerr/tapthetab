@@ -87,6 +87,12 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }
     }
 
+    /// A drag only changes saved positions; keep the current switching session open.
+    func rememberPanelPositions(main: BlockPosition?, preview: BlockPosition?) {
+        configuration.appearance.panelPosition = main
+        configuration.appearance.previewPosition = preview
+    }
+
     func apply(configuration newValue: Configuration) {
         let previewsTurnedOff = configuration.appearance.showPreviews && !newValue.appearance.showPreviews
         configuration = newValue

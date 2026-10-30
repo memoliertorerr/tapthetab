@@ -106,7 +106,8 @@ sample windows (`make screenshots`, `make demo`), so they always match the curre
   grid and the list, and a large preview of the selected window on its own floating card
   (50–100 % size).
 - **First-run tour** — a short walk through the keys the first time you run it; reopen it
-  any time.
+  from the menu bar menu or Settings → About → Show Tour…. Settings → About also has
+  Quit TapTheTab, which restores any system shortcuts the app took over.
 - **Speaks your language** — English, Italian, Turkish, German, French and Spanish, with
   VoiceOver support.
 - **Scriptable** — `tapthetab://` links open the switcher pre-filtered from launchers,
