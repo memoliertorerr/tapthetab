@@ -130,11 +130,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Windows
 
+    /// The tour of the keys: once after the first permission grant, and from Settings / the menu.
+    private func showTour(onlyFirstTime: Bool) {
+        let appearance = configuration.configuration.appearance
+        let symbols = configuration.configuration.triggers.first?.shortcut.modifiers.symbols ?? ""
+        let modifier = symbols.isEmpty ? "⌥" : symbols
+        if onlyFirstTime {
+            _ = TourWindowController.showIfFirstRun(modifier: modifier, theme: appearance.colorTheme)
+        } else {
+            TourWindowController.show(modifier: modifier, theme: appearance.colorTheme)
+        }
+    }
+
     private func showOnboarding() {
         if onboarding == nil {
             onboarding = OnboardingWindowController(permissions: permissions) { [weak self] in
                 self?.onboarding = nil
                 self?.startSwitcher()
+                self?.showTour(onlyFirstTime: true)
             }
         }
         onboarding?.show()

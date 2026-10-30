@@ -192,6 +192,11 @@ struct FiltersSettingsView: View {
                 Toggle(L10n.tr("Show apps without windows"), isOn: $model.configuration.filters.showWindowlessApps)
                 Toggle(L10n.tr("Only windows on the current Space"), isOn: $model.configuration.filters.currentSpaceOnly)
                 Toggle(L10n.tr("Only windows on the current display"), isOn: $model.configuration.filters.currentDisplayOnly)
+                Toggle(isOn: $model.configuration.filters.currentDisplayFirst) {
+                    // A second Text in a grouped form's label is shown as its subtitle.
+                    Text(L10n.tr("List windows on the switcher's display first"))
+                    Text(L10n.tr("The switcher appears on the display chosen under Appearance, Show on."))
+                }
                 Toggle(isOn: $model.configuration.filters.showOtherSpaces) {
                     // A second Text in a grouped form's label is shown as its subtitle.
                     Text(L10n.tr("Show windows on other Spaces"))

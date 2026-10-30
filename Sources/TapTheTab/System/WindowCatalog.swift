@@ -90,6 +90,10 @@ final class WindowCatalog {
     /// Main-thread only.
     private(set) var latest = Snapshot()
 
+    /// Wine/CrossOver names per process, read from the process arguments once per process
+    /// (nil: the arguments held no usable name). Main-thread only.
+    private var wineNames: [pid_t: String?] = [:]
+
     /// Also list windows on other Spaces (Settings → Filters). Takes effect from the next
     /// refresh, and only when the private window-server functions resolved. Main-thread only.
     var includesOtherSpaces = false
@@ -118,9 +122,12 @@ final class WindowCatalog {
         let scope: Set<pid_t>? = latest.items.isEmpty ? nil : pendingScope
         pendingScope = []
         let ownPID = ProcessInfo.processInfo.processIdentifier
-        let apps = NSWorkspace.shared.runningApplications
+        let running = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular && $0.processIdentifier != ownPID && !$0.isTerminated }
-            .map { AppInfo(pid: $0.processIdentifier, name: $0.localizedName ?? $0.bundleIdentifier ?? "App", bundleID: $0.bundleIdentifier, isHidden: $0.isHidden) }
+        forgetWineNames(exceptPIDs: Set(running.map(\.processIdentifier)))
+        let apps = running.map {
+            AppInfo(pid: $0.processIdentifier, name: displayName(of: $0), bundleID: $0.bundleIdentifier, isHidden: $0.isHidden)
+        }
         let screens = NSScreen.screens.compactMap { screen -> ScreenInfo? in
             guard let id = screen.displayID else { return nil }
             return ScreenInfo(id: id, frame: screen.topLeftFrame)
@@ -148,6 +155,76 @@ final class WindowCatalog {
                 }
             }
         }
+    }
+
+    // MARK: - Wine names (main thread)
+
+    /// The name to show for an app. Wine and CrossOver run every Windows program in a
+    /// process whose name is the loader's ("wine64-preloader"); the program's own name is
+    /// in its arguments. Only loader processes are looked at, and each only once.
+    private func displayName(of app: NSRunningApplication) -> String {
+        let name = app.localizedName ?? app.bundleIdentifier ?? "App"
+        let pid = app.processIdentifier
+        if let known = wineNames[pid] { return known ?? name }
+        let executable = app.executableURL?.lastPathComponent
+        guard WineNames.isWineLoader(name) || (executable.map(WineNames.isWineLoader) ?? false) else { return name }
+        var resolved: String?
+        if let buffer = Self.processArguments(pid: pid) {
+            let arguments = Self.argumentStrings(fromProcArgs: buffer)
+            if let candidate = WineNames.displayName(fromArguments: arguments),
+               !candidate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                resolved = candidate
+            }
+        }
+        wineNames[pid] = .some(resolved)
+        return resolved ?? name
+    }
+
+    /// Drops cached names of processes that are gone (pids get reused).
+    private func forgetWineNames(exceptPIDs alive: Set<pid_t>) {
+        guard !wineNames.isEmpty else { return }
+        wineNames = wineNames.filter { alive.contains($0.key) }
+    }
+
+    /// The raw `KERN_PROCARGS2` buffer of a process, or nil (not permitted, gone, too big).
+    private static func processArguments(pid: pid_t) -> [UInt8]? {
+        let maxSize = 4 * 1024 * 1024
+        var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
+        var size = 0
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > 0, size <= maxSize else { return nil }
+        var buffer = [UInt8](repeating: 0, count: size)
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0, size > 0, size <= buffer.count else { return nil }
+        return Array(buffer.prefix(size))
+    }
+
+    /// The argument strings in a `KERN_PROCARGS2` buffer: an `int` argc, the executable
+    /// path, NUL padding, then argc NUL-terminated strings (the environment follows and is
+    /// never read). Tolerates truncated or odd buffers: it stops at the end of the data and
+    /// drops a last string that has no terminator.
+    static func argumentStrings(fromProcArgs buffer: [UInt8]) -> [String] {
+        let count = buffer.count
+        guard count > MemoryLayout<Int32>.size else { return [] }
+        var raw: UInt32 = 0
+        for offset in 0..<MemoryLayout<Int32>.size {
+            raw |= UInt32(buffer[offset]) << (8 * UInt32(offset)) // little endian, as on every Mac
+        }
+        let argc = Int(Int32(bitPattern: raw))
+        guard argc > 0 else { return [] }
+        let limit = min(argc, 4096)
+
+        var index = MemoryLayout<Int32>.size
+        while index < count, buffer[index] != 0 { index += 1 } // executable path
+        while index < count, buffer[index] == 0 { index += 1 } // padding
+
+        var arguments: [String] = []
+        while arguments.count < limit, index < count {
+            var end = index
+            while end < count, buffer[end] != 0 { end += 1 }
+            guard end < count else { break } // unterminated: cut off
+            arguments.append(String(decoding: buffer[index..<end], as: UTF8.self))
+            index = end + 1
+        }
+        return arguments
     }
 
     // MARK: - Enumeration (background queue)
