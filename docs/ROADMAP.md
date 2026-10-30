@@ -4,11 +4,13 @@
 > type to search, release to switch. This document is the single source of truth for what
 > is done, what is next, and what is deliberately not being built.
 >
-> **Explicitly NOT in scope** (see **Later**): auto-update over the network, telemetry of
-> any kind, window tiling/management beyond focus/close/minimize/fullscreen/hide/quit,
-> Mac App Store distribution (sandboxing makes a switcher impossible).
+> **Explicitly NOT in scope** (see **Later**): telemetry of any kind, background network
+> access other than the opt-in update check, window tiling beyond the existing actions,
+> Mac App Store distribution (the sandbox forbids Accessibility control of other apps,
+> active event taps and the private window-server calls a switcher needs).
 >
-> **Standing rule:** no network access and no data collection, ever. Read `AGENTS.md`.
+> **Standing rule:** no data collection, ever; no network access except the opt-in update
+> check (see **Decisions**). Read `AGENTS.md`.
 >
 > **Way of working:** one step = one commit, made only when verify is green. One phase =
 > one pull request into `main`, merged after CI is green, then tagged as a release.
@@ -64,6 +66,13 @@
 | TT40 | Window actions: next display, close app windows, pin apps first | auto | ✅ done |
 | TT41 | Layout per shortcut; peek (⇧Space); Settings themed; menu bar icon styles; main block draggable anywhere | auto | ✅ done |
 | TT42 | Release v0.9.0 | checkpoint | ✅ done |
+| TT43 | Opt-in update checks and verified self-update (Homebrew installs: `brew upgrade`) *(maintainer approved 2026-10-30)* | auto | ⬜ todo |
+| TT44 | Multiple displays: list the switcher's display first (option) | auto | ⬜ todo |
+| TT45 | German, French, Spanish (and every new string in Italian and Turkish) | auto | ⬜ todo |
+| TT46 | First-run tour of the keys, reopenable | auto | ⬜ todo |
+| TT47 | CI smoke test, screenshot regression check, readable Wine/CrossOver app names | auto | ⬜ todo |
+| TT48 | Website (GitHub Pages) with a demo animation; README refresh | auto | ⬜ todo |
+| TT49 | Release v0.10.0 | checkpoint | ⬜ todo |
 
 **Overall status:** v0.1.0–v0.9.0 released; the maintainer confirmed on macOS 26 that switching now brings only the chosen window forward. v0.9.0 released, the first release signed with a Developer ID and notarized. The maintainer tried v0.6.0 on a Mac (macOS 26) and likes it; phase 7 (v0.7.0, released) is a redesign from that feedback: the panel felt dark and opaque, and the large preview too big. Next: the maintainer's verdict on the glass and the preview size.
 
@@ -78,6 +87,7 @@
 7. **TT29 → TT31** — v0.7.0, Liquid Glass and a floating preview.
 8. **TT32 → TT36** — v0.8.0, movable blocks, themes, list thumbnails, the real focus fix.
 9. **TT37 → TT42** — v0.9.0, feel and power features; signing when the secrets exist.
+10. **TT43 → TT49** — v0.10.0, updates, displays, languages, tour, website.
 
 ---
 
@@ -280,7 +290,17 @@ See `AGENTS.md`. In addition, for this plan:
 - AX calls are synchronous IPC; one hung app can stall enumeration without
   `AXUIElementSetMessagingTimeout`.
 
+## Decisions
+
+- **Update checks (2026-10-30, maintainer):** an exception to "no network". Off by default;
+  when on, once a day one HTTPS GET to GitHub's "latest release" API, no identifiers beyond
+  a `User-Agent` with the app version, no cookies or cache. "Check for Updates…" in the menu
+  does the same once, on request. Installing verifies the dmg's SHA-256 against the release's
+  `SHA256SUMS.txt` and the new app's Developer ID signature (same team ID and bundle ID as
+  the running app) before replacing the bundle; Homebrew installs are pointed at
+  `brew upgrade --cask tapthetab` instead. No third-party updater framework.
+- **Mac App Store (2026-10-30):** not possible without dropping window switching; direct
+  distribution (Developer ID + notarization) and Homebrew instead.
+
 ## Later (designed, deliberately not built)
-- Update checks: only as a manual "Check for updates" link that opens the releases page,
-  never a background request.
 - Plugin/scripting hooks (e.g. a URL scheme to open the switcher pre-filtered).
