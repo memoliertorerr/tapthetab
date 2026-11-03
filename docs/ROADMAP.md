@@ -79,9 +79,9 @@
 | TT49.4 | Release v0.10.2 | checkpoint | ✅ done (published archives and notarization verified) |
 | TT50 | Omarch Jade and Omarch Night theme presets, localized in all six languages | auto | ✅ done (interactive Mac check pending) |
 | TT51 | App-rendered Omarch screenshots and a dedicated README gallery | auto | ✅ done (CI renders verified) |
-| TT52 | Release v0.10.3 and update the Homebrew cask | checkpoint | ⬜ todo |
+| TT52 | Release v0.10.3 and update the Homebrew cask | checkpoint | ✅ done (published downloads, Developer ID signature and notarization verified) |
 
-**Overall status:** v0.1.0–v0.10.2 released. The v0.10.2 DMG and ZIP match the published checksum file, and app/image notarization staples verify; the cask still points at v0.10.1 pending the next release bump. Omarch Jade (Osaka Jade palette) and Omarch Night (Tokyo Night palette) are implemented for v0.10.3, with light/dark screenshots for a README gallery. Interactive drag, preview-performance and new-theme appearance checks remain with the maintainer. Pages deployment remains pending.
+**Overall status:** v0.1.0–v0.10.3 released. v0.10.3 adds Omarch Jade (Osaka Jade palette) and Omarch Night (Tokyo Night palette), with CI-rendered light/dark screenshots in the README. Both published archives match SHA256SUMS.txt; the universal app’s version, Developer ID signature, six localization tables and notarization staples verify. The Homebrew cask targets v0.10.3 with the published DMG checksum. Interactive drag, preview-performance, theme selection and actual desktop glass checks remain with the maintainer. Pages deployment remains pending.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
