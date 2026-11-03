@@ -170,6 +170,8 @@
 "Meadow" = "Prairie";
 "Berry" = "Baie";
 "Graphite" = "Graphite";
+"Omarch Jade" = "Omarch Jade";
+"Omarch Night" = "Omarch Nuit";
 "Large preview of the selected window" = "Grand aperçu de la fenêtre sélectionnée";
 "Needs the Screen Recording permission. Previews stay in memory and are never saved." = "Nécessite l'autorisation Enregistrement de l'écran. Les aperçus restent en mémoire et ne sont jamais enregistrés.";
 "On its own card above the switcher. Drag it while the switcher is open to move it." = "Sur sa propre carte au-dessus du sélecteur. Faites-la glisser quand le sélecteur est ouvert pour la déplacer.";

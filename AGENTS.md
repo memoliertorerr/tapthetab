@@ -24,6 +24,7 @@ default; see `docs/ROADMAP.md` → Decisions) — that is a product promise, not
 ## Commands
 - Core tests anywhere: `swift test`
 - macOS: `make test`, `make app` (→ `dist/TapTheTab.app`), `make run`, `make package`
+- Gallery screenshots: `make theme-screenshots` (→ `dist/screenshots/themes`, fictional data only).
 - Verify before every commit: `swift build && swift test` must be green. On macOS also `make app`.
 
 ## Rules

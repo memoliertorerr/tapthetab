@@ -176,6 +176,8 @@ struct ThemeSettingsSection: View {
         case "meadow": return L10n.tr("Meadow")
         case "berry": return L10n.tr("Berry")
         case "graphite": return L10n.tr("Graphite")
+        case "omarch-jade": return L10n.tr("Omarch Jade")
+        case "omarch-night": return L10n.tr("Omarch Night")
         default: return preset.name
         }
     }

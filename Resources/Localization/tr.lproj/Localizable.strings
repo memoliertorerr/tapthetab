@@ -170,6 +170,8 @@
 "Meadow" = "Çayır";
 "Berry" = "Böğürtlen";
 "Graphite" = "Grafit";
+"Omarch Jade" = "Omarch Yeşim";
+"Omarch Night" = "Omarch Gece";
 "Large preview of the selected window" = "Seçili pencerenin büyük önizlemesi";
 "Needs the Screen Recording permission. Previews stay in memory and are never saved." = "Ekran Kaydı izni gerekir. Önizlemeler yalnızca bellekte tutulur, asla kaydedilmez.";
 "On its own card above the switcher. Drag it while the switcher is open to move it." = "Değiştiricinin üzerinde kendi kartında. Taşımak için değiştirici açıkken sürükleyin.";

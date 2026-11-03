@@ -76,9 +76,12 @@
 | TT49.1 | Native block dragging with shortcut modifiers held; Show Tour… and Quit TapTheTab in Settings → About | auto | ✅ done (interactive Mac check pending) |
 | TT49.2 | Release v0.10.1 | checkpoint | ✅ done (signed, notarized; published downloads verified) |
 | TT49.3 | Preview responsiveness under rapid cycling; size presets and fine adjustment from 25–150 % | auto | ✅ done (interactive Mac performance check pending) |
-| TT49.4 | Release v0.10.2 | checkpoint | ⬜ todo |
+| TT49.4 | Release v0.10.2 | checkpoint | ✅ done (published archives and notarization verified) |
+| TT50 | Omarch Jade and Omarch Night theme presets, localized in all six languages | auto | ✅ done (interactive Mac check pending) |
+| TT51 | App-rendered Omarch screenshots and a dedicated README gallery | auto | ✅ done (CI renders verified) |
+| TT52 | Release v0.10.3 and update the Homebrew cask | checkpoint | ⬜ todo |
 
-**Overall status:** v0.1.0–v0.10.1 released. The maintainer reports v0.10.0 works well on macOS 26, except the lower switcher block could not be dragged while using ⌘⇥. v0.10.1 replaces its drag gesture with native mouse tracking and adds Show Tour… / Quit TapTheTab in Settings → About. The published DMG and ZIP checksums, Developer ID signature and notarization staples were verified. The drag fix and new Settings actions still need an interactive Mac check. The maintainer reports slow blur-to-sharp preview transitions and severe lag with animations during rapid cycling. v0.10.2 work addresses capture scheduling, image transitions and render work, and expands preview sizing to 25–150 %. Interactive performance verification remains pending. Pages returns 404; deployment remains pending.
+**Overall status:** v0.1.0–v0.10.2 released. The v0.10.2 DMG and ZIP match the published checksum file, and app/image notarization staples verify; the cask still points at v0.10.1 pending the next release bump. Omarch Jade (Osaka Jade palette) and Omarch Night (Tokyo Night palette) are implemented for v0.10.3, with light/dark screenshots for a README gallery. Interactive drag, preview-performance and new-theme appearance checks remain with the maintainer. Pages deployment remains pending.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
