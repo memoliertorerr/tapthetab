@@ -8,6 +8,9 @@ enum TapTheTabMain {
         if let flagIndex = arguments.firstIndex(of: "--render-screenshots") {
             renderScreenshots(arguments: arguments, flagIndex: flagIndex)
         }
+        if let flagIndex = arguments.firstIndex(of: "--render-theme-screenshots") {
+            renderScreenshots(arguments: arguments, flagIndex: flagIndex, themesOnly: true)
+        }
         if let flagIndex = arguments.firstIndex(of: "--render-demo") {
             renderDemo(arguments: arguments, flagIndex: flagIndex)
         }
@@ -30,10 +33,10 @@ enum TapTheTabMain {
     /// built-in sample data into PNG files, prints their paths and exits. None of the app
     /// starts: no event tap, menu bar item, config file, window list or permission prompt.
     @MainActor
-    private static func renderScreenshots(arguments: [String], flagIndex: Int) -> Never {
+    private static func renderScreenshots(arguments: [String], flagIndex: Int, themesOnly: Bool = false) -> Never {
         let pathIndex = flagIndex + 1
         guard pathIndex < arguments.count, !arguments[pathIndex].hasPrefix("-") else {
-            FileHandle.standardError.write(Data("usage: TapTheTab --render-screenshots <output directory>\n".utf8))
+            FileHandle.standardError.write(Data("usage: TapTheTab \(arguments[flagIndex]) <output directory>\n".utf8))
             exit(2)
         }
         let directory = URL(fileURLWithPath: arguments[pathIndex], isDirectory: true)
@@ -42,7 +45,7 @@ enum TapTheTabMain {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
-        let result = ScreenshotRenderer.renderAll(to: directory)
+        let result = themesOnly ? ScreenshotRenderer.renderThemes(to: directory) : ScreenshotRenderer.renderAll(to: directory)
         for url in result.written {
             print(url.path)
         }

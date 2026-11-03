@@ -6,7 +6,7 @@ SWIFT ?= swift
 APP   := dist/TapTheTab.app
 
 .DEFAULT_GOAL := help
-.PHONY: help build test app universal package run screenshots demo check-screenshots site clean lint
+.PHONY: help build test app universal package run screenshots theme-screenshots demo check-screenshots site clean lint
 
 help: ## Show this help
 	@grep -E '^[a-z][a-zA-Z_-]*:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -34,6 +34,10 @@ run: ## Open dist/TapTheTab.app (builds it if missing)
 screenshots: ## Render the README screenshots from sample data into dist/screenshots
 	@test -d $(APP) || $(MAKE) app
 	$(APP)/Contents/MacOS/TapTheTab --render-screenshots dist/screenshots
+
+theme-screenshots: ## Render both Omarch themes in light and dark into dist/screenshots/themes
+	@test -d $(APP) || $(MAKE) app
+	$(APP)/Contents/MacOS/TapTheTab --render-theme-screenshots dist/screenshots/themes
 
 demo: ## Render the demo animation (animated PNG) into dist/screenshots/demo.png
 	@test -d $(APP) || $(MAKE) app

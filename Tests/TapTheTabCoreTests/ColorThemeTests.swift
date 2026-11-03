@@ -19,18 +19,32 @@ final class ColorThemeTests: XCTestCase {
 
     // MARK: Presets
 
-    func testPresetsAreLittleJoansElevenInOrder() {
-        XCTAssertEqual(ThemePreset.all.map(\.id), [
-            "mist", "sand", "sage", "lagoon", "dusk", "ember", "orchid", "glacier", "meadow", "berry", "graphite",
-        ])
-        XCTAssertEqual(ThemePreset.all.map(\.name), [
-            "Mist", "Sand", "Sage", "Lagoon", "Dusk", "Ember", "Orchid", "Glacier", "Meadow", "Berry", "Graphite",
-        ])
+    private static let littleJoanIDs = [
+        "mist", "sand", "sage", "lagoon", "dusk", "ember", "orchid", "glacier", "meadow", "berry", "graphite",
+    ]
+    private static let littleJoanNames = [
+        "Mist", "Sand", "Sage", "Lagoon", "Dusk", "Ember", "Orchid", "Glacier", "Meadow", "Berry", "Graphite",
+    ]
+
+    /// Little Joan's eleven stay first and unchanged; the Omarch presets are appended after them.
+    func testPresetsAreLittleJoansElevenInOrderThenOmarch() {
+        XCTAssertEqual(ThemePreset.all.prefix(11).map(\.id), Self.littleJoanIDs)
+        XCTAssertEqual(ThemePreset.all.prefix(11).map(\.name), Self.littleJoanNames)
+        XCTAssertEqual(ThemePreset.all.map(\.id), Self.littleJoanIDs + ["omarch-jade", "omarch-night"])
+        XCTAssertEqual(ThemePreset.all.map(\.name), Self.littleJoanNames + ["Omarch Jade", "Omarch Night"])
         XCTAssertEqual(ThemePreset.named("glacier")?.colors, ["#94bce2", "#a9d8d2", "#c7bfe8"])
         XCTAssertEqual(ThemePreset.named("graphite")?.intensity, 0.2)
         XCTAssertNil(ThemePreset.named("none"))
         XCTAssertNil(ThemePreset.named("custom"))
         XCTAssertNil(ThemePreset.named("Mist"))
+    }
+
+    func testOmarchPresetsUseThreeOfficialPaletteColors() {
+        // Osaka Jade: accent, cyan, bright foreground. Tokyo Night: accent, bright magenta, foreground.
+        XCTAssertEqual(ThemePreset.named("omarch-jade"),
+                       ThemePreset(id: "omarch-jade", name: "Omarch Jade", colors: ["#509475", "#2dd5b7", "#f7e8b2"], intensity: 0.55, grain: 0.25))
+        XCTAssertEqual(ThemePreset.named("omarch-night"),
+                       ThemePreset(id: "omarch-night", name: "Omarch Night", colors: ["#7aa2f7", "#bb9af7", "#a9b1d6"], intensity: 0.55, grain: 0.25))
     }
 
     func testPresetsAreValid() {
@@ -278,7 +292,10 @@ final class ColorThemeTests: XCTestCase {
     ]
 
     func testPresetsMatchLittleJoanExactly() {
-        XCTAssertEqual(littleJoan.count, ThemePreset.all.count * 2)
+        // Every one of Little Joan's eleven presets, in both schemes; the appended Omarch presets
+        // have no Little Joan reference and are pinned in testOmarchPresetsRenderAsDerived.
+        XCTAssertEqual(littleJoan.count, Self.littleJoanIDs.count * 2)
+        XCTAssertEqual(Set(littleJoan.map(\.0)), Set(Self.littleJoanIDs))
         for (id, scheme, backgrounds, stops, grain) in littleJoan {
             let theme = ColorTheme.none.applying(ThemePreset.named(id)!)
             let gradient = ThemeGradient(theme: theme, scheme: scheme)
@@ -442,5 +459,76 @@ final class ColorThemeTests: XCTestCase {
         // A degenerate box does not produce NaN.
         let zero = ThemeGradient.cssLinearGradientPoints(angleDegrees: 160, width: 0, height: .nan)
         XCTAssertTrue(zero.start.x.isFinite && zero.end.y.isFinite)
+    }
+
+    // MARK: Omarch presets
+
+    /// Regression pins of the derived gradient (backgrounds, base stops, grain) for the Omarch
+    /// presets; there is no Little Joan reference for them.
+    func testOmarchPresetsRenderAsDerived() {
+        let cases: [(String, ThemeScheme, [String], [String])] = [
+            ("omarch-jade", .light, ["#c4e9d6", "#b4f2e2", "#eee6c9"], ["#c4e9d6", "#c3ead7", "#c1ebd8", "#bfecda", "#beeddb"]),
+            ("omarch-jade", .dark, ["#103022", "#00362d", "#373119"], ["#103022", "#0f3123", "#0e3124", "#0c3225", "#0b3226"]),
+            ("omarch-night", .light, ["#d3e2ff", "#e6dcff", "#dce1f7"], ["#d3e2ff", "#d5e1ff", "#d7e1ff", "#d9e0ff", "#dbe0ff"]),
+            ("omarch-night", .dark, ["#1b2a4c", "#322449", "#292c3c"], ["#1b2a4c", "#1e294c", "#21294b", "#23284b", "#25284b"]),
+        ]
+        for (id, scheme, backgrounds, stops) in cases {
+            let gradient = ThemeGradient(theme: ColorTheme.none.applying(ThemePreset.named(id)!), scheme: scheme)
+            XCTAssertEqual(gradient.backgrounds.map(\.hex), backgrounds, "\(id) \(scheme)")
+            XCTAssertEqual(gradient.baseStops.map(\.color.hex), stops, "\(id) \(scheme)")
+            XCTAssertEqual(gradient.grainOpacity, 0.035, accuracy: 1e-12, "\(id) \(scheme)")
+        }
+    }
+
+    func testOmarchPresetsLookDifferentFromEachOtherAndFromTheDefault() {
+        for scheme in ThemeScheme.allCases {
+            let jade = ThemeGradient(theme: ColorTheme.none.applying(ThemePreset.named("omarch-jade")!), scheme: scheme)
+            let night = ThemeGradient(theme: ColorTheme.none.applying(ThemePreset.named("omarch-night")!), scheme: scheme)
+            XCTAssertNotEqual(jade, night)
+            XCTAssertNotEqual(jade, ThemeGradient(theme: .none, scheme: scheme))
+            XCTAssertNotEqual(night, ThemeGradient(theme: .none, scheme: scheme))
+            // Jade leans green, Night leans blue to violet (OKLCH hue of the first background).
+            let jadeHue = OKLCH(jade.backgrounds[0]).h
+            let nightHue = OKLCH(night.backgrounds[0]).h
+            XCTAssertTrue((140...180).contains(jadeHue), "\(scheme) jade hue \(jadeHue)")
+            XCTAssertTrue((240...290).contains(nightHue), "\(scheme) night hue \(nightHue)")
+        }
+    }
+
+    func testApplyingOmarchPresetsKeepsOpacityAndValidates() {
+        var theme = ColorTheme.none
+        theme.opacity = 0.8
+        for preset in ThemePreset.all.suffix(2) {
+            let applied = theme.applying(preset)
+            XCTAssertEqual(applied, ColorTheme(preset: preset.id, colors: preset.colors, intensity: preset.intensity, grain: preset.grain, opacity: 0.8))
+            XCTAssertTrue(applied.isEnabled)
+            XCTAssertEqual(applied.validated(), applied)
+        }
+        // Ids are matched case-insensitively and trimmed, like every preset's.
+        XCTAssertEqual(ColorTheme(preset: " Omarch-Night ", colors: ["#7aa2f7"], intensity: 0.5, grain: 0.5).validated().preset, "omarch-night")
+        XCTAssertEqual(ColorTheme(preset: "omarch-jade", colors: ["#509475"], intensity: 0.5, grain: 0.5).validated().preset, "omarch-jade")
+        // Editing the colors of an Omarch preset is a custom theme (the UI sets this), which stays valid.
+        XCTAssertEqual(ColorTheme(preset: "custom", colors: ThemePreset.named("omarch-jade")!.colors, intensity: 0.55, grain: 0.25).validated().preset, "custom")
+    }
+
+    func testOmarchPresetsSurviveJSONPersistence() throws {
+        for preset in ThemePreset.all.suffix(2) {
+            var theme = ColorTheme.none.applying(preset)
+            theme.opacity = 0.7
+            let data = try JSONEncoder().encode(theme)
+            let decoded = try JSONDecoder().decode(ColorTheme.self, from: data)
+            XCTAssertEqual(decoded, theme)
+            XCTAssertEqual(decoded.preset, preset.id)
+        }
+        // Only the id is needed: the preset's colors are not looked up, but the id is kept.
+        XCTAssertEqual(try decode(##"{"preset":"omarch-night","opacity":0.3}"##).preset, "omarch-night")
+        XCTAssertEqual(try decode(##"{"preset":"Omarch-Jade"}"##).preset, "omarch-jade")
+        // An Omarch id from a newer config in an older build would be "custom"; a bogus one still is.
+        XCTAssertEqual(try decode(##"{"preset":"omarch-dawn","colors":["#123456"]}"##).preset, "custom")
+        // Settings persisting it inside an enclosing object.
+        struct Wrapper: Codable, Equatable { var colorTheme: ColorTheme }
+        let wrapper = Wrapper(colorTheme: ColorTheme.none.applying(ThemePreset.named("omarch-jade")!))
+        let round = try JSONDecoder().decode(Wrapper.self, from: JSONEncoder().encode(wrapper))
+        XCTAssertEqual(round, wrapper)
     }
 }

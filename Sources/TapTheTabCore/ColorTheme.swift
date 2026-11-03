@@ -38,7 +38,8 @@ public struct ThemePreset: Equatable, Sendable, Identifiable {
         self.grain = grain
     }
 
-    /// Little Joan's presets, in its order. The first is the default look.
+    /// Little Joan's eleven presets, in its order (the first is the default look), then the
+    /// Omarch presets appended.
     public static let all: [ThemePreset] = [
         ThemePreset(id: "mist", name: "Mist", colors: ["#8c9bb5"], intensity: 0.45, grain: 0.15),
         ThemePreset(id: "sand", name: "Sand", colors: ["#c9a27e", "#d8c49a"], intensity: 0.55, grain: 0.3),
@@ -51,6 +52,17 @@ public struct ThemePreset: Equatable, Sendable, Identifiable {
         ThemePreset(id: "meadow", name: "Meadow", colors: ["#a3c27a", "#78b8a6", "#dcc67d"], intensity: 0.55, grain: 0.3),
         ThemePreset(id: "berry", name: "Berry", colors: ["#cf86a5", "#958acf", "#e8ae96"], intensity: 0.6, grain: 0.3),
         ThemePreset(id: "graphite", name: "Graphite", colors: ["#7d828c"], intensity: 0.2, grain: 0.35),
+    ] + omarchPresets
+
+    /// Palette-inspired presets, appended after Little Joan's. Three colors each from the official
+    /// Omarchy themes; the derivation still maps them into the light or dark band.
+    /// Omarch Jade: Osaka Jade's accent #509475, cyan #2dd5b7 and bright foreground #f7e8b2
+    /// (https://raw.githubusercontent.com/omacom/omarchy/afa2839a5ac7bf1c2da4f49649b8dbd0f83f7f12/themes/osaka-jade/colors.toml).
+    /// Omarch Night: Tokyo Night's accent #7aa2f7, bright magenta #bb9af7 and foreground #a9b1d6
+    /// (https://raw.githubusercontent.com/omacom/omarchy/afa2839a5ac7bf1c2da4f49649b8dbd0f83f7f12/themes/tokyo-night/colors.toml).
+    static let omarchPresets: [ThemePreset] = [
+        ThemePreset(id: "omarch-jade", name: "Omarch Jade", colors: ["#509475", "#2dd5b7", "#f7e8b2"], intensity: 0.55, grain: 0.25),
+        ThemePreset(id: "omarch-night", name: "Omarch Night", colors: ["#7aa2f7", "#bb9af7", "#a9b1d6"], intensity: 0.55, grain: 0.25),
     ]
 
     public static func named(_ id: String) -> ThemePreset? {

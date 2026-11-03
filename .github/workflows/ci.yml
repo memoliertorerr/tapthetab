@@ -109,6 +109,10 @@ jobs:
         timeout-minutes: 3
         run: dist/TapTheTab.app/Contents/MacOS/TapTheTab --render-screenshots dist/screenshots
 
+      - name: Render Omarch theme screenshots
+        timeout-minutes: 3
+        run: dist/TapTheTab.app/Contents/MacOS/TapTheTab --render-theme-screenshots dist/screenshots/themes
+
       # The animated PNG for the README and the website, from the same sample data.
       - name: Render demo animation
         id: demo
@@ -140,6 +144,7 @@ jobs:
           name: screenshots-${{ github.sha }}
           path: |
             dist/screenshots/*.png
+            dist/screenshots/themes/*.png
             dist/screenshots/screenshot-reference.json
           if-no-files-found: error
           retention-days: 14

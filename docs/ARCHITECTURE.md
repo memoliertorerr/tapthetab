@@ -45,7 +45,7 @@ previous window without the panel ever appearing.
 | `GridLayout` | Columns/rows/scale for the grid on a given screen (shrinks to fit height and width). |
 | `PanelLayout` | Every switcher panel size: grid and list (at most 10 rows), search bar, the large preview's box and the card it floats on (scaled by `largePreviewPercent` (25–150 %, screen-limited), hugging the window's proportions), minimum and empty sizes, app headings. The UI's `SwitcherLayout` only converts it to CoreGraphics types. |
 | `PanelPlacement` | Where the main block and the preview card go on a screen (default, remembered `BlockPosition`s, clamped inside the visible frame). |
-| `ColorMath`, `ColorTheme`, `GrainTexture` | Arc-style themes (ported from Little Joan): presets, colors muted into a light or dark band in OKLCH, the gradient's stops and blobs, deterministic grain pixels. |
+| `ColorMath`, `ColorTheme`, `GrainTexture` | Arc-style themes (ported from Little Joan): eleven original presets plus Omarch Jade and Omarch Night from pinned official Omarchy palettes, colors muted into a light or dark band in OKLCH, the gradient's stops and blobs, deterministic grain pixels. |
 | `QuickSelect`, `DisplayMove` | Which modifier + digit picks a window and its badge; moving a window frame to the next display. |
 | `ItemOrdering` | Optional grouping by app (`appearance.groupByApp`): apps by their most recent window, applied after `ItemFilter` and before the session; where the grouped list puts app headings; the switcher's display first (`displayFirst`, before grouping so groups stay whole); pinned apps' windows first (`pinnedFirst`). |
 | `AppVersion`, `ReleaseFeed`, `Checksums`, `UpdatePolicy` | Update checks: SemVer ordering, parsing GitHub's latest-release response (size-capped, asset URLs only from GitHub hosts), `SHA256SUMS.txt`, whether a check is due (once a day, only when enabled). |
@@ -129,6 +129,12 @@ synthetic previews drawn with Core Graphics), lays the panel out with the same
 gradient "desktop". The switcher is drawn with `ImageRenderer`; Settings (AppKit-backed
 controls) from an offscreen window that is never shown. The README images in
 `docs/images/` come from that artifact.
+
+`--render-theme-screenshots <dir>` (`make theme-screenshots`) renders Omarch Jade and
+Omarch Night in light and dark from the same fictional data. CI writes these to
+`dist/screenshots/themes`, includes them in the screenshot artifact, and the README
+uses the four PNGs with a light/dark `<picture>` pair per preset. The existing screenshot
+regression set remains unchanged.
 
 `--render-demo <file.png>` (`make demo`) draws the demo animation the same way: 13 frames
 of the grid, a search narrowing the list, and a themed list, encoded as an animated PNG

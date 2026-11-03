@@ -126,7 +126,7 @@ enum ScreenshotRenderer {
     }
 
     enum Shot: CaseIterable {
-        case grid, search, previews, themed, settings
+        case grid, search, previews, themed, settings, omarchJade, omarchNight
 
         var name: String {
             switch self {
@@ -135,6 +135,8 @@ enum ScreenshotRenderer {
             case .search: return "switcher-search"
             case .previews: return "switcher-previews"
             case .settings: return "settings-general"
+            case .omarchJade: return "omarch-jade"
+            case .omarchNight: return "omarch-night"
             }
         }
     }
@@ -190,6 +192,15 @@ enum ScreenshotRenderer {
     /// Renders every shot in light and dark into `directory` (created if needed). A failed
     /// shot is reported and the others are still written.
     static func renderAll(to directory: URL) -> Result {
+        renderShots([.grid, .search, .previews, .themed, .settings], to: directory)
+    }
+
+    /// The Omarch gallery, rendered separately so the existing regression set stays stable.
+    static func renderThemes(to directory: URL) -> Result {
+        renderShots([.omarchJade, .omarchNight], to: directory)
+    }
+
+    private static func renderShots(_ shots: [Shot], to directory: URL) -> Result {
         var result = Result()
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -199,7 +210,7 @@ enum ScreenshotRenderer {
         }
         for mode in ScreenshotMode.allCases {
             let icons = loadIcons(mode: mode)
-            for shot in Shot.allCases {
+            for shot in shots {
                 let url = directory.appendingPathComponent("\(shot.name)-\(mode.suffix).png")
                 do {
                     let image = try render(shot, mode: mode, icons: icons)
@@ -229,6 +240,11 @@ enum ScreenshotRenderer {
             // Eight windows: a scrolling list does not render offscreen.
             return try switcherShot(style: .list, query: "", previews: true, largePreview: false, theme: theme,
                                     sampleLimit: 8, mode: mode, icons: icons)
+        case .omarchJade, .omarchNight:
+            let id = shot.name
+            guard let preset = ThemePreset.named(id) else { throw Failure("missing theme preset: \(id)") }
+            return try switcherShot(style: .list, query: "", previews: true, largePreview: false,
+                                    theme: ColorTheme.none.applying(preset), sampleLimit: 8, mode: mode, icons: icons)
         case .settings:
             return try settingsShot(mode: mode)
         }

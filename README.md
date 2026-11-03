@@ -94,7 +94,7 @@ sample windows (`make screenshots`, `make demo`), so they always match the curre
   first (option).
 - **Liquid Glass** — the panel is see-through glass on macOS 26 (Clear or Tinted, like the
   system setting), a similar translucent look on earlier versions, or the classic dark panel.
-- **Themes** — Arc-style gradients with grain: eleven presets or your own colors.
+- **Themes** — Arc-style gradients with grain: thirteen presets, including Omarch Jade and Omarch Night, or your own colors.
 - **Move it** — drag the list or the large preview anywhere while the switcher is open;
   it remembers where.
 - **Quick select, peek, pin** — ⌘1–9 jumps to a window, ⇧Space peeks at it full size,
@@ -121,6 +121,35 @@ sample windows (`make screenshots`, `make demo`), so they always match the curre
   [Privacy](#permissions-and-privacy)); Homebrew installs update with `brew upgrade`.
 - **Menu bar app** with Settings, pause/resume and launch at login.
 - **Hand-editable config** that is reloaded live when you save it.
+
+## Omarch themes
+
+Choose **Settings → Appearance → Theme → Omarch Jade** or **Omarch Night**. Their colors
+come from Omarchy’s [Osaka Jade](https://github.com/omacom/omarchy/blob/afa2839a5ac7bf1c2da4f49649b8dbd0f83f7f12/themes/osaka-jade/colors.toml)
+and [Tokyo Night](https://github.com/omacom/omarchy/blob/afa2839a5ac7bf1c2da4f49649b8dbd0f83f7f12/themes/tokyo-night/colors.toml)
+palettes, adapted to TapTheTab’s glass and readable light/dark gradients.
+
+<table>
+  <tr>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/omarch-jade-dark.png">
+        <img alt="Omarch Jade: the window list with a jade green, turquoise and warm cream theme" src="docs/images/omarch-jade-light.png">
+      </picture>
+      <p align="center"><sub>Omarch Jade</sub></p>
+    </td>
+    <td width="50%">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/omarch-night-dark.png">
+        <img alt="Omarch Night: the window list with a blue and lavender theme" src="docs/images/omarch-night-light.png">
+      </picture>
+      <p align="center"><sub>Omarch Night</sub></p>
+    </td>
+  </tr>
+</table>
+
+<sub>Rendered by TapTheTab from fictional windows (`make theme-screenshots`). Color,
+Grain and Strength remain adjustable; the images follow your GitHub light/dark theme.</sub>
 
 ## Install
 
@@ -248,7 +277,7 @@ fall back to defaults, and a file that can't be read is set aside as
   `clear` (more see-through) or `tinted` (frosted, more contrast).
   `largePreviewPercent` (25–150) sizes the large preview.
 - **Theme:** `colorTheme.preset` is `none`, a preset (`mist`, `sand`, `sage`, `lagoon`,
-  `dusk`, `ember`, `orchid`, `glacier`, `meadow`, `berry`, `graphite`) or `custom` (1–3
+  `dusk`, `ember`, `orchid`, `glacier`, `meadow`, `berry`, `graphite`, `omarch-jade`, `omarch-night`) or `custom` (1–3
   `colors`); `intensity`, `grain` and `opacity` go from 0 to 1.
 - **Position:** `panelPosition` and `previewPosition` are set when you drag the switcher
   (fractions of the screen); remove them, or use Reset Position, to centre it again.

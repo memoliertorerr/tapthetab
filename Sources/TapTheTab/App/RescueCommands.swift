@@ -18,6 +18,7 @@ enum RescueCommands {
       --version                   Print the version.
       --help                      Show this help.
       --render-screenshots <dir>  Draw the README screenshots from sample data (for developers).
+      --render-theme-screenshots <dir>  Draw the Omarch theme gallery from sample data.
       --render-demo <file.png>    Draw the demo animation (animated PNG) from sample data.
 
     Quit TapTheTab before using these.
