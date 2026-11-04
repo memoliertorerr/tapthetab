@@ -42,7 +42,7 @@ final class SwitcherPanelController {
     /// Bumped by every delayed shadow refresh, so only the latest one runs.
     private var delayedShadowToken = 0
     /// Thumbnails delivered since the last flush; applied together (see `setThumbnail`).
-    private var pendingThumbnails: [ItemID: CGImage?] = [:]
+    private var pendingThumbnails: [ItemID: PreviewImage?] = [:]
     private var thumbnailFlushScheduled = false
     /// Captures finish one by one; gathering those within about a frame redraws the
     /// panels once for all of them instead of once per window.
@@ -199,8 +199,11 @@ final class SwitcherPanelController {
     /// A captured window preview arrived (or nil to clear). Ignored when previews are
     /// off. Applied within about a frame, together with any others arriving meanwhile;
     /// when it is the selected item's, the large preview changes at once (no fade).
-    func setThumbnail(_ image: CGImage?, for id: ItemID) {
-        pendingThumbnails.updateValue(image, forKey: id)
+    func setThumbnail(_ preview: PreviewImage?, for id: ItemID) {
+        // Within a batch the newer of two results for one window wins.
+        if let preview, let pending = pendingThumbnails[id] ?? nil,
+           !PreviewFreshness.replaces(preview.capturedAt, existing: pending.capturedAt) { return }
+        pendingThumbnails.updateValue(preview, forKey: id)
         guard !thumbnailFlushScheduled else { return }
         thumbnailFlushScheduled = true
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.thumbnailFlushDelay) { [weak self] in
@@ -209,7 +212,7 @@ final class SwitcherPanelController {
     }
 
     /// Thumbnails already at hand (cached), applied now in one change.
-    func setThumbnails(_ images: [ItemID: CGImage]) {
+    func setThumbnails(_ images: [ItemID: PreviewImage]) {
         applyThumbnails(images.mapValues { Optional($0) })
     }
 
@@ -220,7 +223,7 @@ final class SwitcherPanelController {
         applyThumbnails(batch)
     }
 
-    private func applyThumbnails(_ batch: [ItemID: CGImage?]) {
+    private func applyThumbnails(_ batch: [ItemID: PreviewImage?]) {
         guard !batch.isEmpty else { return }
         let previewCardBefore = model.previewCardSize
         model.setThumbnails(batch)
@@ -231,10 +234,30 @@ final class SwitcherPanelController {
 
     /// A sharper image of a window for the large preview. A few recent ones are kept
     /// (bounded), so results for windows already cycled past are not wasted.
-    func setLargePreview(_ image: CGImage?, for id: ItemID) {
+    func setLargePreview(_ preview: PreviewImage?, for id: ItemID) {
         let previewCardBefore = model.previewCardSize
-        model.setLargePreview(image, for: id)
+        model.setLargePreview(preview, for: id)
         if id == model.session.selectedItem?.id { relayoutForPreview(previewCardBefore: previewCardBefore) }
+    }
+
+    /// Capturing these windows failed: images of them too old to stand in any longer are
+    /// dropped (see `PreviewFreshness.failedRefreshMaxAge`), so a window that cannot be
+    /// captured shows its app icon instead of a picture frozen in time.
+    func previewCaptureFailed(for ids: Set<ItemID>) {
+        guard !ids.isEmpty else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        // A stale image still waiting in the batch goes too.
+        for id in ids {
+            if let pending = pendingThumbnails[id] ?? nil,
+               !PreviewFreshness.survivesFailedRefresh(capturedAt: pending.capturedAt, now: now) {
+                pendingThumbnails.removeValue(forKey: id)
+            }
+        }
+        let previewCardBefore = model.previewCardSize
+        guard model.discardStaleImages(for: ids, now: now) else { return }
+        if let selected = model.session.selectedItem?.id, ids.contains(selected) {
+            relayoutForPreview(previewCardBefore: previewCardBefore)
+        }
     }
 
     /// Drop all cached thumbnails (e.g. when previews get turned off).

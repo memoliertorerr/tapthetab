@@ -5,7 +5,10 @@ import Foundation
 /// One capture runs at a time. A selection change after a pause starts a capture at once
 /// (or right after the one running); while the selection moves quickly (⇥ held or tapped
 /// fast) the capture waits until the selection has rested for `settleDelay`, so cycling
-/// doesn't queue a screenshot per step. Times are seconds on one monotonic clock.
+/// doesn't queue a screenshot per step. With a `refreshInterval`, a selection that rests
+/// is captured again that long after each capture finishes (longer after failures, see
+/// `PreviewFreshness.refreshDelay`), so a preview left open does not freeze. Times are
+/// seconds on one monotonic clock.
 public struct LargePreviewCaptureSchedule: Equatable, Sendable {
     public enum Decision: Equatable, Sendable {
         /// Nothing to start now (a capture is running and will be followed by another).
@@ -16,6 +19,16 @@ public struct LargePreviewCaptureSchedule: Equatable, Sendable {
         case wait(TimeInterval)
     }
 
+    /// How a capture ended.
+    public enum Outcome: Equatable, Sendable {
+        /// An image arrived.
+        case captured
+        /// Nothing arrived (the window could not be listed or captured, or timed out).
+        case failed
+        /// There was nothing to capture (no large preview, a minimized window): no refresh.
+        case skipped
+    }
+
     /// Selection changes closer together than this count as cycling.
     public static let cyclingInterval: TimeInterval = 0.12
     /// While cycling, how long the selection must rest before a capture starts.
@@ -23,12 +36,31 @@ public struct LargePreviewCaptureSchedule: Equatable, Sendable {
     /// A capture that has not reported back after this long no longer blocks the next one.
     public static let captureTimeout: TimeInterval = 1
 
+    /// Recapture a resting selection this long after each capture; nil: never.
+    public let refreshInterval: TimeInterval?
+    public let maxRefreshInterval: TimeInterval
+
     private var lastChange: TimeInterval?
     private var captureStartedAt: TimeInterval?
     /// The selection changed while a capture was running: capture again when it ends.
     private var capturesAgain = false
+    /// Cycling already owns a short settle timer; an older completion must not replace it.
+    private var settlePending = false
+    /// The last attempt had nothing capturable. Input may retry after restore/unhide,
+    /// without treating a slow, still-outstanding capture as a skipped one.
+    public private(set) var needsCaptureRetry = false
+    /// Failed captures of the current selection in a row (for the refresh back-off).
+    public private(set) var consecutiveFailures = 0
 
-    public init() {}
+    public init() {
+        refreshInterval = nil
+        maxRefreshInterval = 0
+    }
+
+    public init(refreshInterval: TimeInterval?, maxRefreshInterval: TimeInterval = PreviewFreshness.maxRefreshInterval) {
+        self.refreshInterval = refreshInterval.map { max(0.001, $0) }
+        self.maxRefreshInterval = max(self.refreshInterval ?? 0, maxRefreshInterval)
+    }
 
     /// A capture was started and has not finished (or timed out) at `now`.
     public func isCapturing(at now: TimeInterval) -> Bool {
@@ -41,9 +73,11 @@ public struct LargePreviewCaptureSchedule: Equatable, Sendable {
     public mutating func selectionChanged(at now: TimeInterval) -> Decision {
         let cycling = lastChange.map { now - $0 >= 0 && now - $0 < Self.cyclingInterval } ?? false
         lastChange = now
+        consecutiveFailures = 0
         if cycling {
             // The timer will ask again once the selection rests.
             capturesAgain = false
+            settlePending = true
             return .wait(Self.settleDelay)
         }
         return startOrQueue(at: now)
@@ -54,21 +88,50 @@ public struct LargePreviewCaptureSchedule: Equatable, Sendable {
         startOrQueue(at: now)
     }
 
-    /// The running capture delivered its image or failed.
+    /// The running capture delivered its image (or failed, without refreshing).
     public mutating func captureFinished(at now: TimeInterval) -> Decision {
+        captureFinished(at: now, outcome: .captured)
+    }
+
+    /// The running capture ended with `outcome`. A selection change during it captures
+    /// again at once; otherwise, with a `refreshInterval`, the decision is the wait until
+    /// the next refresh (`timerFired` then captures).
+    public mutating func captureFinished(at now: TimeInterval, outcome: Outcome) -> Decision {
         captureStartedAt = nil
-        guard capturesAgain else { return .none }
-        capturesAgain = false
-        captureStartedAt = now
-        return .captureNow
+        needsCaptureRetry = outcome == .skipped
+        switch outcome {
+        case .captured: consecutiveFailures = 0
+        case .failed: consecutiveFailures += 1
+        case .skipped: break
+        }
+        if settlePending { return .none }
+        if capturesAgain {
+            capturesAgain = false
+            captureStartedAt = now
+            return .captureNow
+        }
+        guard outcome != .skipped, let delay = nextRefreshDelay else { return .none }
+        return .wait(delay)
+    }
+
+    /// The wait before refreshing a resting selection, or nil without refreshing.
+    public var nextRefreshDelay: TimeInterval? {
+        guard let refreshInterval else { return nil }
+        return PreviewFreshness.refreshDelay(
+            afterFailures: consecutiveFailures,
+            interval: refreshInterval,
+            maxInterval: maxRefreshInterval
+        )
     }
 
     private mutating func startOrQueue(at now: TimeInterval) -> Decision {
+        settlePending = false
         if isCapturing(at: now) {
             capturesAgain = true
             return .wait(max(0.001, Self.captureTimeout - (now - (captureStartedAt ?? now))))
         }
         capturesAgain = false
+        needsCaptureRetry = false
         captureStartedAt = now
         return .captureNow
     }
@@ -150,18 +213,24 @@ public enum PreviewSelectionAnimation {
 }
 
 /// A window and the resolution last requested for its large preview. Keeping the same
-/// selection needs another capture when filtering makes its preview box larger.
+/// selection needs another capture when filtering makes its preview box larger, or when
+/// the window number now belongs to another app (the window server reused it). Keeping
+/// the same window fresh is the schedule's periodic refresh, not this check.
 public struct PreviewCaptureTarget: Equatable, Sendable {
     public let id: ItemID
     public let pixelSize: Int
+    /// The process owning the window, when known.
+    public let owner: Int32?
 
-    public init(id: ItemID, pixelSize: Int) {
+    public init(id: ItemID, pixelSize: Int, owner: Int32? = nil) {
         self.id = id
         self.pixelSize = pixelSize
+        self.owner = owner
     }
 
     public func requiresCapture(after previous: PreviewCaptureTarget?) -> Bool {
         guard let previous else { return true }
+        if let owner, let previousOwner = previous.owner, owner != previousOwner { return true }
         return id != previous.id || pixelSize > previous.pixelSize
     }
 }

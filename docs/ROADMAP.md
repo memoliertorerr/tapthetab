@@ -80,8 +80,10 @@
 | TT50 | Omarch Jade and Omarch Night theme presets, localized in all six languages | auto | ✅ done (interactive Mac check pending) |
 | TT51 | App-rendered Omarch screenshots and a dedicated README gallery | auto | ✅ done (CI renders verified) |
 | TT52 | Release v0.10.3 and update the Homebrew cask | checkpoint | ✅ done (published downloads, Developer ID signature and notarization verified) |
+| TT53 | Fullscreen escape, explicit desktop coverage, and preview freshness with bounded capture recovery | auto | ✅ done (interactive Mac check pending) |
+| TT54 | Release v0.10.4 and update the Homebrew cask | checkpoint | Pending |
 
-**Overall status:** v0.1.0–v0.10.3 released. v0.10.3 adds Omarch Jade (Osaka Jade palette) and Omarch Night (Tokyo Night palette), with CI-rendered light/dark screenshots in the README. Both published archives match SHA256SUMS.txt; the universal app’s version, Developer ID signature, six localization tables and notarization staples verify. The Homebrew cask targets v0.10.3 with the published DMG checksum. Interactive drag, preview-performance, theme selection and actual desktop glass checks remain with the maintainer. Pages deployment remains pending.
+**Overall status:** v0.10.4 fixes fullscreen switching and preview freshness; review findings are addressed, and CI/release verification are next. v0.1.0–v0.10.3 released. v0.10.3 adds Omarch Jade (Osaka Jade palette) and Omarch Night (Tokyo Night palette), with CI-rendered light/dark screenshots in the README. Both published archives match SHA256SUMS.txt; the universal app’s version, Developer ID signature, six localization tables and notarization staples verify. The Homebrew cask targets v0.10.3 with the published DMG checksum. Interactive drag, preview-performance, theme selection and actual desktop glass checks remain with the maintainer. Pages deployment remains pending.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must

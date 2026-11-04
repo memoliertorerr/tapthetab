@@ -72,7 +72,13 @@
 "Not granted" = "İzin verilmedi";
 "Only needed for live window previews. TapTheTab never records or stores your screen." = "Yalnızca canlı pencere önizlemeleri için gerekir. TapTheTab ekranınızı asla kaydetmez veya saklamaz.";
 "Only needed for live window previews. You can turn this on later." = "Yalnızca canlı pencere önizlemeleri için gerekir. Bunu daha sonra açabilirsiniz.";
-"Only windows on the current Space" = "Yalnızca geçerli alandaki pencereler";
+"Desktops and full-screen apps" = "Masaüstleri ve tam ekran uygulamalar";
+"Current desktop only" = "Yalnızca geçerli masaüstü";
+"Current desktop, more from full screen" = "Geçerli masaüstü, tam ekranda daha fazlası";
+"All desktops and full-screen apps" = "Tüm masaüstleri ve tam ekran uygulamalar";
+"Only windows on the desktop (Space) you are on. A full-screen app is a desktop of its own, so inside one only its window is listed." = "Yalnızca bulunduğunuz masaüstündeki (alan) pencereler. Tam ekran bir uygulama kendi başına bir masaüstüdür; içindeyken yalnızca onun penceresi listelenir.";
+"Windows on the desktop you are on. Inside a full-screen app, also the windows TapTheTab saw on other desktops, and the apps whose windows it can't see." = "Bulunduğunuz masaüstündeki pencereler. Tam ekran bir uygulamanın içindeyken, TapTheTab'ın diğer masaüstlerinde gördüğü pencereler ve pencerelerini göremediği uygulamalar da listelenir.";
+"Apps and windows on every desktop (Space) and in every full-screen app. Uses private macOS interfaces; may change with macOS updates." = "Tüm masaüstlerindeki (alanlar) ve tüm tam ekran uygulamalardaki uygulamalar ve pencereler. macOS'in özel arayüzlerini kullanır; macOS güncellemeleriyle değişebilir.";
 "Only windows on the current display" = "Yalnızca geçerli ekrandaki pencereler";
 "Open System Settings" = "Sistem Ayarları'nı Aç";
 "Open config file" = "Yapılandırma dosyasını aç";
@@ -116,7 +122,6 @@
 "Show live window previews" = "Canlı pencere önizlemelerini göster";
 "Show minimized windows" = "Küçültülmüş pencereleri göster";
 "Show on" = "Gösterileceği yer";
-"Show windows on other Spaces" = "Diğer alanlardaki pencereleri göster";
 "Shows" = "Gösterilen";
 "Size" = "Boyut";
 "Small" = "Küçük";
@@ -131,7 +136,6 @@
 "Type shortcut…" = "Kısayolu girin…";
 "Type to search" = "Yazarak ara";
 "Type to search windows" = "Pencerelerde aramak için yazın";
-"Uses private macOS interfaces; may change with macOS updates." = "macOS'in özel arayüzlerini kullanır; macOS güncellemeleriyle değişebilir.";
 "Version %@ (build %@)" = "Sürüm %@ (yapı %@)";
 "Versions, permissions, counts and settings. No window titles or app names." = "Sürümler, izinler, sayılar ve ayarlar. Pencere başlıkları veya uygulama adları yok.";
 "Waiting for Accessibility permission…" = "Erişilebilirlik izni bekleniyor…";

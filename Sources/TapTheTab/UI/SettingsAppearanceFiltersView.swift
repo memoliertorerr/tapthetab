@@ -197,23 +197,47 @@ struct AppearanceSettingsView: View {
 struct FiltersSettingsView: View {
     @ObservedObject var model: SettingsViewModel
 
+    /// The two stored keys (`currentSpaceOnly`, `showOtherSpaces`) as one choice, so they
+    /// can't contradict each other. A config with both on shows (and keeps behaving as)
+    /// the current desktop only until another choice is made.
+    private var spaceCoverage: Binding<SpaceCoverage> {
+        Binding(
+            get: { SpaceCoverage(model.configuration.filters) },
+            set: { model.configuration.filters = $0.applied(to: model.configuration.filters) }
+        )
+    }
+
+    private var spaceCoverageDetail: String {
+        switch SpaceCoverage(model.configuration.filters) {
+        case .currentDesktop:
+            return L10n.tr("Only windows on the desktop (Space) you are on. A full-screen app is a desktop of its own, so inside one only its window is listed.")
+        case .automatic:
+            return L10n.tr("Windows on the desktop you are on. Inside a full-screen app, also the windows TapTheTab saw on other desktops, and the apps whose windows it can't see.")
+        case .allDesktops:
+            return L10n.tr("Apps and windows on every desktop (Space) and in every full-screen app. Uses private macOS interfaces; may change with macOS updates.")
+        }
+    }
+
     var body: some View {
         Form {
             Section {
                 Toggle(L10n.tr("Show minimized windows"), isOn: $model.configuration.filters.showMinimized)
                 Toggle(L10n.tr("Show hidden apps"), isOn: $model.configuration.filters.showHiddenApps)
                 Toggle(L10n.tr("Show apps without windows"), isOn: $model.configuration.filters.showWindowlessApps)
-                Toggle(L10n.tr("Only windows on the current Space"), isOn: $model.configuration.filters.currentSpaceOnly)
+                Picker(selection: spaceCoverage) {
+                    Text(L10n.tr("Current desktop only")).tag(SpaceCoverage.currentDesktop)
+                    Text(L10n.tr("Current desktop, more from full screen")).tag(SpaceCoverage.automatic)
+                    Text(L10n.tr("All desktops and full-screen apps")).tag(SpaceCoverage.allDesktops)
+                } label: {
+                    // A second Text in a grouped form's label is shown as its subtitle.
+                    Text(L10n.tr("Desktops and full-screen apps"))
+                    Text(spaceCoverageDetail)
+                }
                 Toggle(L10n.tr("Only windows on the current display"), isOn: $model.configuration.filters.currentDisplayOnly)
                 Toggle(isOn: $model.configuration.filters.currentDisplayFirst) {
                     // A second Text in a grouped form's label is shown as its subtitle.
                     Text(L10n.tr("List windows on the switcher's display first"))
                     Text(L10n.tr("The switcher appears on the display chosen under Appearance, Show on."))
-                }
-                Toggle(isOn: $model.configuration.filters.showOtherSpaces) {
-                    // A second Text in a grouped form's label is shown as its subtitle.
-                    Text(L10n.tr("Show windows on other Spaces"))
-                    Text(L10n.tr("Uses private macOS interfaces; may change with macOS updates."))
                 }
             } header: {
                 Text(L10n.tr("Show"))

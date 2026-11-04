@@ -72,7 +72,13 @@
 "Not granted" = "Nicht erlaubt";
 "Only needed for live window previews. TapTheTab never records or stores your screen." = "Nur für Live-Vorschauen der Fenster nötig. TapTheTab nimmt deinen Bildschirm nie auf und speichert ihn nie.";
 "Only needed for live window previews. You can turn this on later." = "Nur für Live-Vorschauen der Fenster nötig. Du kannst das auch später aktivieren.";
-"Only windows on the current Space" = "Nur Fenster im aktuellen Space";
+"Desktops and full-screen apps" = "Schreibtische und Vollbild-Apps";
+"Current desktop only" = "Nur aktueller Schreibtisch";
+"Current desktop, more from full screen" = "Aktueller Schreibtisch, im Vollbild mehr";
+"All desktops and full-screen apps" = "Alle Schreibtische und Vollbild-Apps";
+"Only windows on the desktop (Space) you are on. A full-screen app is a desktop of its own, so inside one only its window is listed." = "Nur Fenster auf dem Schreibtisch (Space), auf dem du bist. Eine Vollbild-App ist ein eigener Schreibtisch, darin wird also nur ihr Fenster angezeigt.";
+"Windows on the desktop you are on. Inside a full-screen app, also the windows TapTheTab saw on other desktops, and the apps whose windows it can't see." = "Fenster auf dem Schreibtisch, auf dem du bist. In einer Vollbild-App auch die Fenster, die TapTheTab auf anderen Schreibtischen gesehen hat, und die Apps, deren Fenster es nicht sehen kann.";
+"Apps and windows on every desktop (Space) and in every full-screen app. Uses private macOS interfaces; may change with macOS updates." = "Apps und Fenster auf allen Schreibtischen (Spaces) und in allen Vollbild-Apps. Verwendet private macOS-Schnittstellen; kann sich mit macOS-Updates ändern.";
 "Only windows on the current display" = "Nur Fenster auf dem aktuellen Display";
 "Open System Settings" = "Systemeinstellungen öffnen";
 "Open config file" = "Konfigurationsdatei öffnen";
@@ -116,7 +122,6 @@
 "Show live window previews" = "Live-Vorschauen der Fenster anzeigen";
 "Show minimized windows" = "Minimierte Fenster anzeigen";
 "Show on" = "Anzeigen auf";
-"Show windows on other Spaces" = "Fenster in anderen Spaces anzeigen";
 "Shows" = "Zeigt";
 "Size" = "Größe";
 "Small" = "Klein";
@@ -131,7 +136,6 @@
 "Type shortcut…" = "Kurzbefehl drücken …";
 "Type to search" = "Tippen zum Suchen";
 "Type to search windows" = "Tippen, um Fenster zu suchen";
-"Uses private macOS interfaces; may change with macOS updates." = "Verwendet private macOS-Schnittstellen; kann sich mit macOS-Updates ändern.";
 "Version %@ (build %@)" = "Version %@ (Build %@)";
 "Versions, permissions, counts and settings. No window titles or app names." = "Versionen, Berechtigungen, Anzahlen und Einstellungen. Keine Fenstertitel oder App-Namen.";
 "Waiting for Accessibility permission…" = "Warten auf Zugriff auf Bedienungshilfen …";

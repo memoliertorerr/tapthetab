@@ -10,7 +10,8 @@ import TapTheTabCore
 ///
 /// With `includesOtherSpaces`, windows on other Spaces (which the Accessibility API does
 /// not report for most apps) are added from the window server's per-Space lists; see
-/// `otherSpaceWindows`.
+/// `otherSpaceWindows`. Without it, windows seen earlier stay listed while a full-screen
+/// app is shown, using public calls only; see `seenWindows`.
 final class WindowCatalog {
     struct Snapshot {
         var items: [SwitcherItem] = []
@@ -22,6 +23,11 @@ final class WindowCatalog {
         var refreshedPIDs: Set<pid_t>?
         /// Windows left out in this refresh, by subrole; only apps asked this time count.
         var skippedBySubrole: [String: Int] = [:]
+        /// Windows that left the screen alive without being kept
+        /// (`SeenWindowRetention.Outcome.vanished`), with their elements; looked at once more
+        /// by the next refresh only.
+        var heldBack: [SwitcherItem] = []
+        var heldBackElements: [ItemID: AXUIElement] = [:]
     }
 
     private struct AppInfo {
@@ -46,12 +52,15 @@ final class WindowCatalog {
     private struct AppResult {
         var found: [Found] = []
         /// IDs of windows the app reported but that are not switchable (panels, sheets…),
-        /// so the other-Spaces pass doesn't bring them back. Only collected for that pass.
+        /// so neither the other-Spaces pass nor the seen-windows pass brings them back.
         var ignoredWindowIDs: [CGWindowID] = []
         /// The app didn't answer within the AX timeout.
         var isBusy = false
         /// Windows the app reported but we left out, counted by subrole (diagnostics).
         var skippedBySubrole: [String: Int] = [:]
+        /// The app was asked this time and answered: a window it no longer lists is
+        /// missing for a reason (closed, or on another Space).
+        var answered = false
     }
 
     private final class Results: @unchecked Sendable {
@@ -79,6 +88,8 @@ final class WindowCatalog {
     /// Accessibility windows 100_000 + app × 100, windowless apps 200_000 + app. Windows
     /// on other Spaces sit between the last two, in `OtherSpaceWindows.select` order.
     private static let otherSpacesOrder = 150_000
+    /// Upper bound for re-reading the titles of windows kept by the seen-windows pass.
+    private static let seenWindowsBudgetNanoseconds: UInt64 = 60_000_000
 
     private let queue = DispatchQueue(label: "io.github.memoliertorerr.TapTheTab.catalog", qos: .userInteractive)
     private var pendingCompletions: [(Snapshot) -> Void] = []
@@ -97,6 +108,9 @@ final class WindowCatalog {
     /// Also list windows on other Spaces (Settings → Filters). Takes effect from the next
     /// refresh, and only when the private window-server functions resolved. Main-thread only.
     var includesOtherSpaces = false
+    /// Keep previously seen off-Space windows while fullscreen is shown. Strict desktop
+    /// coverage disables this so its windowless app entries survive filtering.
+    var retainsSeenWindows = true
 
     /// Main-thread only.
     func element(for id: ItemID) -> AXUIElement? { latest.elements[id] }
@@ -136,11 +150,12 @@ final class WindowCatalog {
         pendingCompletions = []
         // The window server's connection for this process; nil skips the other-Spaces pass.
         let connection: Int32? = includesOtherSpaces ? Self.otherSpacesConnection() : nil
+        let retainSeen = retainsSeenWindows
 
         let previous = latest
         queue.async { [weak self] in
             let started = DispatchTime.now().uptimeNanoseconds
-            var snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous, scope: scope, otherSpacesConnection: connection)
+            var snapshot = WindowCatalog.enumerate(apps: apps, screens: screens, previous: previous, scope: scope, otherSpacesConnection: connection, retainSeenWindows: retainSeen)
             snapshot.duration = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000
             snapshot.refreshedPIDs = scope
             DispatchQueue.main.async {
@@ -229,7 +244,7 @@ final class WindowCatalog {
 
     // MARK: - Enumeration (background queue)
 
-    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot, scope: Set<pid_t>?, otherSpacesConnection: Int32?) -> Snapshot {
+    private static func enumerate(apps: [AppInfo], screens: [ScreenInfo], previous: Snapshot, scope: Set<pid_t>?, otherSpacesConnection: Int32?, retainSeenWindows: Bool) -> Snapshot {
         // Front-to-back order and bounds of on-screen windows on the current Space(s).
         // All layers are recorded: apps that keep their windows above layer 0 (some VM
         // integrations, always-on-top apps) still count as on screen.
@@ -264,7 +279,6 @@ final class WindowCatalog {
             previousByPID[item.pid, default: []].append(item)
         }
 
-        let collectsIgnoredWindows = otherSpacesConnection != nil
         DispatchQueue.concurrentPerform(iterations: apps.count) { index in
             let app = apps[index]
             if let scope, !scope.contains(app.pid), let known = previousAllByPID[app.pid] {
@@ -331,7 +345,7 @@ final class WindowCatalog {
                 }
                 guard admitted else {
                     skipped[WindowAdmission.label(for: subrole), default: 0] += 1
-                    if collectsIgnoredWindows, let windowID { ignored.append(windowID) }
+                    if let windowID { ignored.append(windowID) }
                     continue
                 }
                 guard let windowID else { continue }
@@ -359,11 +373,25 @@ final class WindowCatalog {
                 let item = SwitcherItem(id: .app(pid: app.pid), pid: app.pid, appName: app.name, bundleID: app.bundleID, isAppHidden: app.isHidden)
                 found.append(Found(item: item, element: nil, order: 200_000 + index))
             }
-            results.set(AppResult(found: found, ignoredWindowIDs: ignored, isBusy: status == .cannotComplete, skippedBySubrole: skipped), at: index)
+            results.set(AppResult(found: found, ignoredWindowIDs: ignored, isBusy: status == .cannotComplete, skippedBySubrole: skipped, answered: status == .success), at: index)
         }
 
         let appResults = results.all
         var entries = appResults.flatMap(\.found)
+        var heldBack: [SwitcherItem] = []
+        var heldBackElements: [ItemID: AXUIElement] = [:]
+        if otherSpacesConnection == nil && retainSeenWindows {
+            // Public only: windows seen earlier stay while a full-screen app is shown.
+            let seen = seenWindows(apps: apps, appResults: appResults, entries: entries, onScreen: Set(zOrder.keys), screens: screens, previous: previous)
+            if !seen.kept.isEmpty {
+                // An app whose only windows are on other Spaces is not windowless.
+                let pids = Set(seen.kept.map(\.item.pid))
+                entries.removeAll { $0.item.isWindowless && pids.contains($0.item.pid) }
+                entries.append(contentsOf: seen.kept)
+            }
+            heldBack = seen.heldBack
+            heldBackElements = seen.heldBackElements
+        }
         if let connection = otherSpacesConnection {
             // Everything already known (on screen, found through AX, or deliberately
             // skipped by AX) stays as it is; the window server only adds what is missing.
@@ -394,8 +422,104 @@ final class WindowCatalog {
         for entry in all {
             if let element = entry.element { snapshot.elements[entry.item.id] = element }
         }
+        snapshot.heldBack = heldBack
+        snapshot.heldBackElements = heldBackElements
         snapshot.date = Date()
         return snapshot
+    }
+
+    // MARK: - Windows seen before (background queue)
+
+    /// Windows the Accessibility API listed in an earlier refresh but no longer reports,
+    /// kept while a full-screen app is shown (see `SeenWindowRetention` for the rules).
+    /// Entering a full-screen Space moves every other window to a Space the Accessibility
+    /// API doesn't report; without this, from a full-screen video only the video was left.
+    ///
+    /// Public calls only: the window list's description of each candidate says whether it
+    /// still exists and for which app, and the remembered element (which stays valid on
+    /// another Space) gives its current title. Focusing a kept window goes through
+    /// `WindowActions.activate` as usual, which shows its Space. Hidden state follows the
+    /// running app; apps that didn't answer this time are left as the app pass decided.
+    private static func seenWindows(
+        apps: [AppInfo],
+        appResults: [AppResult],
+        entries: [Found],
+        onScreen: Set<CGWindowID>,
+        screens: [ScreenInfo],
+        previous: Snapshot
+    ) -> (kept: [Found], heldBack: [SwitcherItem], heldBackElements: [ItemID: AXUIElement]) {
+        var answered = Set<Int32>()
+        var ignored = Set<CGWindowID>()
+        var appIndex: [Int32: Int] = [:]
+        for (index, result) in appResults.enumerated() {
+            ignored.formUnion(result.ignoredWindowIDs)
+            appIndex[apps[index].pid] = index
+            if result.answered { answered.insert(apps[index].pid) }
+        }
+        guard !answered.isEmpty else { return ([], [], [:]) }
+
+        var listed = Set<CGWindowID>()
+        for entry in entries {
+            if case .window(let number) = entry.item.id { listed.insert(number) }
+        }
+        // Only windows that could be kept are described (one public call for all).
+        var ids: [CGWindowID] = []
+        for item in previous.items + previous.heldBack {
+            guard case .window(let number) = item.id, answered.contains(item.pid),
+                  !listed.contains(number), !onScreen.contains(number), !ignored.contains(number) else { continue }
+            ids.append(number)
+        }
+        guard !ids.isEmpty else { return ([], [], [:]) }
+        let described = describe(ids)
+        let outcome = SeenWindowRetention.decide(
+            previous: previous.items,
+            heldBack: previous.heldBack,
+            current: entries.map(\.item),
+            answeredPIDs: answered,
+            ignoredIDs: ignored,
+            onScreenIDs: onScreen,
+            windowServerOwners: described.windows.mapValues(\.pid)
+        )
+
+        func element(for id: ItemID) -> AXUIElement? {
+            previous.elements[id] ?? previous.heldBackElements[id]
+        }
+        var heldBackElements: [ItemID: AXUIElement] = [:]
+        for item in outcome.vanished {
+            if let element = element(for: item.id) { heldBackElements[item.id] = element }
+        }
+
+        let deadline = DispatchTime.now().uptimeNanoseconds + seenWindowsBudgetNanoseconds
+        var perApp: [Int32: Int] = [:]
+        var kept: [Found] = []
+        for original in outcome.kept {
+            guard case .window(let number) = original.id, let index = appIndex[original.pid] else { continue }
+            var item = original
+            let windowElement = element(for: item.id)
+            var accessibilityTitle: String?
+            // One AX call per kept window; the app has just answered for its window list.
+            if let remembered = windowElement, DispatchTime.now().uptimeNanoseconds < deadline {
+                var value: CFTypeRef?
+                let status = AXUIElementCopyAttributeValue(remembered, kAXTitleAttribute as CFString, &value)
+                if status == .success {
+                    accessibilityTitle = value as? String
+                } else if status == .invalidUIElement {
+                    // A closed window can remain allocated in the window server. An
+                    // invalid remembered element must not resurrect it as a live entry.
+                    continue
+                }
+            }
+            item.title = OtherSpaceWindows.title(accessibility: accessibilityTitle, previous: original.title, windowServer: described.windows[number]?.name)
+            item.isAppHidden = apps[index].isHidden
+            if let frame = described.frames[number], let display = display(for: frame, screens: screens) {
+                item.displayID = display
+            }
+            // After the app's listed windows, like its other off-screen windows.
+            let offset = appResults[index].found.count + perApp[item.pid, default: 0]
+            perApp[item.pid, default: 0] += 1
+            kept.append(Found(item: item, element: windowElement, order: 100_000 + index * 100 + min(offset, 99)))
+        }
+        return (kept, outcome.vanished, heldBackElements)
     }
 
     // MARK: - Other Spaces (background queue)

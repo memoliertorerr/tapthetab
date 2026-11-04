@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-04
+
+### Fixed
+
+- Switching from a full-screen video no longer leaves only the video in the list: the default desktop scope keeps previously seen windows and offers apps whose windows macOS cannot list.
+- Preview images refresh while the selection rests, reject older results and reused window IDs, and expire after repeated capture failures. Bounded watchdogs prevent stalled captures from silently blocking the queue.
+
+### Changed
+
+- Settings → Filters now has one Desktops and full-screen apps choice: current desktop only, the default fullscreen escape, or all desktops and full-screen apps. Existing configuration keys and the opt-in private listing are preserved.
+
 ## [0.10.3] - 2026-11-03
 
 ### Added

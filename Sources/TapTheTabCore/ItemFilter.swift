@@ -21,7 +21,8 @@ public struct FilterOptions: Codable, Equatable, Sendable {
     /// (`ItemOrdering.displayFirst`), each part in recency order.
     public var currentDisplayFirst: Bool = false
     /// List windows on other Spaces (including fullscreen Spaces) too. Off by default: it
-    /// relies on private macOS interfaces. `currentSpaceOnly` still hides those windows.
+    /// relies on private macOS interfaces. `currentSpaceOnly` still hides those windows
+    /// (it wins when both are on; Settings offers them as one `SpaceCoverage` choice).
     public var showOtherSpaces: Bool = false
     public var excludedBundleIDs: [String] = []
     /// Apps listed before all others (`ItemOrdering.pinnedFirst`), by bundle ID,
@@ -89,10 +90,14 @@ public enum ItemFilter {
         context: FilterContext
     ) -> [SwitcherItem] {
         let excluded = Set(options.excludedBundleIDs.map { $0.lowercased() })
+        // From a full-screen app, apps without listed windows most likely have them on
+        // another desktop: list them, unless the coverage is strict (see FullscreenEscape).
+        let escapesFullscreen = !options.showWindowlessApps
+            && FullscreenEscape.showsAppsWithoutListedWindows(items, options: options, context: context)
         func passes(_ item: SwitcherItem, allowWindowless: Bool) -> Bool {
             if let own = context.ownPID, item.pid == own { return false }
             if let bundle = item.bundleID, excluded.contains(bundle.lowercased()) { return false }
-            if item.isWindowless && !options.showWindowlessApps && !allowWindowless { return false }
+            if item.isWindowless && !options.showWindowlessApps && !allowWindowless && !escapesFullscreen { return false }
             if item.isMinimized && !options.showMinimized { return false }
             if item.isAppHidden && !options.showHiddenApps { return false }
             // Windows listed from other Spaces (`showOtherSpaces`) are never minimized or

@@ -371,11 +371,18 @@ out and why, without names.
 
 ## Known limitations
 
-- Windows on **other Spaces** are listed only with Settings → Filters → *Show windows on
-  other Spaces* (`"showOtherSpaces": true`). It uses private macOS interfaces, is off by
-  default, and turns itself off quietly if a macOS update removes them. Without Screen
-  Recording, those windows may show the app name instead of the window title until you
-  visit their Space.
+- Settings → Filters → **Desktops and full-screen apps** controls which desktops are
+  included. The default, *Current desktop, more from full screen*, keeps previously seen
+  desktop windows available inside a full-screen app and lists apps whose windows macOS
+  cannot expose. *Current desktop only* stays strictly on the current Space.
+  *All desktops and full-screen apps* (`"showOtherSpaces": true`) lists individual windows
+  across every Space, including desktops you have not visited. That option uses private
+  macOS interfaces, stays off by default, and falls back quietly if those interfaces are
+  unavailable. Without Screen Recording, other-Space windows may show the app name until
+  you visit their Space.
+- While the switcher is open, the selected large preview refreshes about every two
+  seconds. Capture failures back off and eventually replace stale images with the app
+  icon. An app that stops drawing off-screen can still supply its last frame.
 - Previews require macOS 14 or later; macOS 13 shows app icons.
 - Secure input (password fields, some terminals with "Secure Keyboard Entry") blocks all
   global shortcuts, including this one.

@@ -39,7 +39,7 @@ enum PrivateAPI {
     /// Turns the system's own shortcuts (⌘⇥, ⌘`) off and on.
     static let cgsSetSymbolicHotKeyEnabled: CGSSetSymbolicHotKeyEnabled? = resolve("CGSSetSymbolicHotKeyEnabled")
 
-    // MARK: Windows on other Spaces (Settings → Filters → "Show windows on other Spaces")
+    // MARK: Windows on other Spaces (Settings → Filters → "All desktops and full-screen apps")
 
     /// This process's connection to the window server, needed by the two calls below.
     static let cgsMainConnectionID: CGSMainConnectionID? = resolve("CGSMainConnectionID")

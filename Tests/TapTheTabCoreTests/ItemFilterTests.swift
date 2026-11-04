@@ -219,6 +219,74 @@ final class ItemFilterTests: XCTestCase {
         XCTAssertEqual(SwitcherScope.allCases.map(\.rawValue), ["allWindows", "activeApp", "apps"])
     }
 
+    // MARK: - Full screen
+
+    /// From a full-screen video (app 1, display 1): the Accessibility API lists only the
+    /// video, a document seen earlier is kept by the catalog, the other apps look windowless.
+    private var fromFullscreenVideo: [SwitcherItem] {
+        [
+            window(1, pid: 1, fullscreen: true, display: 1),
+            window(2, pid: 2, onActiveSpace: false, display: 1),
+            windowlessApp(pid: 3),
+            windowlessApp(pid: 4, bundle: "com.example.excluded"),
+            windowlessApp(pid: 5, hidden: true),
+        ]
+    }
+
+    private let inVideo = FilterContext(activePID: 1, activeDisplayID: 1, ownPID: 99)
+
+    func testFullscreenAppCanBeLeftByDefault() {
+        let options = FilterOptions(excludedBundleIDs: ["com.example.excluded"])
+        XCTAssertEqual(apply(fromFullscreenVideo, options: options, context: inVideo),
+                       [.window(1), .window(2), .app(pid: 3), .app(pid: 5)])
+    }
+
+    func testFullscreenEscapeKeepsTheOtherFilters() {
+        let options = FilterOptions(showHiddenApps: false, excludedBundleIDs: ["com.example.excluded"])
+        let items = fromFullscreenVideo + [windowlessApp(pid: 99)]
+        XCTAssertEqual(apply(items, options: options, context: inVideo), [.window(1), .window(2), .app(pid: 3)])
+    }
+
+    func testStrictCurrentDesktopIsNotOverriddenInFullscreen() {
+        XCTAssertEqual(apply(fromFullscreenVideo, options: FilterOptions(currentSpaceOnly: true), context: inVideo), [.window(1)])
+        // Older configs with both keys on behave the same.
+        let both = FilterOptions(currentSpaceOnly: true, showOtherSpaces: true)
+        XCTAssertEqual(apply(fromFullscreenVideo, options: both, context: inVideo), [.window(1)])
+    }
+
+    func testAllDesktopsDoesNotAddAppsWithoutWindows() {
+        // Every desktop's windows are listed there; an app without any really has none.
+        XCTAssertEqual(apply(fromFullscreenVideo, options: FilterOptions(showOtherSpaces: true), context: inVideo),
+                       [.window(1), .window(2)])
+    }
+
+    func testNoEscapeOutsideFullscreen() {
+        // Regression: an ordinary desktop still hides apps without windows by default.
+        var items = fromFullscreenVideo
+        items[0].isFullscreen = false
+        XCTAssertEqual(apply(items, context: inVideo), [.window(1), .window(2)])
+        // A video full screen on another display while working elsewhere.
+        let elsewhere = FilterContext(activePID: 2, activeDisplayID: 2, ownPID: 99)
+        XCTAssertEqual(apply(fromFullscreenVideo, context: elsewhere), [.window(1), .window(2)])
+    }
+
+    func testFullscreenEscapeWithAppsScopeListsEveryAppOnce() {
+        let items = fromFullscreenVideo + [window(6, pid: 2, onActiveSpace: false)]
+        XCTAssertEqual(apply(items, scope: .apps, context: inVideo),
+                       [.window(1), .window(2), .app(pid: 3), .app(pid: 4), .app(pid: 5)])
+    }
+
+    func testFullscreenEscapeOnCurrentDisplayOnly() {
+        // Apps without windows have no display and stay; kept windows keep theirs.
+        let items = fromFullscreenVideo + [window(6, pid: 6, onActiveSpace: false, display: 2)]
+        XCTAssertEqual(apply(items, options: FilterOptions(currentDisplayOnly: true), context: inVideo),
+                       [.window(1), .window(2), .app(pid: 3), .app(pid: 4), .app(pid: 5)])
+    }
+
+    func testFullscreenEscapeLeavesActiveAppScopeAlone() {
+        XCTAssertEqual(apply(fromFullscreenVideo, scope: .activeApp, context: inVideo), [.window(1)])
+    }
+
     // MARK: - Decoding
 
     func testDecodingEmptyObjectGivesDefaults() throws {
