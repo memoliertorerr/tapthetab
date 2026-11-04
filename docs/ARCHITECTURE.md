@@ -51,9 +51,11 @@ previous window without the panel ever appearing.
 | `AppVersion`, `ReleaseFeed`, `Checksums`, `UpdatePolicy` | Update checks: SemVer ordering, parsing GitHub's latest-release response (size-capped, asset URLs only from GitHub hosts), `SHA256SUMS.txt`, whether a check is due (once a day, only when enabled). |
 | `WineNames` | Readable app names for Wine/CrossOver windows: the `.exe` name from the loader's arguments. |
 | `LargePreviewCaptureSchedule`, `PreviewCaptureTarget`, `PreviewImageRetention`, `PreviewSelectionAnimation` | Capture immediately after a pause and settle during rapid cycling; retain a few recent sharp previews; snap rapid selection changes instead of stacking animations. |
+| `PreviewFreshness`, `CaptureWorkLimiter` | Monotonic capture ordering, sharp/thumbnail preference, failure expiry and backoff; bounded native work with timeout and late-result tracking. |
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
+| `SpaceCoverage`, `FullscreenEscape`, `SeenWindowRetention` | One desktop-scope choice over the existing filter keys; public-only fullscreen escape through known windows and app fallback entries, with owner/existence checks before retention. Strict desktop coverage disables retention so explicit windowless app entries remain available. |
 | `SpaceLayout`, `OtherSpaceWindows` | Pure logic for the opt-in other-Spaces pass: reading the Space layout and choosing which window-server windows are switchable. |
 | `WindowAdmission` | Which Accessibility windows are switchable (standard; titled dialogs; titled, normal-layer, sizable "unknown" windows such as Wine's). |
 | `DiagnosticsReport` | Bug-report text: versions, permissions, counts, settings — no titles or bundle IDs. |
@@ -63,11 +65,11 @@ previous window without the panel ever appearing.
 | Component | Notes |
 |---|---|
 | `HotkeyMonitor` | Session-level `CGEventTap`. Decides synchronously whether to swallow; re-enables itself after `tapDisabledByTimeout`. Takes over ⌘⇥/⌘\` by disabling the system symbolic hotkeys while running and restoring them on stop, quit and SIGTERM/SIGINT/SIGHUP. |
-| `WindowCatalog` | `CGWindowListCopyWindowInfo` gives z-order and which windows are on the current Space; the Accessibility API gives titles, minimized/fullscreen state and the elements to act on. Apps are enumerated concurrently with a 250 ms AX timeout each, off the main thread. |
+| `WindowCatalog` | `CGWindowListCopyWindowInfo` gives z-order and which windows are on the current Space; the Accessibility API gives titles, minimized/fullscreen state and the elements to act on. Apps are enumerated concurrently with a 250 ms AX timeout each, off the main thread. While fullscreen is shown, missing previously seen windows are retained only if the public window list confirms their owner; a one-refresh hold handles delayed fullscreen state. Hidden state follows the app, and invalid remembered AX elements are dropped. The opt-in all-desktops pass discovers unvisited windows. |
 | `WindowWatcher` | One `AXObserver` per regular app (window created/destroyed/retitled/minimized, app hidden/shown) whose coalesced events refresh the catalog, so the list is current when the switcher opens. |
 | `FocusTracker` | `NSWorkspace` activation notifications plus an `AXObserver` on the frontmost app for focused-window changes feed the `RecencyTracker`. |
 | `WindowActions` | Raise via `kAXRaiseAction` + `kAXMainAttribute`, then the window server makes the app frontmost with only that window (`_SLPSSetFrontProcessWithOptions` + a make-key event record), like a click on it; the app's other windows stay put. If those functions are missing: app `kAXFrontmostAttribute` + activation, which may bring all its windows forward. Windowless apps are reopened through Launch Services so they create a window. |
-| `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. Captures use the window’s pixel scale, run four at a time with priority for large previews/peek, and share in-flight window-list fetches. |
+| `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. Captures use the window’s pixel scale, run four at a time with priority for large previews/peek, and share in-flight window-list fetches. Images carry capture-start uptime and owner PID; stale failures expire. Three-second watchdogs bound abandoned screenshot calls (at most seven outstanding native calls) and window-list fetches (at most one abandoned). |
 | `Updater`, `UpdateInstaller` | The only network access (see Network below). `Updater` (main actor) schedules checks and holds the state Settings and the Software Update window show; `UpdateInstaller` downloads, verifies and hands over to a small replace script. |
 | `UI/` | Two non-activating, transparent `NSPanel`s (never take focus — keys come from the tap) hosting SwiftUI: the main block and the large preview's card, each draggable while the switcher is open. Each draws its own backdrop (`PanelBackdrop.swift`): the system's Liquid Glass on macOS 26 (`glassEffect`, Clear or Tinted), a blur with a glass-like rim before, or the classic HUD material, with an optional theme gradient and grain on top. Settings and Onboarding windows. |
 
@@ -86,6 +88,23 @@ Sharp captures run immediately after a pause, settle for 80 ms while cycling, an
 scheduled one at a time with session-token guards. Up to three recent images are
 retained with a 16-megapixel soft budget (the selected and newest image are protected). Nothing is saved to disk. A larger preview box
 requests another capture even when the selected window did not change.
+
+While visible, a resting selection is recaptured two seconds after completion; failures
+back off to 4, 8 and 16 seconds. Closing stops refreshes; peek pauses them. Small preview
+boxes are captured at thumbnail resolution too. Only the preview card redraws periodically.
+Captures are stamped at their start using uptime and the owning PID; older results cannot
+replace newer ones, and reused window IDs discard the previous owner's images. A sharp
+image loses preference when the thumbnail is more than three seconds newer. After a failed
+capture, images at least 60 seconds old are discarded so an old sharp image cannot hide a
+fresh thumbnail indefinitely. macOS may return an unchanged frame for an off-screen app
+that stops drawing; that successful capture cannot be distinguished from static content.
+
+The screenshot and window-list watchdogs fire after three seconds. Up to four screenshot
+calls run at once; timed-out calls remain counted as abandoned until they answer. Once
+four are abandoned, queued work fails without starting more calls (at most seven native
+calls outstanding). A window-list fetch permits one abandoned call before further attempts
+fail. Late answers are ignored and release their abandoned count. Session tokens prevent
+results from closed sessions reaching the panels.
 
 ## Panel dragging and Settings actions
 
@@ -188,7 +207,7 @@ symbol missing from a future macOS disables one feature instead of preventing la
 | `_AXUIElementGetWindow` | Map an AX window to its window-server ID (needed to join AX data with z-order and to capture previews). | Window is skipped. |
 | `CGSSetSymbolicHotKeyEnabled` | ⌘⇥ is consumed by the Window Server before event taps; the system shortcut must be switched off to use it as a trigger. | ⌘⇥ keeps opening the system switcher. |
 | `CGSMainConnectionID` | The process's window-server connection, which the two Space calls below take. | Other Spaces' windows are not listed. |
-| `CGSCopyManagedDisplaySpaces` | Every Space per display, including fullscreen Spaces, and which one is shown (only with "Show windows on other Spaces"). | Other Spaces' windows are not listed. |
+| `CGSCopyManagedDisplaySpaces` | Every Space per display, including fullscreen Spaces, and which one is shown (only with "All desktops and full-screen apps"). | Other Spaces' windows are not listed. |
 | `CGSCopyWindowsWithOptionsAndTags` | The windows of each Space; the Accessibility API only reports the current Space's windows for most apps. | Other Spaces' windows are not listed. |
 | `GetProcessForPID` | Public but deprecated; looked up at runtime so the build stays warning-free. Gives the process serial number the two calls below take. | Windows are focused through the public path: the app is activated, which can bring all its windows forward, and its Space may not switch. |
 | `_SLPSSetFrontProcessWithOptions` | Makes the app frontmost with only the chosen window brought forward (every switch), switching to that window's Space if needed. Public activation raises all of an app's windows. | Same as above. |

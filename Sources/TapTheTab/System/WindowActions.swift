@@ -10,9 +10,12 @@ enum WindowActions {
     /// un-minimizing as needed. Only the chosen window comes forward: the app's other
     /// windows stay where they are in the stack, like clicking a window does.
     ///
-    /// `acrossSpaces` is true while "Show windows on other Spaces" is on: a window on
-    /// another Space (or without an Accessibility element) is then focused through the
-    /// window server too, which also switches to its Space.
+    /// `acrossSpaces` is true while every desktop is listed (`showOtherSpaces`, Settings →
+    /// Filters → "All desktops and full-screen apps"): a window on another Space (or
+    /// without an Accessibility element) is then focused through the window server too,
+    /// which also switches to its Space. A window known to be on
+    /// another Space whose element is gone (kept from earlier while a full-screen app is
+    /// shown) goes that way too, rather than reopening its app.
     ///
     /// Returns how the window was brought forward, for Copy Diagnostics (fixed wording,
     /// never window or app names).
@@ -20,7 +23,7 @@ enum WindowActions {
     static func activate(_ item: SwitcherItem, window: AXUIElement?, acrossSpaces: Bool = false) -> String {
         guard let app = NSRunningApplication(processIdentifier: item.pid) else { return "app not running" }
 
-        if acrossSpaces, case .window(let number) = item.id,
+        if acrossSpaces || (window == nil && !item.isOnActiveSpace), case .window(let number) = item.id,
            !item.isOnActiveSpace || window == nil,
            // Minimized windows and hidden apps' windows are off-screen on every Space;
            // the path below restores those first.

@@ -3,6 +3,27 @@ import SwiftUI
 import TapTheTabCore
 import UniformTypeIdentifiers
 
+/// A window preview and where it came from: when its capture started (system uptime) and
+/// the process that owned the window (nil when unknown). The times decide which of two
+/// images is newer and when an image is too old to keep after a failed capture.
+struct PreviewImage {
+    let image: CGImage
+    let capturedAt: TimeInterval
+    let ownerPID: Int32?
+
+    init(image: CGImage, capturedAt: TimeInterval = ProcessInfo.processInfo.systemUptime, ownerPID: Int32? = nil) {
+        self.image = image
+        self.capturedAt = capturedAt
+        self.ownerPID = ownerPID
+    }
+
+    /// Captured from a window now owned by another process (the number was reused).
+    func isFromAnotherOwner(than pid: Int32?) -> Bool {
+        guard let ownerPID, let pid else { return false }
+        return ownerPID != pid
+    }
+}
+
 /// State behind the switcher panel. Owned by `SwitcherPanelController`.
 @MainActor
 final class SwitcherViewModel: ObservableObject {
@@ -11,6 +32,8 @@ final class SwitcherViewModel: ObservableObject {
     @Published private(set) var behavior: Behavior = Behavior()
     @Published private(set) var layout: SwitcherLayout = SwitcherLayout.initial
     @Published private(set) var thumbnails: [ItemID: CGImage] = [:]
+    /// Capture time and owner of each thumbnail. Not published: it changes with `thumbnails`.
+    private var thumbnailInfo: [ItemID: (capturedAt: TimeInterval, ownerPID: Int32?)] = [:]
     /// Sharper images for the large preview, a few recent ones. Observed only by the
     /// preview card, so a sharp image arriving does not redraw the grid or list.
     let largePreviews = LargePreviewStore()
@@ -97,9 +120,12 @@ final class SwitcherViewModel: ObservableObject {
         if appearance.showPreviews {
             let kept = thumbnails.filter { ids.contains($0.key) }
             if kept.count != thumbnails.count { thumbnails = kept }
+            thumbnailInfo = thumbnailInfo.filter { ids.contains($0.key) }
             largePreviews.prune(keeping: ids)
+            discardImagesOfReusedWindows(in: session.items)
         } else {
             if !thumbnails.isEmpty { thumbnails = [:] }
+            thumbnailInfo.removeAll()
             largePreviews.removeAll()
         }
 
@@ -129,8 +155,10 @@ final class SwitcherViewModel: ObservableObject {
             if !isForwardingPointerInput { lastKeyboardSelectionChange = now }
         }
         let sameContent = Self.sameContent(self.session, session)
-        // Windows that closed take their sharp images with them.
+        // Windows that closed take their sharp images with them; a window number that now
+        // belongs to another app takes its images too.
         if !sameContent { largePreviews.prune(keeping: Set(session.items.map(\.id))) }
+        if !sameContent || self.session.items != session.items { discardImagesOfReusedWindows(in: session.items) }
         largePreviews.selectedID = session.selectedItem?.id
         if selectionMoved, animateSelection, self.layout == layout, sameContent {
             withAnimation(Self.selectionAnimation) {
@@ -168,21 +196,30 @@ final class SwitcherViewModel: ObservableObject {
     /// Images that arrive (or go) replace what is shown at once, never animated: inside an
     /// animation SwiftUI would crossfade the old and new image, which read as a slow blur
     /// turning sharp and, while cycling, stacked several large images being blended.
+    /// An image captured now, from an unknown owner (used by `ScreenshotRenderer`).
     func setThumbnail(_ image: CGImage?, for id: ItemID) {
-        setThumbnails([id: image])
+        setThumbnails([id: image.map { PreviewImage(image: $0) }])
     }
 
-    /// Several thumbnails in one change, so the panels redraw once for all of them.
-    func setThumbnails(_ images: [ItemID: CGImage?]) {
+    /// Several thumbnails in one change, so the panels redraw once for all of them. An
+    /// image older than the one shown (a late result) is ignored; nil removes.
+    func setThumbnails(_ images: [ItemID: PreviewImage?]) {
         guard appearance.showPreviews, !images.isEmpty else { return }
         var updated = thumbnails
-        for (id, image) in images {
-            if let image {
-                updated[id] = image
-            } else {
-                updated.removeValue(forKey: id)
+        var changed = false
+        for (id, preview) in images {
+            if let preview {
+                guard !preview.isFromAnotherOwner(than: session.items.first(where: { $0.id == id })?.pid) else { continue }
+                guard PreviewFreshness.replaces(preview.capturedAt, existing: thumbnailInfo[id]?.capturedAt) else { continue }
+                updated[id] = preview.image
+                thumbnailInfo[id] = (preview.capturedAt, preview.ownerPID)
+                changed = true
+            } else if updated.removeValue(forKey: id) != nil {
+                thumbnailInfo.removeValue(forKey: id)
+                changed = true
             }
         }
+        guard changed else { return }
         withoutAnimation {
             thumbnails = updated
         }
@@ -190,20 +227,73 @@ final class SwitcherViewModel: ObservableObject {
 
     func clearThumbnails() {
         if !thumbnails.isEmpty { thumbnails = [:] }
+        thumbnailInfo.removeAll()
         largePreviews.removeAll()
     }
 
     /// A sharp image for the large preview. Kept even when the window is no longer
     /// selected (a late result while cycling), so going back to it is sharp at once;
-    /// `LargePreviewStore` bounds how many are kept.
-    func setLargePreview(_ image: CGImage?, for id: ItemID) {
+    /// `LargePreviewStore` bounds how many are kept and ignores older results.
+    func setLargePreview(_ preview: PreviewImage?, for id: ItemID) {
         guard appearance.showPreviews else { return }
+        if let preview, preview.isFromAnotherOwner(than: session.items.first(where: { $0.id == id })?.pid) { return }
         withoutAnimation {
-            if let image {
-                largePreviews.store(image, for: id)
+            if let preview {
+                largePreviews.store(preview, for: id)
             } else {
                 largePreviews.remove(id)
             }
+        }
+    }
+
+    /// Capturing these windows failed at `now`: their images too old to keep standing in
+    /// for them (`PreviewFreshness.failedRefreshMaxAge`) are dropped, so the card shows
+    /// the app icon rather than a frozen picture. Returns true when anything was dropped.
+    @discardableResult
+    func discardStaleImages(for ids: Set<ItemID>, now: TimeInterval) -> Bool {
+        guard !ids.isEmpty else { return false }
+        var updated = thumbnails
+        for id in ids {
+            guard let info = thumbnailInfo[id],
+                  !PreviewFreshness.survivesFailedRefresh(capturedAt: info.capturedAt, now: now) else { continue }
+            updated.removeValue(forKey: id)
+            thumbnailInfo.removeValue(forKey: id)
+        }
+        var dropped = false
+        withoutAnimation {
+            if updated.count != thumbnails.count {
+                thumbnails = updated
+                dropped = true
+            }
+            for id in ids {
+                guard let sharp = largePreviews.entry(for: id),
+                      !PreviewFreshness.survivesFailedRefresh(capturedAt: sharp.capturedAt, now: now) else { continue }
+                largePreviews.remove(id)
+                dropped = true
+            }
+        }
+        return dropped
+    }
+
+    /// Drops images captured from a window whose number now belongs to another process.
+    private func discardImagesOfReusedWindows(in items: [SwitcherItem]) {
+        guard !thumbnailInfo.isEmpty || !largePreviews.isEmpty else { return }
+        var owners: [ItemID: Int32] = [:]
+        for item in items { owners[item.id] = item.pid }
+        let reused = thumbnailInfo.compactMap { id, info -> ItemID? in
+            guard let owner = info.ownerPID, let pid = owners[id], owner != pid else { return nil }
+            return id
+        }
+        withoutAnimation {
+            if !reused.isEmpty {
+                var updated = thumbnails
+                for id in reused {
+                    updated.removeValue(forKey: id)
+                    thumbnailInfo.removeValue(forKey: id)
+                }
+                thumbnails = updated
+            }
+            largePreviews.discard { id, preview in preview.isFromAnotherOwner(than: owners[id]) }
         }
     }
 
@@ -275,7 +365,18 @@ final class SwitcherViewModel: ObservableObject {
     /// sharp image, else its thumbnail (scaled up until the sharp one arrives).
     var selectedPreview: CGImage? {
         guard layout.showsPreview, appearance.showPreviews, let id = session.selectedItem?.id else { return nil }
-        return largePreviews.image(for: id) ?? thumbnails[id]
+        return shownSharpImage(for: id) ?? thumbnails[id]
+    }
+
+    /// The sharp image of `id` when it should be shown: unless the thumbnail is clearly
+    /// newer (a sharp image that could not be refreshed must not hide a fresh thumbnail).
+    private func shownSharpImage(for id: ItemID) -> CGImage? {
+        guard let sharp = largePreviews.entry(for: id) else { return nil }
+        let thumbnailCapturedAt = thumbnails[id] == nil ? nil : thumbnailInfo[id]?.capturedAt
+        guard PreviewFreshness.prefersSharp(sharpCapturedAt: sharp.capturedAt, thumbnailCapturedAt: thumbnailCapturedAt) else {
+            return nil
+        }
+        return sharp.image
     }
 
     /// Ignore image-rounding differences, but follow the sharp capture when a cached
@@ -283,7 +384,7 @@ final class SwitcherViewModel: ObservableObject {
     var previewCardSize: CGSize {
         guard layout.showsPreview, let id = session.selectedItem?.id else { return .zero }
         let thumbnail = thumbnails[id].map { Size(width: Double($0.width), height: Double($0.height)) }
-        let sharp = largePreviews.image(for: id).map { Size(width: Double($0.width), height: Double($0.height)) }
+        let sharp = shownSharpImage(for: id).map { Size(width: Double($0.width), height: Double($0.height)) }
         return CGSize(layout.core.previewCardSize(thumbnail: thumbnail, sharp: sharp))
     }
 
@@ -343,7 +444,7 @@ final class SwitcherViewModel: ObservableObject {
 /// cost no redraw.
 @MainActor
 final class LargePreviewStore: ObservableObject {
-    private var images: [ItemID: CGImage] = [:]
+    private var images: [ItemID: PreviewImage] = [:]
     private var retention = PreviewImageRetention<ItemID>()
 
     /// The selected window, which is never dropped to make room. Set by the model; not
@@ -354,14 +455,27 @@ final class LargePreviewStore: ObservableObject {
         }
     }
 
-    func image(for id: ItemID) -> CGImage? { images[id] }
+    func image(for id: ItemID) -> CGImage? { images[id]?.image }
 
-    func store(_ image: CGImage, for id: ItemID) {
+    func entry(for id: ItemID) -> PreviewImage? { images[id] }
+
+    var isEmpty: Bool { images.isEmpty }
+
+    /// Stores `preview` unless the stored image of `id` is newer (a late result).
+    func store(_ preview: PreviewImage, for id: ItemID) {
+        guard PreviewFreshness.replaces(preview.capturedAt, existing: images[id]?.capturedAt) else { return }
         if id == selectedID { objectWillChange.send() }
-        images[id] = image
+        images[id] = preview
+        let image = preview.image
         for dropped in retention.insert(id, pixels: image.width * image.height, protecting: selectedID) {
             images.removeValue(forKey: dropped)
         }
+    }
+
+    /// Drops the images `shouldDrop` picks.
+    func discard(where shouldDrop: (ItemID, PreviewImage) -> Bool) {
+        let dropped = images.filter { shouldDrop($0.key, $0.value) }.map(\.key)
+        for id in dropped { remove(id) }
     }
 
     func remove(_ id: ItemID) {

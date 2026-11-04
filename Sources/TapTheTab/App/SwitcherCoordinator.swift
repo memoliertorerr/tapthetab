@@ -37,8 +37,9 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     /// The large preview's wait before capturing, while the selection is moving fast.
     private var previewTask: Task<Void, Never>?
     /// When the large preview's sharper capture runs: one at a time, at once after a
-    /// pause, once the selection rests while cycling.
-    private var previewSchedule = LargePreviewCaptureSchedule()
+    /// pause, once the selection rests while cycling, and again every
+    /// `PreviewFreshness.refreshInterval` while it keeps resting (backing off on failures).
+    private var previewSchedule = SwitcherCoordinator.makePreviewSchedule()
     /// The item the large preview was last asked for, so typing a query or a catalog
     /// refresh that keeps the selection does not capture it again.
     private var previewRequestedTarget: PreviewCaptureTarget?
@@ -112,14 +113,18 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }
         close()
         let listedOtherSpaces = catalog.includesOtherSpaces
+        let retainedSeenWindows = catalog.retainsSeenWindows
         configureCatalog()
         // Add or drop other Spaces' windows now, not at the next window change.
-        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces { windowsChanged(in: nil) }
+        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces || catalog.retainsSeenWindows != retainedSeenWindows {
+            windowsChanged(in: nil)
+        }
     }
 
     /// Windows on other Spaces are listed only when shown and not filtered out anyway.
     private func configureCatalog() {
-        catalog.includesOtherSpaces = configuration.filters.showOtherSpaces && !configuration.filters.currentSpaceOnly
+        catalog.includesOtherSpaces = SpaceCoverage.listsOtherSpaces(configuration.filters)
+        catalog.retainsSeenWindows = SpaceCoverage.retainsSeenWindows(configuration.filters)
     }
 
     /// Opens the switcher from the menu bar, locked open (no modifier to release).
@@ -308,7 +313,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             if current.isSearching { searchMemory.record(query: current.query, picked: item) }
             let window = catalog.element(for: item.id) ?? lookUpWindow(item)
             close()
-            lastSwitchMethod = WindowActions.activate(item, window: window, acrossSpaces: configuration.filters.showOtherSpaces)
+            lastSwitchMethod = WindowActions.activate(item, window: window, acrossSpaces: SpaceCoverage.listsOtherSpaces(configuration.filters))
             focus.touch(item.id)
         case .perform(let action, let item):
             perform(action, on: item)
@@ -325,7 +330,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             togglePin(item)
             return
         }
-        let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id), acrossSpaces: configuration.filters.showOtherSpaces)
+        let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id), acrossSpaces: SpaceCoverage.listsOtherSpaces(configuration.filters))
         guard ok, var current = session else {
             if !ok { NSSound.beep() }
             return
@@ -415,9 +420,9 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let appKitFrame = NSRect(x: frame.minX, y: primaryHeight - frame.maxY, width: frame.width, height: frame.height)
         let pixels = Int((max(frame.width, frame.height) * screen.backingScaleFactor).rounded(.up))
         let token = sessionToken
-        thumbnails.capture(windowIDs: [number], maxPixelSize: pixels, storeInCache: false, priority: true) { [weak self] _, image in
+        thumbnails.capture(windowIDs: [number], maxPixelSize: pixels, storeInCache: false, priority: true) { [weak self] _, capture in
             guard let self, self.sessionToken == token, self.session?.selectedItem?.id == item.id else { return }
-            self.peek.show(image: image, at: appKitFrame, on: screen)
+            self.peek.show(image: capture.image, at: appKitFrame, on: screen)
         }
     }
 
@@ -434,10 +439,11 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             lastPartialRefreshMilliseconds = milliseconds
         }
         focus.prune(after: snapshot.items)
-        thumbnails?.prune(keeping: Set(snapshot.items.compactMap { item -> UInt32? in
-            if case .window(let number) = item.id { return number }
-            return nil
-        }))
+        var owners: [UInt32: pid_t] = [:]
+        for item in snapshot.items {
+            if case .window(let number) = item.id { owners[number] = item.pid }
+        }
+        thumbnails?.prune(keeping: owners)
         guard token == sessionToken, var current = session, let trigger = activeTrigger, let screen else { return }
         current.replaceItems(buildItems(from: snapshot.items, scope: trigger.scope, screen: screen))
         current.columns = panel.columns(forItemCount: current.visible.count, appearance: sessionAppearance, on: screen)
@@ -527,27 +533,43 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
               permissions.screenRecordingGranted else { return }
         lastThumbnailRequestIDs = current.visible.map(\.id)
         var ids: [UInt32] = []
-        var cached: [ItemID: CGImage] = [:]
+        var cached: [ItemID: PreviewImage] = [:]
         for ranked in current.visible {
             guard case .window(let number) = ranked.id, !ranked.item.isMinimized, !ranked.item.isAppHidden else { continue }
-            if let image = thumbnails.cachedImage(for: number) { cached[ranked.id] = image }
+            if let capture = thumbnails.cachedImage(for: number, ownerPID: ranked.item.pid) {
+                cached[ranked.id] = PreviewImage(capture)
+            }
             ids.append(number)
         }
+        // Shown at once while the fresh captures run; replaced as each arrives.
         panel.setThumbnails(cached)
-        let longEdge = Int(configuration.appearance.size.cardSize.width * 2)
-        thumbnails.capture(windowIDs: ids, maxPixelSize: longEdge) { [weak self] number, image in
-            self?.panel.setThumbnail(image, for: .window(number))
-        }
+        let longEdge = thumbnailLongEdge
+        let token = sessionToken
+        thumbnails.capture(windowIDs: ids, maxPixelSize: longEdge, deliver: { [weak self] number, capture in
+            self?.panel.setThumbnail(PreviewImage(capture), for: .window(number))
+        }, completion: { [weak self] failed in
+            guard let self, self.sessionToken == token else { return }
+            self.panel.previewCaptureFailed(for: Set(failed.map { ItemID.window($0) }))
+        })
+    }
+
+    /// The long edge (pixels) of the cards' thumbnails.
+    private var thumbnailLongEdge: Int {
+        Int(configuration.appearance.size.cardSize.width * 2)
     }
 
     // MARK: - Large preview
 
     private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
+    private static func makePreviewSchedule() -> LargePreviewCaptureSchedule {
+        LargePreviewCaptureSchedule(refreshInterval: PreviewFreshness.refreshInterval)
+    }
+
     private func resetPreviewSchedule() {
         previewTask?.cancel()
         previewTask = nil
-        previewSchedule = LargePreviewCaptureSchedule()
+        previewSchedule = Self.makePreviewSchedule()
         previewRequestedTarget = nil
     }
 
@@ -556,9 +578,18 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     /// when the switcher appears); `previewSchedule` decides when the capture runs.
     private func requestSelectedPreview(force: Bool = false) {
         let target = session?.selectedItem.map {
-            PreviewCaptureTarget(id: $0.id, pixelSize: panel.largePreviewMaxPixelSize ?? 0)
+            PreviewCaptureTarget(id: $0.id, pixelSize: panel.largePreviewMaxPixelSize ?? 0, owner: $0.pid)
         }
-        guard force || (target?.requiresCapture(after: previewRequestedTarget) ?? (previewRequestedTarget != nil)) else { return }
+        guard force || (target?.requiresCapture(after: previewRequestedTarget) ?? (previewRequestedTarget != nil)) else {
+            // Same window: the refresh keeps it fresh. When the refresh stopped because there
+            // was nothing to capture (minimized, hidden), try again: ⇧M or ⇧H may have
+            // brought the window back. Cheap when it is still not capturable.
+            if target != nil, previewTask == nil, previewSchedule.needsCaptureRetry,
+               configuration.appearance.showPreviews, thumbnails != nil, panel.isVisible {
+                performPreviewDecision(previewSchedule.timerFired(at: Self.now))
+            }
+            return
+        }
         previewRequestedTarget = target
         // A newer decision replaces a pending wait.
         previewTask?.cancel()
@@ -582,6 +613,13 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 guard !Task.isCancelled, let self, self.sessionToken == token else { return }
                 self.previewTask = nil
+                // Hidden (closing) or not shown yet: nothing to keep fresh.
+                guard self.panel.isVisible else { return }
+                if self.peek.isShowing {
+                    // The peek covers the preview: check again later instead of capturing.
+                    self.performPreviewDecision(.wait(PreviewFreshness.refreshInterval))
+                    return
+                }
                 self.performPreviewDecision(self.previewSchedule.timerFired(at: Self.now))
             }
         }
@@ -592,8 +630,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     /// for going back, without redrawing anything now.
     private func startLargePreviewCapture() {
         guard let thumbnails, let target = largePreviewTarget() else {
-            // Nothing to capture for this selection: finished at once.
-            performPreviewDecision(previewSchedule.captureFinished(at: Self.now))
+            // Nothing to capture for this selection: finished at once, no refresh.
+            performPreviewDecision(previewSchedule.captureFinished(at: Self.now, outcome: .skipped))
             return
         }
         previewCaptureSerial += 1
@@ -604,27 +642,30 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             maxPixelSize: target.pixelSize,
             storeInCache: false,
             priority: true,
-            deliver: { [weak self] number, image in
+            deliver: { [weak self] number, capture in
                 guard let self, self.sessionToken == token else { return }
-                self.panel.setLargePreview(image, for: .window(number))
+                self.panel.setLargePreview(PreviewImage(capture), for: .window(number))
             },
-            completion: { [weak self] in
-                guard let self, self.sessionToken == token, self.previewCaptureSerial == serial else { return }
-                self.performPreviewDecision(self.previewSchedule.captureFinished(at: Self.now))
+            completion: { [weak self] failed in
+                guard let self, self.sessionToken == token else { return }
+                if !failed.isEmpty { self.panel.previewCaptureFailed(for: Set(failed.map { ItemID.window($0) })) }
+                guard self.previewCaptureSerial == serial else { return }
+                let outcome: LargePreviewCaptureSchedule.Outcome = failed.isEmpty ? .captured : .failed
+                self.performPreviewDecision(self.previewSchedule.captureFinished(at: Self.now, outcome: outcome))
             }
         )
     }
 
     /// The selected window and the long edge (pixels) to capture it at, or nil when there
-    /// is nothing to capture: no large preview, a minimized window or hidden app, an app
-    /// without windows, or a box no larger than the cards' thumbnails.
+    /// is nothing to capture: no large preview, a minimized window or hidden app, or an app
+    /// without windows. A box no larger than the cards' thumbnails is captured at the
+    /// thumbnails' size, so the preview is kept fresh there too.
     private func largePreviewTarget() -> (number: UInt32, pixelSize: Int)? {
         guard configuration.appearance.showPreviews, permissions.screenRecordingGranted,
               let selected = session?.selectedItem, case .window(let number) = selected.id,
               !selected.isMinimized, !selected.isAppHidden,
-              let size = panel.largePreviewMaxPixelSize,
-              size > Int(configuration.appearance.size.cardSize.width * 2) else { return nil }
-        return (number, size)
+              let size = panel.largePreviewMaxPixelSize else { return nil }
+        return (number, max(size, thumbnailLongEdge))
     }
 
     private func installOutsideClickMonitor() {
@@ -708,5 +749,11 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         catalog.refresh(onlyPIDs: pids) { [weak self] snapshot in
             self?.catalogDidRefresh(snapshot, token: token)
         }
+    }
+}
+
+private extension PreviewImage {
+    init(_ capture: ThumbnailService.Capture) {
+        self.init(image: capture.image, capturedAt: capture.capturedAt, ownerPID: capture.ownerPID)
     }
 }
