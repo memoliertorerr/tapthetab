@@ -82,9 +82,9 @@
 | TT52 | Release v0.10.3 and update the Homebrew cask | checkpoint | ✅ done (published downloads, Developer ID signature and notarization verified) |
 | TT53 | Fullscreen escape, explicit desktop coverage, and preview freshness with bounded capture recovery | auto | ✅ done (interactive Mac check pending) |
 | TT54 | Release v0.10.4 and update the Homebrew cask | checkpoint | ✅ done (published archives, signature and notarization verified; cask targets v0.10.4) |
-| TT55 | Enable Pages and refresh website themes, desktop scope and update-check information | auto | In progress |
+| TT55 | Enable Pages and refresh website themes, desktop scope and update-check information | auto | ✅ done (public HTML and all 16 local assets verified over HTTPS) |
 
-**Overall status:** v0.1.0–v0.10.4 released. v0.10.4 fixes fullscreen switching, clarifies desktop coverage, and refreshes previews with bounded capture recovery. All three CI checks passed. Both published archives match the downloaded SHA256SUMS.txt; the universal app's version, expected Developer ID signature and app/DMG notarization staples verify. The Homebrew cask targets v0.10.4 with the published DMG checksum. Interactive fullscreen focus, cross-desktop behavior, hide/close actions and long-running preview freshness remain with the maintainer. Pages is enabled for GitHub Actions; publication of the refreshed website is pending.
+**Overall status:** v0.1.0–v0.10.4 released. v0.10.4 fixes fullscreen switching, clarifies desktop coverage, and refreshes previews with bounded capture recovery. All three CI checks passed. Both published archives match the downloaded SHA256SUMS.txt; the universal app's version, expected Developer ID signature and app/DMG notarization staples verify. The Homebrew cask targets v0.10.4 with the published DMG checksum. Interactive fullscreen focus, cross-desktop behavior, hide/close actions and long-running preview freshness remain with the maintainer. The refreshed Pages site is live at https://memoliertorerr.github.io/tapthetab/; public HTML and all 16 local assets match the assembled site byte for byte over HTTPS. Browser appearance remains unverified.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
