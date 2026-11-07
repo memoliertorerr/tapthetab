@@ -65,10 +65,11 @@
         <div class="card"><h3>Quick select, peek, pin</h3><p><kbd>⌘</kbd>1–9 jumps straight to a window, <kbd>⇧</kbd>Space peeks at it full size, <kbd>⇧</kbd>P pins an app to the top.</p></div>
         <div class="card"><h3>Act without switching</h3><p>Close, minimize, make fullscreen, hide or quit from the switcher. <kbd>⇧</kbd>D sends a window to your next display.</p></div>
         <div class="card"><h3>Liquid Glass</h3><p>See-through glass on macOS 26 (Clear or Tinted), a similar translucent look on earlier versions, or the classic dark panel.</p></div>
-        <div class="card"><h3>Themes</h3><p>Soft gradients with grain: eleven presets or your own colors. The Settings window follows.</p></div>
-        <div class="card"><h3>Thumbnails and previews</h3><p>Optional live window thumbnails in the grid and the list, and a large preview of the selected window on its own floating card.</p></div>
+        <div class="card"><h3>Themes</h3><p>Soft gradients with grain: thirteen presets, including Omarch Jade and Omarch Night, or your own colors. The Settings window follows.</p></div>
+        <div class="card"><h3>Thumbnails and previews</h3><p>Optional window thumbnails in the grid and list, plus a large preview that refreshes while selected. Size it from 25% to 150% on its own floating card.</p></div>
         <div class="card"><h3>Move it</h3><p>Drag the list or the large preview anywhere while the switcher is open. It remembers where.</p></div>
         <div class="card"><h3>A layout per shortcut</h3><p>Grid or list, three sizes. For example <kbd>⌥</kbd><kbd>⇥</kbd> as a grid and <kbd>⌥</kbd><kbd>`</kbd> as a list for the current app.</p></div>
+        <div class="card"><h3>Desktops and fullscreen</h3><p>Switch out of fullscreen apps, or choose to include individual windows across all desktops and fullscreen Spaces in Settings → Filters.</p></div>
         <div class="card"><h3>Several displays</h3><p>Shows on the display with your mouse, the active window or the main display, and can list that display’s windows first.</p></div>
         <div class="card"><h3>Easy to start</h3><p>A first-run tour walks through the keys, and you can reopen it any time. Any shortcut works, including <kbd>⌘</kbd><kbd>⇥</kbd>.</p></div>
         <div class="card"><h3>Your language</h3><p>English, Italian, Turkish, German, French and Spanish, with VoiceOver support.</p></div>
@@ -103,6 +104,20 @@
             <img src="images/switcher-themed-light.png" alt="List layout on the Dusk theme: each row shows a thumbnail of its window with the app icon as a badge" width="768" height="668" loading="lazy">
           </picture>
           <figcaption>Themes and window thumbnails in the list</figcaption>
+        </figure>
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="images/omarch-jade-dark.png">
+            <img src="images/omarch-jade-light.png" alt="The Omarch Jade theme, inspired by Omarchy’s Osaka Jade palette" width="1536" height="1336" loading="lazy">
+          </picture>
+          <figcaption>Omarch Jade, inspired by Osaka Jade</figcaption>
+        </figure>
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="images/omarch-night-dark.png">
+            <img src="images/omarch-night-light.png" alt="The Omarch Night theme, inspired by Omarchy’s Tokyo Night palette" width="1536" height="1336" loading="lazy">
+          </picture>
+          <figcaption>Omarch Night, inspired by Tokyo Night</figcaption>
         </figure>
         <figure class="wide shot settings">
           <picture>
@@ -179,7 +194,7 @@ brew install --cask tapthetab</code></pre>
       <h2>Privacy</h2>
       <p><strong>No telemetry.</strong> No analytics, no accounts, nothing about you or your windows is collected.</p>
       <ul>
-        <li><strong>No network access unless you turn on automatic update checks</strong> (off by default). Then, once a day, TapTheTab asks GitHub for the latest release. Nothing about you or your Mac is sent beyond that request.</li>
+        <li><strong>Update checks are optional.</strong> Automatic checks are off by default. Enable them for a daily check, or choose Check for Updates to check once. TapTheTab contacts only GitHub for updates; nothing about you or your windows is sent beyond the request.</li>
         <li><strong>Updates are verified</strong> (Developer ID signature and checksum) before installing. Homebrew installs update with <code>brew upgrade</code>.</li>
         <li><strong>Permissions:</strong> Accessibility is required to listen for the shortcut and list windows. Screen Recording is needed only if you turn on live previews, which are kept in memory and never saved.</li>
         <li><strong>Your settings</strong> are one readable JSON file on your Mac, with owner-only permissions. This website has no scripts, no cookies and no third-party requests.</li>
