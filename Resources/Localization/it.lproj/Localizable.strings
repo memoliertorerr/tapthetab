@@ -303,3 +303,5 @@
 "Space" = "Spazio";
 "Return" = "Invio";
 "Escape" = "Esc";
+"Desktops" = "Scrivanie";
+"Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters." = "Quali scrivanie e app a schermo intero mostra questa abbreviazione. Predefinito usa la scelta in Filtri.";

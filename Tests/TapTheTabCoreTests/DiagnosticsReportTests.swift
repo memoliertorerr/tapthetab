@@ -304,6 +304,19 @@ final class DiagnosticsReportTests: XCTestCase {
         }
     }
 
+    func testExplicitDesktopCoverageIsReportedWithoutChangingInheritedLines() {
+        var c = Configuration()
+        c.triggers = [
+            Trigger(shortcut: .optionTab, scope: .allWindows, desktopCoverage: .currentDesktop),
+            Trigger(shortcut: .commandTab, scope: .apps, desktopCoverage: .allDesktops),
+            Trigger(shortcut: .optionGrave, scope: .activeApp),
+        ]
+        let lines = report(c).markdown.components(separatedBy: "\n")
+        XCTAssertTrue(lines.contains("  ⌥⇥  option+tab  allWindows  desktops: currentDesktop"))
+        XCTAssertTrue(lines.contains("  ⌘⇥  command+tab  apps  desktops: allDesktops"))
+        XCTAssertTrue(lines.contains("  ⌥`  option+`  activeApp"))
+    }
+
     func testPinnedAppsAreCountedNeverListed() {
         var c = Configuration()
         c.filters.pinnedBundleIDs = ["com.secret.Diary", "org.example.PrivateThing"]

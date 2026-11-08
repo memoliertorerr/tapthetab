@@ -10,8 +10,9 @@ enum WindowActions {
     /// un-minimizing as needed. Only the chosen window comes forward: the app's other
     /// windows stay where they are in the stack, like clicking a window does.
     ///
-    /// `acrossSpaces` is true while every desktop is listed (`showOtherSpaces`, Settings →
-    /// Filters → "All desktops and full-screen apps"): a window on another Space (or
+    /// `acrossSpaces` follows the open session's effective desktop coverage: either the
+    /// shortcut's override or the global Filters choice. With all desktops, a window on
+    /// another Space (or
     /// without an Accessibility element) is then focused through the window server too,
     /// which also switches to its Space. A window known to be on
     /// another Space whose element is gone (kept from earlier while a full-screen app is

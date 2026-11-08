@@ -303,3 +303,5 @@
 "Space" = "Espace";
 "Return" = "Retour";
 "Escape" = "Échap";
+"Desktops" = "Bureaux";
+"Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters." = "Quels bureaux et apps en plein écran ce raccourci affiche. Par défaut utilise le choix fait dans Filtres.";

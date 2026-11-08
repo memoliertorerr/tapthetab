@@ -112,25 +112,41 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             panel.clearThumbnails()
         }
         close()
-        let listedOtherSpaces = catalog.includesOtherSpaces
-        let retainedSeenWindows = catalog.retainsSeenWindows
+        let previousDiscovery = catalog.discovery
         configureCatalog()
-        // Add or drop other Spaces' windows now, not at the next window change.
-        if isStarted, catalog.includesOtherSpaces != listedOtherSpaces || catalog.retainsSeenWindows != retainedSeenWindows {
+        // Add or drop other Spaces' windows now, not at the next window change. A refresh
+        // still running was asked with the old discovery; its entries carry their origin,
+        // so no switcher shows more than its coverage, and this full refresh follows it.
+        if isStarted, catalog.discovery != previousDiscovery {
             windowsChanged(in: nil)
         }
     }
 
-    /// Windows on other Spaces are listed only when shown and not filtered out anyway.
+    /// The catalog looks as far as any shortcut (or the filters' own choice) needs, also
+    /// while no switcher is open: a shortcut's first quick tap uses the cached list.
+    /// Other Spaces are listed only when some coverage in use is all desktops.
     private func configureCatalog() {
-        catalog.includesOtherSpaces = SpaceCoverage.listsOtherSpaces(configuration.filters)
-        catalog.retainsSeenWindows = SpaceCoverage.retainsSeenWindows(configuration.filters)
+        catalog.discovery = DesktopDiscovery(configuration)
+    }
+
+    /// The filters of the open switcher: the settings with its shortcut's own desktop
+    /// coverage, if any. Everything that lists, picks or acts uses these.
+    private func filters(for trigger: Trigger) -> FilterOptions {
+        configuration.filters.effective(for: trigger)
+    }
+
+    /// Whether the open switcher's windows may be on other desktops it can't see, so
+    /// focusing and acting go through the window server (all desktops only).
+    private var sessionListsOtherSpaces: Bool {
+        guard let trigger = activeTrigger else { return false }
+        return SpaceCoverage.listsOtherSpaces(filters(for: trigger))
     }
 
     /// Opens the switcher from the menu bar, locked open (no modifier to release).
     func openFromMenu() {
         guard session == nil, isStarted, !isPaused, monitor.isRunning else { return }
-        let trigger = configuration.triggers.first { $0.scope == .allWindows } ?? configuration.triggers[0]
+        var trigger = configuration.triggers.first { $0.scope == .allWindows } ?? configuration.triggers[0]
+        trigger.desktopCoverage = nil
         monitor.beginSession()
         open(trigger: trigger, reverse: false, locked: true)
     }
@@ -139,8 +155,9 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
     /// and optionally pre-filtered. Ignored while a session is already open.
     func openFromAutomation(scope: SwitcherScope, query: String?) {
         guard session == nil, isStarted, !isPaused, monitor.isRunning else { return }
-        let trigger = configuration.triggers.first { $0.scope == scope }
+        var trigger = configuration.triggers.first { $0.scope == scope }
             ?? Trigger(shortcut: configuration.triggers[0].shortcut, scope: scope)
+        trigger.desktopCoverage = nil
         monitor.beginSession()
         open(trigger: trigger, reverse: false, locked: true)
         if let query, !query.isEmpty, configuration.behavior.searchEnabled {
@@ -235,7 +252,8 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         )
         sessionAppearance = configuration.appearance.effective(for: trigger)
 
-        let items = buildItems(from: catalog.latest.items, scope: trigger.scope, screen: screen)
+        let snapshot = catalog.latest
+        let items = buildItems(from: snapshot, trigger: trigger, screen: screen)
         var newSession = SwitcherSession(
             items: items,
             startsOnPrevious: configuration.behavior.startOnPrevious,
@@ -247,7 +265,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         if reverse {
             newSession.handle(.last)
         } else if configuration.appearance.groupByApp, configuration.behavior.startOnPrevious,
-                  let previous = previousWindowID(from: catalog.latest.items, scope: trigger.scope, screen: screen),
+                  let previous = previousWindowID(from: snapshot, trigger: trigger, screen: screen),
                   let index = newSession.visible.firstIndex(where: { $0.id == previous }) {
             // Grouping reorders the list, but a quick tap must still mean "the window I
             // used before this one", not "this app's other window".
@@ -258,8 +276,10 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         let delay = locked ? 0 : configuration.appearance.showDelayMilliseconds
         scheduleShow(afterMilliseconds: delay, token: token)
         // The watcher keeps the list current; re-ask only the frontmost app (its titles
-        // matter most) unless the cache is old, in which case refresh everything.
-        let stale = Date().timeIntervalSince(catalog.latest.date) > Self.fullRefreshAge
+        // matter most) unless the cache is old, or was built before this shortcut's
+        // coverage was in use, in which case refresh everything.
+        let stale = Date().timeIntervalSince(snapshot.date) > Self.fullRefreshAge
+            || !snapshot.discovery.covers(SpaceCoverage(filters(for: trigger)))
         let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let scope: Set<pid_t>? = (stale || front == nil) ? nil : [front!]
         catalog.refresh(onlyPIDs: scope) { [weak self] snapshot in
@@ -312,8 +332,9 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         case .activate(let item):
             if current.isSearching { searchMemory.record(query: current.query, picked: item) }
             let window = catalog.element(for: item.id) ?? lookUpWindow(item)
+            let acrossSpaces = sessionListsOtherSpaces
             close()
-            lastSwitchMethod = WindowActions.activate(item, window: window, acrossSpaces: SpaceCoverage.listsOtherSpaces(configuration.filters))
+            lastSwitchMethod = WindowActions.activate(item, window: window, acrossSpaces: acrossSpaces)
             focus.touch(item.id)
         case .perform(let action, let item):
             perform(action, on: item)
@@ -330,7 +351,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
             togglePin(item)
             return
         }
-        let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id), acrossSpaces: SpaceCoverage.listsOtherSpaces(configuration.filters))
+        let ok = WindowActions.perform(action, on: item, window: catalog.element(for: item.id), acrossSpaces: sessionListsOtherSpaces)
         guard ok, var current = session else {
             if !ok { NSSound.beep() }
             return
@@ -445,7 +466,7 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }
         thumbnails?.prune(keeping: owners)
         guard token == sessionToken, var current = session, let trigger = activeTrigger, let screen else { return }
-        current.replaceItems(buildItems(from: snapshot.items, scope: trigger.scope, screen: screen))
+        current.replaceItems(buildItems(from: snapshot, trigger: trigger, screen: screen))
         current.columns = panel.columns(forItemCount: current.visible.count, appearance: sessionAppearance, on: screen)
         session = current
         if panel.isVisible {
@@ -457,36 +478,37 @@ final class SwitcherCoordinator: NSObject, HotkeyMonitorDelegate {
         }
     }
 
-    private func buildItems(from items: [SwitcherItem], scope: SwitcherScope, screen: NSScreen) -> [SwitcherItem] {
-        let ownPID = ProcessInfo.processInfo.processIdentifier
-        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        let context = FilterContext(
-            // Opened from a link, TapTheTab itself is frontmost; use the app before it.
-            activePID: front == ownPID ? focus.lastActivePID : front,
-            activeDisplayID: screen.displayID,
-            ownPID: ProcessInfo.processInfo.processIdentifier
-        )
-        let filtered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
+    private func buildItems(from snapshot: WindowCatalog.Snapshot, trigger: Trigger, screen: NSScreen) -> [SwitcherItem] {
+        let options = filters(for: trigger)
+        let filtered = filteredItems(from: snapshot, options: options, scope: trigger.scope, screen: screen)
         // Display first goes before grouping so each app's group stays whole.
         let sorted = ItemOrdering.displayFirst(
             filtered,
-            displayID: configuration.filters.currentDisplayFirst ? screen.displayID : nil
+            displayID: options.currentDisplayFirst ? screen.displayID : nil
         )
         let grouped = configuration.appearance.groupByApp ? ItemOrdering.groupedByApp(sorted) : sorted
         return ItemOrdering.pinnedFirst(grouped, pinnedBundleIDs: pinnedSet)
     }
 
     /// The second entry in plain recency order: what a quick tap should switch to.
-    private func previousWindowID(from items: [SwitcherItem], scope: SwitcherScope, screen: NSScreen) -> ItemID? {
+    private func previousWindowID(from snapshot: WindowCatalog.Snapshot, trigger: Trigger, screen: NSScreen) -> ItemID? {
+        let ordered = filteredItems(from: snapshot, options: filters(for: trigger), scope: trigger.scope, screen: screen)
+        return ordered.count > 1 ? ordered[1].id : nil
+    }
+
+    /// The snapshot as the switcher's coverage sees it (never entries only a broader
+    /// shortcut's discovery found), in recency order, filtered.
+    private func filteredItems(from snapshot: WindowCatalog.Snapshot, options: FilterOptions, scope: SwitcherScope, screen: NSScreen) -> [SwitcherItem] {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let context = FilterContext(
+            // Opened from a link, TapTheTab itself is frontmost; use the app before it.
             activePID: front == ownPID ? focus.lastActivePID : front,
             activeDisplayID: screen.displayID,
             ownPID: ownPID
         )
-        let ordered = ItemFilter.apply(focus.ordered(items), options: configuration.filters, scope: scope, context: context)
-        return ordered.count > 1 ? ordered[1].id : nil
+        let covered = snapshot.items(for: SpaceCoverage(options))
+        return ItemFilter.apply(focus.ordered(covered), options: options, scope: scope, context: context)
     }
 
     // MARK: - Panel

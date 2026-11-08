@@ -123,7 +123,8 @@ public struct DiagnosticsReport: Equatable, Sendable {
         lines.append("Triggers (\(c.triggers.count))")
         for trigger in c.triggers {
             let style = trigger.style.map { "  \($0.rawValue)" } ?? ""
-            lines.append("  \(trigger.shortcut.displayString)  \(trigger.shortcut.stringValue)  \(trigger.scope.rawValue)\(style)")
+            let coverage = trigger.desktopCoverage.map { "  desktops: \($0.rawValue)" } ?? ""
+            lines.append("  \(trigger.shortcut.displayString)  \(trigger.shortcut.stringValue)  \(trigger.scope.rawValue)\(style)\(coverage)")
         }
         lines.append("")
         lines.append("Appearance")

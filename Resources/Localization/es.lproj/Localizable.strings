@@ -303,3 +303,5 @@
 "Space" = "Espacio";
 "Return" = "Retorno";
 "Escape" = "Escape";
+"Desktops" = "Escritorios";
+"Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters." = "Qué escritorios y apps a pantalla completa muestra esta función rápida. Por omisión usa la opción de Filtros.";

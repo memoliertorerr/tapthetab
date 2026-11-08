@@ -6,24 +6,29 @@ public struct Trigger: Codable, Equatable, Hashable, Sendable {
     public var scope: SwitcherScope
     /// The layout this shortcut opens; nil uses `Appearance.style`.
     public var style: LayoutStyle?
+    /// Which desktops this shortcut lists; nil uses the filters' choice
+    /// (`currentSpaceOnly` / `showOtherSpaces`, see `FilterOptions.effective(for:)`).
+    public var desktopCoverage: SpaceCoverage?
 
-    public init(shortcut: Shortcut, scope: SwitcherScope, style: LayoutStyle? = nil) {
+    public init(shortcut: Shortcut, scope: SwitcherScope, style: LayoutStyle? = nil, desktopCoverage: SpaceCoverage? = nil) {
         self.shortcut = shortcut
         self.scope = scope
         self.style = style
+        self.desktopCoverage = desktopCoverage
     }
 
     private enum CodingKeys: String, CodingKey {
-        case shortcut, scope, style
+        case shortcut, scope, style, desktopCoverage
     }
 
     /// `shortcut` and `scope` are required (a trigger without them is dropped); a missing
-    /// or unknown `style` is nil, so it never costs the trigger.
+    /// or unknown `style` or `desktopCoverage` is nil, so it never costs the trigger.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         shortcut = try c.decode(Shortcut.self, forKey: .shortcut)
         scope = try c.decode(SwitcherScope.self, forKey: .scope)
         style = c.lenient(LayoutStyle.self, .style)
+        desktopCoverage = c.lenient(SpaceCoverage.self, .desktopCoverage)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -31,6 +36,7 @@ public struct Trigger: Codable, Equatable, Hashable, Sendable {
         try c.encode(shortcut, forKey: .shortcut)
         try c.encode(scope, forKey: .scope)
         try c.encodeIfPresent(style, forKey: .style)
+        try c.encodeIfPresent(desktopCoverage, forKey: .desktopCoverage)
     }
 }
 

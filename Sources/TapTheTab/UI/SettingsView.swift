@@ -44,7 +44,7 @@ struct TriggerRowItem: Identifiable {
     let index: Int
     let trigger: Trigger
     var id: String {
-        "\(index)|\(trigger.shortcut.stringValue)|\(trigger.scope.rawValue)|\(trigger.style?.rawValue ?? "default")"
+        "\(index)|\(trigger.shortcut.stringValue)|\(trigger.scope.rawValue)|\(trigger.style?.rawValue ?? "default")|\(trigger.desktopCoverage?.rawValue ?? "default")"
     }
 }
 
@@ -83,6 +83,7 @@ struct GeneralSettingsView: View {
                         onShortcut: { shortcut in model.assignShortcut(shortcut, at: row.index) },
                         onScope: { scope in model.setScope(scope, at: row.index) },
                         onStyle: { style in model.setStyle(style, at: row.index) },
+                        onDesktopCoverage: { coverage in model.setDesktopCoverage(coverage, at: row.index) },
                         onRemove: { model.removeTrigger(at: row.index) }
                     )
                 }
@@ -139,11 +140,14 @@ struct TriggerRowView: View {
     let onShortcut: (Shortcut) -> Void
     let onScope: (SwitcherScope) -> Void
     let onStyle: (LayoutStyle?) -> Void
+    let onDesktopCoverage: (SpaceCoverage?) -> Void
     let onRemove: () -> Void
 
     @State private var scope: SwitcherScope
     /// nil: the style from Appearance.
     @State private var style: LayoutStyle?
+    /// nil: the choice under Filters.
+    @State private var desktopCoverage: SpaceCoverage?
 
     init(
         index: Int,
@@ -156,6 +160,7 @@ struct TriggerRowView: View {
         onShortcut: @escaping (Shortcut) -> Void,
         onScope: @escaping (SwitcherScope) -> Void,
         onStyle: @escaping (LayoutStyle?) -> Void,
+        onDesktopCoverage: @escaping (SpaceCoverage?) -> Void,
         onRemove: @escaping () -> Void
     ) {
         self.index = index
@@ -168,9 +173,11 @@ struct TriggerRowView: View {
         self.onShortcut = onShortcut
         self.onScope = onScope
         self.onStyle = onStyle
+        self.onDesktopCoverage = onDesktopCoverage
         self.onRemove = onRemove
         self._scope = State(initialValue: trigger.scope)
         self._style = State(initialValue: trigger.style)
+        self._desktopCoverage = State(initialValue: trigger.desktopCoverage)
     }
 
     private var isRecording: Bool { recorder.recordingIndex == index }
@@ -230,6 +237,31 @@ struct TriggerRowView: View {
                 .accessibilityLabel(Text(L10n.tr("Remove shortcut %@", trigger.shortcut.displayString)))
             }
 
+            // A line of its own, so the shortcut's row stays uncluttered.
+            HStack(spacing: 6) {
+                Text(L10n.tr("Desktops"))
+                    .foregroundColor(Color.secondary)
+                    .accessibilityHidden(true)
+                Picker(L10n.tr("Desktops"), selection: $desktopCoverage) {
+                    Text(L10n.tr("Default")).tag(SpaceCoverage?.none)
+                    Text(L10n.tr("Current desktop only")).tag(SpaceCoverage?.some(.currentDesktop))
+                    Text(L10n.tr("Current desktop, more from full screen")).tag(SpaceCoverage?.some(.automatic))
+                    Text(L10n.tr("All desktops and full-screen apps")).tag(SpaceCoverage?.some(.allDesktops))
+                }
+                .labelsHidden()
+                .fixedSize()
+                .help(L10n.tr("Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters."))
+                Spacer(minLength: 0)
+            }
+            .font(.callout)
+
+            if desktopCoverage == .allDesktops {
+                Text(L10n.tr("Apps and windows on every desktop (Space) and in every full-screen app. Uses private macOS interfaces; may change with macOS updates."))
+                    .font(.caption)
+                    .foregroundColor(Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if isRecording {
                 if let rejection = recorder.rejection {
                     ShortcutFeedbackLine(kind: .error, message: rejection)
@@ -247,6 +279,9 @@ struct TriggerRowView: View {
         }
         .onChange(of: style) { newValue in
             if newValue != trigger.style { onStyle(newValue) }
+        }
+        .onChange(of: desktopCoverage) { newValue in
+            if newValue != trigger.desktopCoverage { onDesktopCoverage(newValue) }
         }
     }
 }

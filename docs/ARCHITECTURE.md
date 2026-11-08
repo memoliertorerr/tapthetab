@@ -55,7 +55,8 @@ previous window without the panel ever appearing.
 | `SearchMemory` | In-memory record of which window/app was picked for which search; adds a bounded boost to matching items. |
 | `AutomationCommand` | Strict parser for `tapthetab://` links (untrusted input). |
 | `ShortcutConflicts` | Known system shortcuts and ⇧-reverse clashes between triggers. |
-| `SpaceCoverage`, `FullscreenEscape`, `SeenWindowRetention` | One desktop-scope choice over the existing filter keys; public-only fullscreen escape through known windows and app fallback entries, with owner/existence checks before retention. Strict desktop coverage disables retention so explicit windowless app entries remain available. |
+| `SpaceCoverage`, `FullscreenEscape`, `SeenWindowRetention` | One desktop-scope choice over the existing filter keys; public-only fullscreen escape through known windows and app fallback entries, with owner/existence checks before retention. A strict session omits retained windows through `CoverageView`, preserving explicit windowless app entries even when another shortcut needs retention. |
+| `DesktopDiscovery`, `ItemOrigin`, `CoverageView` | Union of discovery needed by global and per-shortcut coverage; preserve entry origins so narrower sessions hide windows found only by broader passes and restore app fallback entries. |
 | `SpaceLayout`, `OtherSpaceWindows` | Pure logic for the opt-in other-Spaces pass: reading the Space layout and choosing which window-server windows are switchable. |
 | `WindowAdmission` | Which Accessibility windows are switchable (standard; titled dialogs; titled, normal-layer, sizable "unknown" windows such as Wine's). |
 | `DiagnosticsReport` | Bug-report text: versions, permissions, counts, settings — no titles or bundle IDs. |
@@ -72,6 +73,34 @@ previous window without the panel ever appearing.
 | `ThumbnailService` | ScreenCaptureKit single-window screenshots (macOS 14+), cached per window, only when previews are enabled and Screen Recording is granted. Captures use the window’s pixel scale, run four at a time with priority for large previews/peek, and share in-flight window-list fetches. Images carry capture-start uptime and owner PID; stale failures expire. Three-second watchdogs bound abandoned screenshot calls (at most seven outstanding native calls) and window-list fetches (at most one abandoned). |
 | `Updater`, `UpdateInstaller` | The only network access (see Network below). `Updater` (main actor) schedules checks and holds the state Settings and the Software Update window show; `UpdateInstaller` downloads, verifies and hands over to a small replace script. |
 | `UI/` | Two non-activating, transparent `NSPanel`s (never take focus — keys come from the tap) hosting SwiftUI: the main block and the large preview's card, each draggable while the switcher is open. Each draws its own backdrop (`PanelBackdrop.swift`): the system's Liquid Glass on macOS 26 (`glassEffect`, Clear or Tinted), a blur with a glass-like rim before, or the classic HUD material, with an optional theme gradient and grain on top. Settings and Onboarding windows. |
+
+## Desktop coverage per shortcut
+
+`Trigger.desktopCoverage` optionally stores a `SpaceCoverage` raw value: `currentDesktop`,
+`automatic` or `allDesktops`. Missing or invalid values inherit the global Filters choice;
+the existing `currentSpaceOnly` and `showOtherSpaces` keys keep their meaning. General
+Settings puts a Desktops picker below each shortcut. Menu and URL launches use global
+coverage. Diagnostics includes explicitly configured overrides.
+
+The background catalog discovers the union of all configured coverage choices. Its
+snapshot records whether entries were listed by Accessibility, retained from fullscreen,
+or found only by the private other-Spaces pass. `CoverageView` narrows that snapshot before
+normal filters, sorting and MRU selection; a strict session cannot inherit broader results.
+The fullscreen retention pass excludes windows found only by private discovery. Each
+session uses its effective filters for the opening list, refresh, quick-tap target and
+focus/actions. Configuration changes request a full refresh when discovery requirements
+change; a quick tap before that refresh finishes can still use the previous snapshot.
+
+## Synthetic soak
+
+`TapTheTabSoakSupport` is a separate Swift target depending on the production core;
+`TapTheTabSoak` is its opt-in CLI and `TapTheTabSoakTests` runs small deterministic workloads
+in normal CI. The app does not link either harness target. Seeded fictional windows and a
+virtual clock exercise sessions, filters, preview scheduling, capture limits and retention.
+The simulated coordinator/capture glue is a model, not the macOS implementation. Larger
+runs report local process time and memory without CI timing thresholds. See
+[PERFORMANCE.md](PERFORMANCE.md) for commands, limits and recorded evidence. Keep the
+model's `SoakAppLimits` in sync with production limits when those change.
 
 ## Preview responsiveness
 
