@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-08
+
+### Added
+
+- Reproducible synthetic switching and capture soak tests, plus an opt-in `make soak` command for local process measurements. The harness uses fictional windows and measures simulation work only.
+- Desktop coverage per shortcut: inherit Filters or choose current desktop only, fullscreen escape, or all desktops and full-screen apps. Old configurations continue to inherit; diagnostics includes explicit overrides.
+
 ## [0.10.4] - 2026-11-04
 
 ### Fixed

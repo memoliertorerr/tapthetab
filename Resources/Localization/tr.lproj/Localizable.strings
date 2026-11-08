@@ -303,3 +303,5 @@
 "Space" = "Boşluk";
 "Return" = "Return";
 "Escape" = "Esc";
+"Desktops" = "Masaüstleri";
+"Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters." = "Bu kısayolun listelediği masaüstleri ve tam ekran uygulamalar. Varsayılan, Filtreler'deki seçimi kullanır.";

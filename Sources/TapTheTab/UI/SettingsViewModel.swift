@@ -238,6 +238,13 @@ final class SettingsViewModel: ObservableObject {
         configuration.triggers[index].style = style
     }
 
+    /// A row's desktop coverage; nil follows Filters → Desktops and full-screen apps.
+    func setDesktopCoverage(_ coverage: SpaceCoverage?, at index: Int) {
+        guard configuration.triggers.indices.contains(index),
+              configuration.triggers[index].desktopCoverage != coverage else { return }
+        configuration.triggers[index].desktopCoverage = coverage
+    }
+
     func removeTrigger(at index: Int) {
         guard configuration.triggers.count > 1, configuration.triggers.indices.contains(index) else { return }
         recorder.cancel()

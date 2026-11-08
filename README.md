@@ -222,6 +222,13 @@ by hand if you prefer — TapTheTab reloads it as soon as you save. Unknown or m
 fall back to defaults, and a file that can't be read is set aside as
 `config.invalid-<timestamp>.json` instead of being overwritten.
 
+Each shortcut also has a **Desktops** choice in Settings → General. **Default** follows
+Filters; other choices apply only to that shortcut. For example, use all desktops with
+⌘Tab and the current desktop only with ⌥Tab. In JSON, set `desktopCoverage` on a trigger
+to `currentDesktop`, `automatic`, or `allDesktops`; omit it to inherit. Choosing all
+desktops opts into the existing private macOS listing. Menu and URL launches follow
+Filters. After changing coverage, allow the background list refresh to complete.
+
 ```json
 {
   "triggers": [
@@ -319,6 +326,9 @@ previews, and previews are kept in memory only. See [SECURITY.md](SECURITY.md) t
 vulnerability.
 
 ## Build from source
+
+Developers can run `make soak` for a reproducible synthetic workload; see [performance checks](docs/PERFORMANCE.md) for commands and measurement limits.
+
 
 Requirements: macOS 13+, Xcode 26 (Swift 6.2 toolchain). Xcode 16 still builds the app,
 without the system Liquid Glass (the similar translucent look is used instead).

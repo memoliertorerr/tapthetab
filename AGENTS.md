@@ -13,6 +13,7 @@ default; see `docs/ROADMAP.md` → Decisions) — that is a product promise, not
 | Path | What | Builds on |
 |---|---|---|
 | `Sources/TapTheTabCore/` | Pure Swift + Foundation logic: session state machine, fuzzy matcher, recency, filters, desktop coverage/fullscreen retention, key routing, shortcuts, config, preview capture/freshness/retention/animation policies | macOS + Linux |
+| `Sources/TapTheTabSoak/`, `Sources/TapTheTabSoakSupport/`, `Tests/TapTheTabSoakTests/` | Opt-in synthetic soak command, simulation support and deterministic tests; separate from the app | macOS + Linux |
 | `Tests/TapTheTabCoreTests/` | XCTest suite for the core | macOS + Linux |
 | `Sources/TapTheTab/App/` | Entry point, app delegate, coordinator, menu bar, config controller, `Interfaces.swift` (contracts between layers) | macOS |
 | `Sources/TapTheTab/System/` | Event tap, window catalog (CGWindowList + AX), focus tracking, window actions, thumbnails, permissions | macOS |
@@ -22,7 +23,8 @@ default; see `docs/ROADMAP.md` → Decisions) — that is a product promise, not
 | `docs/` | Roadmap/plan, architecture | — |
 
 ## Commands
-- Core tests anywhere: `swift test`
+- Core and soak tests anywhere: `swift test`
+- Local synthetic soak: `make soak` (see `docs/PERFORMANCE.md`; no real-window performance claims).
 - macOS: `make test`, `make app` (→ `dist/TapTheTab.app`), `make run`, `make package`
 - Gallery screenshots: `make theme-screenshots` (→ `dist/screenshots/themes`, fictional data only).
 - Verify before every commit: `swift build && swift test` must be green. On macOS also `make app`.

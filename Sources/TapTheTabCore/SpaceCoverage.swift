@@ -3,8 +3,9 @@ import Foundation
 /// How far the switcher looks beyond the desktop (Space) the user is on. A view over the
 /// two stored filter keys, `currentSpaceOnly` and `showOtherSpaces`, which stay exactly as
 /// they are in config files; Settings shows this as one choice so the two can no longer
-/// contradict each other.
-public enum SpaceCoverage: String, CaseIterable, Sendable {
+/// contradict each other. A shortcut can choose its own (`Trigger.desktopCoverage`), stored
+/// by these raw values.
+public enum SpaceCoverage: String, Codable, CaseIterable, Sendable {
     /// Only the current desktop, also inside a full-screen app (`currentSpaceOnly`).
     case currentDesktop
     /// The default. The current desktop; from a full-screen app also the windows seen
@@ -40,11 +41,36 @@ public enum SpaceCoverage: String, CaseIterable, Sendable {
         SpaceCoverage(options) == .allDesktops
     }
 
-    /// Strict coverage must not replace a windowless app entry with an off-Space window
-    /// that its filter will immediately remove. All-desktops coverage may use retention
-    /// as a fallback when the private listing is unavailable.
+    /// Whether this coverage in isolation may retain seen windows. Mixed catalogs use
+    /// `DesktopDiscovery` for the union and `CoverageView` to restore app fallback entries
+    /// for strict sessions. All desktops may retain when private listing is unavailable.
     public static func retainsSeenWindows(_ options: FilterOptions) -> Bool {
         SpaceCoverage(options) != .currentDesktop
+    }
+}
+
+extension FilterOptions {
+    /// The filters a switcher opened by `trigger` uses: its own desktop coverage over these
+    /// when it has one, otherwise these unchanged (so a config with both stored keys on
+    /// keeps behaving as the current desktop only). Every other filter is shared.
+    public func effective(for trigger: Trigger) -> FilterOptions {
+        guard let coverage = trigger.desktopCoverage else { return self }
+        return coverage.applied(to: self)
+    }
+}
+
+extension Configuration {
+    /// The desktop coverage a switcher opened by `trigger` uses.
+    public func desktopCoverage(for trigger: Trigger) -> SpaceCoverage {
+        trigger.desktopCoverage ?? SpaceCoverage(filters)
+    }
+
+    /// Every coverage a switcher can open with: each shortcut's, and the filters' own
+    /// (links and shortcuts without a choice use it).
+    public var desktopCoveragesInUse: Set<SpaceCoverage> {
+        var result: Set<SpaceCoverage> = [SpaceCoverage(filters)]
+        for trigger in triggers { result.insert(desktopCoverage(for: trigger)) }
+        return result
     }
 }
 

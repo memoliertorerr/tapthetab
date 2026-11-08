@@ -303,3 +303,5 @@
 "Space" = "Space";
 "Return" = "Return";
 "Escape" = "Escape";
+"Desktops" = "Desktops";
+"Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters." = "Which desktops and full-screen apps this shortcut lists. Default uses the choice under Filters.";

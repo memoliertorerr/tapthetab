@@ -84,7 +84,11 @@
 | TT54 | Release v0.10.4 and update the Homebrew cask | checkpoint | ✅ done (published archives, signature and notarization verified; cask targets v0.10.4) |
 | TT55 | Enable Pages and refresh website themes, desktop scope and update-check information | auto | ✅ done (public HTML and all 16 local assets verified over HTTPS) |
 
-**Overall status:** v0.1.0–v0.10.4 released. v0.10.4 fixes fullscreen switching, clarifies desktop coverage, and refreshes previews with bounded capture recovery. All three CI checks passed. Both published archives match the downloaded SHA256SUMS.txt; the universal app's version, expected Developer ID signature and app/DMG notarization staples verify. The Homebrew cask targets v0.10.4 with the published DMG checksum. Interactive fullscreen focus, cross-desktop behavior, hide/close actions and long-running preview freshness remain with the maintainer. The refreshed Pages site is live at https://memoliertorerr.github.io/tapthetab/; public HTML and all 16 local assets match the assembled site byte for byte over HTTPS. Browser appearance remains unverified.
+| TT56 | Deterministic soak coverage and an opt-in local performance harness | auto | ✅ done (review fixes verified; simulation only) |
+| TT57 | Desktop coverage per shortcut, inheriting global settings by default | auto | ✅ done (reviewed; interactive Mac checks deferred) |
+| TT58 | Independent review, regression verification and v0.11.0 release | checkpoint | Review complete; CI/release pending |
+
+**Overall status:** v0.11.0 is being prepared with per-shortcut desktop coverage and a separate synthetic soak harness; 856 tests pass; independent review is complete and CI/release verification are next. v0.1.0–v0.10.4 released. v0.10.4 fixes fullscreen switching, clarifies desktop coverage, and refreshes previews with bounded capture recovery. All three CI checks passed. Both published archives match the downloaded SHA256SUMS.txt; the universal app's version, expected Developer ID signature and app/DMG notarization staples verify. The Homebrew cask targets v0.10.4 with the published DMG checksum. Interactive fullscreen focus, cross-desktop behavior, hide/close actions and long-running preview freshness remain with the maintainer. The refreshed Pages site is live at https://memoliertorerr.github.io/tapthetab/; public HTML and all 16 local assets match the assembled site byte for byte over HTTPS. Browser appearance remains unverified.
 
 **Phases** — one pull request and one release each:
 1. **TT1 → TT7** — v0.1.0, first usable release. Review focus: event tap safety (keys must
@@ -272,6 +276,126 @@ See `AGENTS.md`. In addition, for this plan:
   so nothing changes the window order); it needs Screen Recording.
 - Quick select uses ⌘ unless the trigger itself holds ⌘ (then ⌃, then ⌥), so plain digits
   keep searching.
+
+## Reliability and per-shortcut desktops — execution plan
+
+> Adds stress coverage and desktop coverage per shortcut. Existing shortcuts, configuration,
+> fullscreen escape, preview timing and privacy stay compatible. Settings presets and a
+> separate accessibility project are deferred. Read AGENTS.md before every step.
+>
+> This section is the canonical tracker and execution plan for TT56–TT58. The maintainer
+> has authorized the normal commit, PR, CI, merge and release loop in this repository.
+
+### How to run this work
+
+Read the tracker, inspect the current branch and diff, then execute the next unfinished
+step. Review each step as one commit. The branch `feat/reliability-shortcut-desktops`
+already exists, based on `2f408a8`; inspect current refs rather than recreating it.
+Implementation may proceed in parallel with disjoint ownership, followed by independent
+review and integration. Public records use implementation and review roles only.
+
+Opening prompt for a later session:
+
+```text
+Read AGENTS.md, docs/ROADMAP.md and docs/ARCHITECTURE.md in full. Inspect git status,
+branch and diff before any mutation. Resume TT56–TT58 at the first unfinished step.
+Preserve existing behavior and user work. Verify the repository identity before any
+commit or push. Continue only within the maintainer's existing authorization; ask if a
+new private interface, dependency, toolchain change or privacy change is needed.
+```
+
+| Check | Owner | Passing evidence |
+|---|---|---|
+| Core build/tests | Implementation | swift build and swift test pass on the combined tree |
+| Soak | Implementation | Deterministic seed, bounded virtual work, repeatable invariants and nonzero exercised scenarios |
+| Local performance | Implementation | Explicit opt-in command reports elapsed work and available memory measurements without machine-dependent CI timing thresholds |
+| Nothing regressed | Review | Capture priority, timeouts, late-result rejection, short cycling settle, session cleanup and old trigger decoding remain covered |
+| App/localization | Integration | make app and scripts/check-strings.py pass; six language tables agree |
+| Desktop/focus/UI | Maintainer, deferred | Different shortcuts choose different coverage; quick taps and fullscreen focus still work |
+
+### Ground rules and rollout
+
+1. No runtime network, telemetry, dependencies or new private symbols. Fixtures contain
+   fictional windows only. Never record real window content in stress reports.
+2. Missing/unknown per-shortcut coverage inherits the global setting. Global keys retain
+   their meaning. An explicit all-desktops shortcut is opt-in to the existing private listing.
+3. Distinguish simulated core stress and local process measurements from actual AppKit,
+   AX and ScreenCaptureKit performance; never claim the former proves the latter.
+4. Keep stress runs bounded, reproducible and cancellable. Do not use elapsed-time limits
+   as correctness assertions in shared CI. Do not run interactive or permission-changing
+   tests on the maintainer's desktop without agreement.
+5. Verify before each commit: swift build, swift test, make app, string/whitespace checks.
+   Keep docs current in the same change. Release only after independent review and green CI.
+
+Rollback: inspect git status first; preserve uncommitted work. Revert a reviewed step
+with git revert rather than resetting or cleaning. Ship a patch if a published release
+needs correction. Never force-push main or move an existing release tag.
+
+### TT56 — Reproducible soak and local performance evidence
+
+**Owner:** implementation, reviewed independently.
+**Verify:** bounded synthetic sessions/captures exercise cycling, large catalogs, timeout,
+late completion, retention and repeated close/open; report seed and workload counts.
+**Commit:** `test: add reproducible switching and capture soak coverage`
+
+```text
+Read the standing rules and the TT56–TT58 execution plan. Extend meaningful coverage of
+SwitcherSession, LargePreviewCaptureSchedule, PreviewImageRetention and CaptureWorkLimiter
+with synthetic catalogs and deterministic schedules. Keep the simulation in TapTheTabSoakSupport, separate from the app, with tests in TapTheTabSoakTests. Add an opt-in local harness and a
+simple documented command. Exercise late results, abandoned work and session resets;
+assert invariants rather than mirror each implementation branch. Do not operate real
+windows or alter production settings. Report measurements as local evidence with limits.
+Run required checks, update TT56 and architecture/usage docs in the same change, review
+the diff, then commit and push only under the maintainer's existing scoped authorization.
+```
+
+### TT57 — Desktop coverage per shortcut
+
+**Owner:** implementation, reviewed independently.
+**Verify:** old configs inherit, invalid values fall back, all coverage choices round-trip;
+per-session filtering, discovery, quick taps and action focus use one effective policy.
+**Commit:** `feat: choose desktop coverage per shortcut`
+
+```text
+Read the standing rules and the TT56–TT58 execution plan. Extend Trigger with optional
+coverage that inherits Filters when absent. Add a localized per-shortcut choice without
+crowding the recorder row. Carry effective filters through catalog setup, session list,
+MRU/quick taps and activation/actions. Ensure scope changes request a full refresh when
+needed, stale catalog results cannot leak broader coverage into a strict session, and
+closing a session leaves background discovery correct for configured shortcuts. Use only
+existing private APIs and preserve old serialized keys. Add compatibility/policy tests.
+Run required checks, update TT57 and relevant docs in the same change, review the diff,
+then commit and push only under the maintainer's existing scoped authorization.
+```
+
+### TT58 — Review, integrate and release
+
+**Owner:** integration and independent review.
+**Verify:** combined checks and CI green; published archives match downloaded SHA256SUMS.txt,
+expected Developer ID signature and notarization; cask uses the published DMG hash.
+**Commit:** `chore: prepare the desktop coverage release`
+
+```text
+Read the standing rules and TT56–TT58 plan. Review both implementations for race conditions,
+bounded work, config compatibility, opt-in behavior and UI wiring. Fix findings, run the
+combined required checks and offline screenshots, then prepare v0.11.0 release notes.
+Drive the PR through CI and merge under the maintainer identity. Verify published assets
+and update the cask from SHA256SUMS.txt. Update the tracker with actual evidence and name
+unverified interactive Mac checks. Do not claim synthetic tests verify OS behavior.
+```
+
+### Deferred follow-ups and landmines
+
+- Real Mac UI/OS soak and interactive focus checks remain deferred by the maintainer.
+- A newly current-Space window discovered by the private pass may lack an AX handle if its
+  app is busy. Verify focus rather than app reopen on a Mac before changing that fallback.
+- Reconstructed app entries with no recency history can sort last after narrower coverage
+  hides all their windows; existing recency sorting handles previously visited apps.
+- Native screenshot calls can never answer; replacement work must stay bounded. Existing
+  capture watchdogs and abandoned-call limits are part of the contract.
+- A prior capture completion once replaced the 80 ms settle timer with the periodic refresh;
+  retain the regression test when extending the scheduler.
+- Settings presets and the broader accessibility review are not built in this phase.
 
 ## Deferred follow-ups
 - ~~Grid ↓ over a gap in a partial last row wraps to the top~~ — fixed in TT10's phase.

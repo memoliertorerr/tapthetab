@@ -6,7 +6,7 @@ SWIFT ?= swift
 APP   := dist/TapTheTab.app
 
 .DEFAULT_GOAL := help
-.PHONY: help build test app universal package run screenshots theme-screenshots demo check-screenshots site clean lint
+.PHONY: help build test soak app universal package run screenshots theme-screenshots demo check-screenshots site clean lint
 
 help: ## Show this help
 	@grep -E '^[a-z][a-zA-Z_-]*:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-12s %s\n", $$1, $$2}'
@@ -16,6 +16,10 @@ build: ## Debug build (core only on Linux)
 
 test: ## Run the unit tests
 	$(SWIFT) test
+
+SOAK_ARGS ?=
+soak: ## Opt-in synthetic soak, any platform (SOAK_ARGS="--iterations 5000 --seed 7")
+	$(SWIFT) run -c release TapTheTabSoak $(SOAK_ARGS)
 
 app: ## Build dist/TapTheTab.app for this Mac (ad-hoc signed)
 	scripts/build-app.sh
