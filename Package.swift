@@ -18,6 +18,22 @@ var targets: [Target] = [
         dependencies: ["TapTheTabCore"],
         path: "Tests/TapTheTabCoreTests"
     ),
+    .target(
+        name: "TapTheTabSoakSupport",
+        dependencies: ["TapTheTabCore"],
+        path: "Sources/TapTheTabSoakSupport"
+    ),
+    .testTarget(
+        name: "TapTheTabSoakTests",
+        dependencies: ["TapTheTabCore", "TapTheTabSoakSupport"],
+        path: "Tests/TapTheTabSoakTests"
+    ),
+    // Opt-in synthetic soak of the core policies (`make soak`); core only, any platform.
+    .executableTarget(
+        name: "TapTheTabSoak",
+        dependencies: ["TapTheTabSoakSupport"],
+        path: "Sources/TapTheTabSoak"
+    ),
 ]
 
 #if os(macOS)
